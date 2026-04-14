@@ -39,13 +39,13 @@ function manyClicksNoLeads(rows) {
     if (!hasValue(r.clicks) || r.clicks < T.minClicksNoLeadsForTracking) continue;
     if (r.conversions !== 0 && r.conversions !== null) continue;
 
-    const label = r.searchTerm ?? r.keyword ?? 'Unknown term';
+    const label = r.searchTerm ?? r.keyword ?? 'מונח לא ידוע';
     findings.push({
       category: 'measurementRisk',
       severity: 'medium',
-      what: `"${label}" has ${r.clicks} clicks and zero conversions.`,
-      why: 'At this volume, either tracking is incomplete or traffic quality is materially off-target.',
-      action: 'Validate conversion tracking and attribution setup first, then review intent and landing-page fit.',
+      what: `"${label}" עם ${r.clicks} קליקים ואפס המרות.`,
+      why: 'בנפח כזה, או שהמעקב אינו שלם או שאיכות התנועה אינה ממוקדת מספיק.',
+      action: 'לאמת קודם הגדרות מעקב המרות וייחוס, ואז לבדוק כוונת חיפוש והתאמת דף נחיתה.',
       data: r,
       signal: 'many-clicks-no-leads',
     });
@@ -62,13 +62,13 @@ function leadsExceedClicks(rows) {
     if (!hasValue(r.clicks) || !hasValue(r.conversions)) continue;
     if (r.clicks <= 0 || r.conversions <= r.clicks) continue;
 
-    const label = r.campaign ?? r.adGroup ?? r.keyword ?? r.searchTerm ?? 'Unknown entity';
+    const label = r.campaign ?? r.adGroup ?? r.keyword ?? r.searchTerm ?? 'ישות לא ידועה';
     findings.push({
       category: 'measurementRisk',
       severity: 'high',
-      what: `"${label}" shows ${r.conversions} conversions from only ${r.clicks} clicks.`,
-      why: 'More conversions than clicks is usually caused by duplicate counting or incorrect conversion definitions.',
-      action: 'Audit conversion actions, dedup settings, and tag firing logic before using this data for optimization.',
+      what: `"${label}" מציג ${r.conversions} המרות מתוך ${r.clicks} קליקים בלבד.`,
+      why: 'יותר המרות מקליקים נגרם לרוב מספירה כפולה או מהגדרות המרה שגויות.',
+      action: 'לבצע בדיקה של פעולות המרה, הגדרות מניעת כפילויות ולוגיקת הפעלת תגיות לפני שימוש בנתונים לאופטימיזציה.',
       data: r,
       signal: 'conversions-exceed-clicks',
     });
@@ -93,9 +93,9 @@ function zeroLeadsWholeAccount(rows) {
   return [{
     category: 'measurementRisk',
     severity: 'high',
-    what: `No conversions are recorded across uploaded data despite CA$${fmt(totalSpend)} spend.`,
-    why: 'This usually indicates a measurement problem, not pure performance reality.',
-    action: 'Audit conversion actions, primary/secondary settings, and tag implementation in Google Ads and GTM.',
+    what: `לא נרשמו המרות בכלל הנתונים שהועלו למרות הוצאה של CA$${fmt(totalSpend)}.`,
+    why: 'בדרך כלל זה מעיד על בעיית מדידה ולא בהכרח על ביצועים אמיתיים.',
+    action: 'לבדוק פעולות המרה, הגדרות ראשי/משני ויישום תגיות ב-Google Ads וב-GTM.',
     data: { totalSpend, totalConvs },
     signal: 'account-zero-conversions',
   }];
@@ -113,9 +113,9 @@ function missingLeadData(campaigns) {
   return [{
     category: 'measurementRisk',
     severity: 'medium',
-    what: 'Campaign report has no conversion values.',
-    why: 'Without conversions, CPA and efficiency findings are severely limited.',
-    action: 'Re-export campaign data with Conversions and Cost / conv. columns included.',
+    what: 'בדוח הקמפיינים אין ערכי המרות.',
+    why: 'ללא המרות, היכולת לחשב CPA ולהסיק יעילות מוגבלת מאוד.',
+    action: 'לייצא מחדש את דוח הקמפיינים כולל העמודות Conversions ו-Cost / conv.',
     data: {},
     signal: 'missing-campaign-conversions',
   }];
@@ -132,9 +132,9 @@ function missingSegmentCoverage(ads, devices, locations) {
   return [{
     category: 'measurementRisk',
     severity: 'low',
-    what: `Some optional segment datasets are missing: ${missing.join(', ')}.`,
-    why: 'Partial segment coverage reduces confidence in channel-specific recommendations.',
-    action: 'Upload all optional segment reports when available for fuller diagnostics.',
+    what: `חסרים חלק ממערכי הנתונים הסגמנטליים האופציונליים: ${missing.join(', ')}.`,
+    why: 'כיסוי חלקי של סגמנטים מפחית את רמת הביטחון בהמלצות ספציפיות לערוץ.',
+    action: 'להעלות את כל הדוחות הסגמנטליים האופציונליים כשאפשר לקבלת אבחון מלא יותר.',
     data: { missingSegments: missing },
     signal: 'partial-segment-coverage',
   }];

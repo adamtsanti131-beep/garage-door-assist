@@ -6,13 +6,13 @@
 
 // Slot definitions — id must match HTML element IDs (file-{id}, status-{id}, upload-{id})
 const SLOTS = [
-  { key: 'campaign',   label: 'Campaign'     },
-  { key: 'adGroup',    label: 'Ad Group'     },
-  { key: 'searchTerm', label: 'Search Terms' },
-  { key: 'keyword',    label: 'Keywords'     },
-  { key: 'ad',         label: 'Ads'          },
-  { key: 'device',     label: 'Devices'      },
-  { key: 'location',   label: 'Location'     },
+  { key: 'campaign',   label: 'קמפיין'     },
+  { key: 'adGroup',    label: 'קבוצת מודעות'     },
+  { key: 'searchTerm', label: 'מונחי חיפוש' },
+  { key: 'keyword',    label: 'מילות מפתח'     },
+  { key: 'ad',         label: 'מודעות'          },
+  { key: 'device',     label: 'מכשירים'      },
+  { key: 'location',   label: 'מיקום'     },
 ];
 
 /**
@@ -33,10 +33,10 @@ export function initUploader(onFilesChange) {
 
       if (!file) {
         files[slot.key] = null;
-        setStatus(status, card, 'No file selected', '');
+        setStatus(status, card, 'לא נבחר קובץ', '');
       } else if (!file.name.toLowerCase().endsWith('.csv')) {
         files[slot.key] = null;
-        setStatus(status, card, `Not a CSV: "${file.name}"`, 'error');
+        setStatus(status, card, `זה לא קובץ CSV: "${file.name}"`, 'error');
       } else {
         files[slot.key] = file;
         setStatus(status, card, `✓ ${file.name}`, 'success');

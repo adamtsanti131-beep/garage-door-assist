@@ -1,167 +1,167 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Garage Door PPC Assistant</title>
+  <title>עוזר PPC לדלתות מוסך</title>
   <link rel="stylesheet" href="/styles/main.css" />
 </head>
 <body>
 
   <header class="app-header">
     <div class="header-inner">
-      <h1>Garage Door PPC Assistant</h1>
-      <p class="header-sub">Vancouver, BC — Upload your Google Ads reports to get actionable insights</p>
+      <h1>עוזר PPC לדלתות מוסך</h1>
+      <p class="header-sub">העלאת דוחות Google Ads לקבלת תובנות אופרטיביות</p>
     </div>
   </header>
 
   <main class="app-main">
 
     <section class="context-section">
-      <h2>Business Context (Improves Decision Quality)</h2>
+      <h2>הקשר עסקי (משפר את איכות ההחלטות)</h2>
       <form id="business-context-form" class="context-grid">
         <label class="context-field">
-          <span>Target CPL (CAD)</span>
-          <input type="number" id="target-cpl" min="0" step="1" placeholder="e.g. 90" />
+          <span>יעד CPL (ש״ח/דולר לפי החשבון)</span>
+          <input type="number" id="target-cpl" min="0" step="1" placeholder="לדוגמה: 90" />
         </label>
 
         <label class="context-field">
-          <span>Primary Service Area</span>
-          <input type="text" id="service-area" placeholder="e.g. Vancouver + nearby cities" />
+          <span>אזור שירות ראשי</span>
+          <input type="text" id="service-area" placeholder="לדוגמה: תל אביב + ערים סמוכות" />
         </label>
 
         <label class="context-field">
-          <span>Excluded Services</span>
-          <input type="text" id="excluded-services" placeholder="e.g. commercial install, gates" />
+          <span>שירותים מוחרגים</span>
+          <input type="text" id="excluded-services" placeholder="לדוגמה: התקנות מסחריות, שערים" />
         </label>
 
         <label class="context-field">
-          <span>Preferred Lead Type</span>
-          <input type="text" id="preferred-lead-type" placeholder="e.g. emergency phone calls" />
+          <span>סוג ליד מועדף</span>
+          <input type="text" id="preferred-lead-type" placeholder="לדוגמה: שיחות חירום" />
         </label>
 
         <label class="context-field">
-          <span>Average Deal Value (CAD)</span>
-          <input type="number" id="average-deal-value" min="0" step="1" placeholder="optional" />
+          <span>ערך עסקה ממוצע</span>
+          <input type="number" id="average-deal-value" min="0" step="1" placeholder="אופציונלי" />
         </label>
 
         <label class="context-field">
-          <span>Is Conversion Tracking Trusted?</span>
+          <span>האם אפשר לסמוך על מעקב ההמרות?</span>
           <select id="tracking-trusted">
-            <option value="">Not set</option>
-            <option value="true">Yes</option>
-            <option value="false">No</option>
+            <option value="">לא הוגדר</option>
+            <option value="true">כן</option>
+            <option value="false">לא</option>
           </select>
         </label>
 
         <label class="context-field">
-          <span>Offline Conversions Imported?</span>
+          <span>האם מיובאות המרות אופליין?</span>
           <select id="offline-conversions-imported">
-            <option value="">Not set</option>
-            <option value="true">Yes</option>
-            <option value="false">No</option>
+            <option value="">לא הוגדר</option>
+            <option value="true">כן</option>
+            <option value="false">לא</option>
           </select>
         </label>
 
         <label class="context-field context-field--wide">
-          <span>What counts as a good lead? (optional note)</span>
-          <textarea id="good-lead-note" rows="2" placeholder="e.g. residential spring replacement calls from homeowners"></textarea>
+          <span>מה נחשב ליד איכותי? (הערה אופציונלית)</span>
+          <textarea id="good-lead-note" rows="2" placeholder="לדוגמה: שיחות מבעלי בתים להחלפת קפיץ"></textarea>
         </label>
 
         <div class="context-actions">
-          <button class="btn-save-context" type="submit">Save Business Context</button>
-          <span id="business-context-status" class="context-status">Use this form to improve recommendation quality.</span>
+          <button class="btn-save-context" type="submit">שמירת הקשר עסקי</button>
+          <span id="business-context-status" class="context-status">מילוי הטופס משפר את איכות ההמלצות.</span>
         </div>
       </form>
     </section>
 
     <!-- Upload Section -->
     <section class="upload-section">
-      <h2>Upload Reports</h2>
+      <h2>העלאת דוחות</h2>
       <div class="upload-grid">
 
         <div class="upload-card" id="upload-campaign">
           <div class="upload-icon">📊</div>
-          <h3>Campaign Report</h3>
-          <p>Overall campaign performance</p>
+          <h3>דוח קמפיינים</h3>
+          <p>ביצועי קמפיין כלליים</p>
           <label class="file-label">
             <input type="file" accept=".csv" id="file-campaign" />
-            <span class="file-btn">Choose CSV</span>
+            <span class="file-btn">בחירת קובץ CSV</span>
           </label>
-          <div class="file-status" id="status-campaign">No file selected</div>
+          <div class="file-status" id="status-campaign">לא נבחר קובץ</div>
         </div>
 
         <div class="upload-card" id="upload-adGroup">
           <div class="upload-icon">🗂️</div>
-          <h3>Ad Group Report</h3>
-          <p>Performance by ad group</p>
+          <h3>דוח קבוצות מודעות</h3>
+          <p>ביצועים לפי קבוצת מודעות</p>
           <label class="file-label">
             <input type="file" accept=".csv" id="file-adGroup" />
-            <span class="file-btn">Choose CSV</span>
+            <span class="file-btn">בחירת קובץ CSV</span>
           </label>
-          <div class="file-status" id="status-adGroup">No file selected</div>
+          <div class="file-status" id="status-adGroup">לא נבחר קובץ</div>
         </div>
 
         <div class="upload-card" id="upload-searchTerm">
           <div class="upload-icon">📋</div>
-          <h3>Search Terms Report</h3>
-          <p>What people actually searched for</p>
+          <h3>דוח מונחי חיפוש</h3>
+          <p>מה אנשים חיפשו בפועל</p>
           <label class="file-label">
             <input type="file" accept=".csv" id="file-searchTerm" />
-            <span class="file-btn">Choose CSV</span>
+            <span class="file-btn">בחירת קובץ CSV</span>
           </label>
-          <div class="file-status" id="status-searchTerm">No file selected</div>
+          <div class="file-status" id="status-searchTerm">לא נבחר קובץ</div>
         </div>
 
         <div class="upload-card" id="upload-keyword">
           <div class="upload-icon">🔑</div>
-          <h3>Keywords Report</h3>
-          <p>Keyword-level performance</p>
+          <h3>דוח מילות מפתח</h3>
+          <p>ביצועים ברמת מילת מפתח</p>
           <label class="file-label">
             <input type="file" accept=".csv" id="file-keyword" />
-            <span class="file-btn">Choose CSV</span>
+            <span class="file-btn">בחירת קובץ CSV</span>
           </label>
-          <div class="file-status" id="status-keyword">No file selected</div>
+          <div class="file-status" id="status-keyword">לא נבחר קובץ</div>
         </div>
 
         <div class="upload-card" id="upload-ad">
           <div class="upload-icon">📝</div>
-          <h3>Ads Report</h3>
-          <p>Individual ad performance</p>
+          <h3>דוח מודעות</h3>
+          <p>ביצועי מודעות בודדות</p>
           <label class="file-label">
             <input type="file" accept=".csv" id="file-ad" />
-            <span class="file-btn">Choose CSV</span>
+            <span class="file-btn">בחירת קובץ CSV</span>
           </label>
-          <div class="file-status" id="status-ad">No file selected</div>
+          <div class="file-status" id="status-ad">לא נבחר קובץ</div>
         </div>
 
         <div class="upload-card" id="upload-device">
           <div class="upload-icon">📱</div>
-          <h3>Devices Report</h3>
-          <p>Performance by device type</p>
+          <h3>דוח מכשירים</h3>
+          <p>ביצועים לפי סוג מכשיר</p>
           <label class="file-label">
             <input type="file" accept=".csv" id="file-device" />
-            <span class="file-btn">Choose CSV</span>
+            <span class="file-btn">בחירת קובץ CSV</span>
           </label>
-          <div class="file-status" id="status-device">No file selected</div>
+          <div class="file-status" id="status-device">לא נבחר קובץ</div>
         </div>
 
         <div class="upload-card" id="upload-location">
           <div class="upload-icon">📍</div>
-          <h3>Location Report</h3>
-          <p>Performance by user location</p>
+          <h3>דוח מיקומים</h3>
+          <p>ביצועים לפי מיקום משתמש</p>
           <label class="file-label">
             <input type="file" accept=".csv" id="file-location" />
-            <span class="file-btn">Choose CSV</span>
+            <span class="file-btn">בחירת קובץ CSV</span>
           </label>
-          <div class="file-status" id="status-location">No file selected</div>
+          <div class="file-status" id="status-location">לא נבחר קובץ</div>
         </div>
 
       </div>
 
       <div class="analyze-bar">
-        <button id="btn-analyze" class="btn-analyze" disabled>Analyze Reports</button>
-        <span class="analyze-hint" id="analyze-hint">Upload at least one CSV to analyze</span>
+        <button id="btn-analyze" class="btn-analyze" disabled>ניתוח דוחות</button>
+        <span class="analyze-hint" id="analyze-hint">יש להעלות לפחות קובץ CSV אחד לניתוח</span>
       </div>
     </section>
 
@@ -169,7 +169,7 @@
     <section class="report-section" id="report-section" style="display:none">
 
       <div class="report-header">
-        <h2>Analysis Report</h2>
+        <h2>דוח ניתוח</h2>
         <span class="report-date" id="report-date"></span>
       </div>
 
@@ -182,39 +182,39 @@
 
       <div class="decision-grid">
         <div class="report-card decisions-now">
-          <h3>Do This Now</h3>
+          <h3>מה לעשות עכשיו</h3>
           <div class="report-items" id="items-immediate-actions"></div>
         </div>
 
         <div class="report-card decisions-review">
-          <h3>Review Before Acting</h3>
+          <h3>לבדוק לפני פעולה</h3>
           <div class="report-items" id="items-review-actions"></div>
         </div>
 
         <div class="report-card decisions-secondary">
-          <h3>Secondary Actions</h3>
+          <h3>פעולות משניות</h3>
           <div class="report-items" id="items-secondary-actions"></div>
         </div>
 
         <div class="report-card decisions-hold">
-          <h3>Do Not Change Yet</h3>
+          <h3>לא לשנות עדיין</h3>
           <div class="report-items" id="items-hold-actions"></div>
         </div>
 
         <div class="report-card decisions-scale">
-          <h3>Scale Later (After Prerequisites)</h3>
+          <h3>הגדלה בהמשך (לאחר תנאי סף)</h3>
           <div class="report-items" id="items-scale-actions"></div>
         </div>
       </div>
 
       <div class="coverage-grid">
         <div class="report-card coverage-card">
-          <h3>Report Coverage</h3>
+          <h3>כיסוי דוחות</h3>
           <div class="report-items" id="items-report-coverage"></div>
         </div>
 
         <div class="report-card limitations-card">
-          <h3>Known, Likely, and Unknown</h3>
+          <h3>ידוע, סביר, ולא ידוע</h3>
           <div class="report-items" id="items-limitations"></div>
         </div>
       </div>
@@ -223,27 +223,27 @@
       <div class="report-grid">
 
         <div class="report-card waste">
-          <h3>🗑️ Waste — Stop Spending Here</h3>
+          <h3>🗑️ בזבוז — לעצור הוצאה כאן</h3>
           <div class="report-items" id="items-waste"></div>
         </div>
 
         <div class="report-card opportunities">
-          <h3>🚀 Opportunities — Scale These</h3>
+          <h3>🚀 הזדמנויות — להרחיב כאן</h3>
           <div class="report-items" id="items-opportunities"></div>
         </div>
 
         <div class="report-card control-risks">
-          <h3>⚠️ Control Risks — Fix This Week</h3>
+          <h3>⚠️ סיכוני שליטה — לתקן השבוע</h3>
           <div class="report-items" id="items-control-risks"></div>
         </div>
 
         <div class="report-card measurement-risks">
-          <h3>📡 Measurement Risks — Check Your Data</h3>
+          <h3>📡 סיכוני מדידה — לבדוק את הנתונים</h3>
           <div class="report-items" id="items-measurement-risks"></div>
         </div>
 
         <div class="report-card actions">
-          <h3>🎯 Top 3 Actions to Take Today</h3>
+          <h3>🎯 3 הפעולות המובילות להיום</h3>
           <div class="report-items" id="items-actions"></div>
         </div>
 
@@ -253,11 +253,11 @@
     <!-- History Section -->
     <section class="history-section" id="history-section">
       <div class="history-header">
-        <h2>Analysis History</h2>
-        <button id="btn-clear-history" class="btn-clear">Clear History</button>
+        <h2>היסטוריית ניתוחים</h2>
+        <button id="btn-clear-history" class="btn-clear">ניקוי היסטוריה</button>
       </div>
       <div class="history-list" id="history-list">
-        <p class="history-empty">No previous analyses yet.</p>
+        <p class="history-empty">אין עדיין ניתוחים קודמים.</p>
       </div>
     </section>
 

@@ -28,7 +28,7 @@ export function saveToHistory(report) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(0, MAX_ENTRIES)));
   } catch (e) {
     // localStorage can fail if quota is exceeded (rare, but handle gracefully)
-    console.warn('Could not save analysis to history:', e);
+    console.warn('לא ניתן לשמור את הניתוח בהיסטוריה:', e);
   }
 }
 
@@ -60,7 +60,7 @@ function buildSummary(report) {
   const review    = report.decisionFlow?.decisionBuckets?.reviewBeforeAction?.length || 0;
   const hold      = report.decisionFlow?.decisionBuckets?.doNotTouchYet?.length || 0;
   const spend    = report.summary?.totalSpend != null
-    ? ` · CA$${report.summary.totalSpend.toFixed(0)} spend`
+    ? ` · הוצאה CA$${report.summary.totalSpend.toFixed(0)}`
     : '';
-  return `${immediate} now · ${review} review · ${hold} hold${spend}`;
+  return `${immediate} עכשיו · ${review} לבדיקה · ${hold} בהמתנה${spend}`;
 }

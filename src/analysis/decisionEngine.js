@@ -6,54 +6,54 @@
 const REPORT_ROLE_MAP = {
   campaign: {
     key: 'campaigns',
-    label: 'Campaign',
-    usedFor: 'Account totals, winners/losers, impression-share constraints',
+    label: 'קמפיין',
+    usedFor: 'סכומי חשבון, מנצחים/מפסידים, ומגבלות נתח חשיפות',
     importance: 'high',
   },
   adGroup: {
     key: 'adGroups',
-    label: 'Ad Group',
-    usedFor: 'Group-level waste and structure control',
+    label: 'קבוצת מודעות',
+    usedFor: 'בזבוז ברמת קבוצה ובקרת מבנה',
     importance: 'high',
   },
   searchTerm: {
     key: 'searchTerms',
-    label: 'Search Terms',
-    usedFor: 'Negative keyword opportunities and intent quality checks',
+    label: 'מונחי חיפוש',
+    usedFor: 'הזדמנויות למילות מפתח שליליות ובדיקות איכות כוונה',
     importance: 'high',
   },
   keyword: {
     key: 'keywords',
-    label: 'Keywords',
-    usedFor: 'Match-type control, quality, CPC/CPA efficiency',
+    label: 'מילות מפתח',
+    usedFor: 'בקרת סוג התאמה, איכות, ויעילות CPC/CPA',
     importance: 'high',
   },
   ad: {
     key: 'ads',
-    label: 'Ads',
-    usedFor: 'Ad relevance and copy quality indicators',
+    label: 'מודעות',
+    usedFor: 'מדדי רלוונטיות מודעה ואיכות נוסח',
     importance: 'medium',
   },
   device: {
     key: 'devices',
-    label: 'Devices',
-    usedFor: 'Device-specific waste/winner patterns',
+    label: 'מכשירים',
+    usedFor: 'דפוסי בזבוז/מנצחים לפי מכשיר',
     importance: 'medium',
   },
   location: {
     key: 'locations',
-    label: 'Location',
-    usedFor: 'Geo-specific waste/winner patterns',
+    label: 'מיקום',
+    usedFor: 'דפוסי בזבוז/מנצחים לפי גאוגרפיה',
     importance: 'medium',
   },
 };
 
 const DECISION_STEPS = [
-  'Step 1: Verify tracking and measurement trust',
-  'Step 2: Stop waste now',
-  'Step 3: Tighten control and account structure',
-  'Step 4: Improve ads, relevance, and quality',
-  'Step 5: Scale proven winners carefully',
+  'שלב 1: אימות מעקב ואמון במדידה',
+  'שלב 2: עצירת בזבוז מיידית',
+  'שלב 3: חיזוק שליטה ומבנה חשבון',
+  'שלב 4: שיפור מודעות, רלוונטיות ואיכות',
+  'שלב 5: הגדלה זהירה של מנצחים מוכחים',
 ];
 
 export function buildDecisionLayer(findings, data, summary, businessContext) {
@@ -134,8 +134,8 @@ function buildReportCoverage(data) {
       impactIfMissing: rows.length > 0
         ? null
         : info.importance === 'high'
-          ? 'Confidence drops for high-impact decisions.'
-          : 'Decision detail is reduced, but core guidance can still run.',
+          ? 'רמת הביטחון יורדת בהחלטות בעלות השפעה גבוהה.'
+          : 'רמת הפירוט בהחלטות יורדת, אך ההנחיה המרכזית עדיין זמינה.',
     };
   });
 }
@@ -202,10 +202,10 @@ function findingToDecision(
     evidence: buildEvidence(finding),
     evidence_state: evidenceState,
     prerequisite: blockedByTracking
-      ? 'Resolve measurement trust issues before acting on this item.'
+      ? 'יש לפתור בעיות אמון במדידה לפני פעולה על פריט זה.'
       : requiresBusinessContext
-        ? 'Provide missing business context before final action.'
-        : 'No blocking prerequisite.',
+        ? 'יש למלא הקשר עסקי חסר לפני פעולה סופית.'
+        : 'אין תנאי סף חוסמים.',
     user_instruction: finding.action,
     expected_outcome: expectedOutcomeFor(finding.category),
     risk_if_ignored: riskIfIgnoredFor(finding.category),
@@ -218,7 +218,7 @@ function findingToDecision(
     safety_classification: safetyClassification,
     operator_steps: operatorSteps,
     monitor_after_change: buildMonitorGuidance(finding),
-    reassess_timing: 'Re-upload refreshed reports in 3-7 days after changes, or sooner if spend is high.',
+    reassess_timing: 'יש להעלות דוחות מעודכנים מחדש תוך 3-7 ימים לאחר השינויים, או מוקדם יותר אם ההוצאה גבוהה.',
   };
 }
 
@@ -312,9 +312,9 @@ function estimateConfidence(finding, actionType, measurementTrust, context, repo
     score -= 0.1;
   }
 
-  if (score >= 0.75) return 'High confidence';
-  if (score >= 0.55) return 'Medium confidence';
-  return 'Low confidence';
+  if (score >= 0.75) return 'ביטחון גבוה';
+  if (score >= 0.55) return 'ביטחון בינוני';
+  return 'ביטחון נמוך';
 }
 
 function deriveSafetyClassification({
@@ -332,20 +332,20 @@ function deriveSafetyClassification({
     return 'review_before_acting';
   }
 
-  if (finding.category === 'opportunity' && (measurementTrust === 'caution' || confidence === 'Low confidence')) {
+  if (finding.category === 'opportunity' && (measurementTrust === 'caution' || confidence === 'ביטחון נמוך')) {
     return 'review_before_acting';
   }
 
-  if (confidence === 'Low confidence') return 'not_safe_from_csv_alone';
-  if (confidence === 'Medium confidence') return 'review_before_acting';
+  if (confidence === 'ביטחון נמוך') return 'not_safe_from_csv_alone';
+  if (confidence === 'ביטחון בינוני') return 'review_before_acting';
   return 'safe_to_do_now';
 }
 
 function resolveEvidenceState(confidence, requiresBusinessContext, blockedByTracking) {
   if (blockedByTracking) return 'unknown';
   if (requiresBusinessContext) return 'likely';
-  if (confidence === 'High confidence') return 'confirmed';
-  if (confidence === 'Medium confidence') return 'likely';
+  if (confidence === 'ביטחון גבוה') return 'confirmed';
+  if (confidence === 'ביטחון בינוני') return 'likely';
   return 'unknown';
 }
 
@@ -380,21 +380,21 @@ function resolveEntity(row = {}) {
   if (row.campaign) return { level: 'campaign', name: row.campaign };
   if (row.device) return { level: 'device', name: row.device };
   if (row.location) return { level: 'location', name: row.location };
-  return { level: 'account', name: 'Account-wide' };
+  return { level: 'account', name: 'ברמת החשבון' };
 }
 
 function expectedOutcomeFor(category) {
-  if (category === 'measurementRisk') return 'Data becomes safer to use for optimization decisions.';
-  if (category === 'waste') return 'Budget leakage is reduced and wasted spend declines.';
-  if (category === 'controlRisk') return 'Account control improves and performance becomes more stable.';
-  return 'Profitable volume can grow with lower risk of over-scaling.';
+  if (category === 'measurementRisk') return 'הנתונים הופכים בטוחים יותר לשימוש בהחלטות אופטימיזציה.';
+  if (category === 'waste') return 'זליגת התקציב מצטמצמת והבזבוז יורד.';
+  if (category === 'controlRisk') return 'שליטת החשבון משתפרת והביצועים הופכים יציבים יותר.';
+  return 'ניתן להגדיל נפח רווחי בסיכון נמוך יותר להגדלת יתר.';
 }
 
 function riskIfIgnoredFor(category) {
-  if (category === 'measurementRisk') return 'You may optimize against unreliable data and make harmful changes.';
-  if (category === 'waste') return 'Spend continues going to low-intent traffic with little return.';
-  if (category === 'controlRisk') return 'Structural inefficiencies will keep pushing CPA higher.';
-  return 'Scaling may stall or increase CPA if done too early.';
+  if (category === 'measurementRisk') return 'עלולה להתבצע אופטימיזציה על נתונים לא אמינים ולהוביל לשינויים מזיקים.';
+  if (category === 'waste') return 'התקציב ימשיך לזרום לתנועה עם כוונה נמוכה ותשואה נמוכה.';
+  if (category === 'controlRisk') return 'חוסר יעילות מבני ימשיך להעלות את ה-CPA.';
+  return 'הגדלה עלולה להיעצר או להעלות CPA אם מבוצעת מוקדם מדי.';
 }
 
 function buildDatasetDrivenDecisions(data, measurementTrust, context) {
@@ -412,25 +412,25 @@ function buildDatasetDrivenDecisions(data, measurementTrust, context) {
         action_type: 'target_cpl_alignment',
         action_priority: 2,
         execution_step: 3,
-        confidence: 'Medium confidence',
+        confidence: 'ביטחון בינוני',
         category: 'controlRisk',
         entity_level: 'account',
         entity_name: 'Account-wide',
-        reason: `Some campaigns are above your target CPL (CA$${context.targetCpl}).`,
-        evidence: [`${overTarget.length} campaign(s) currently above target CPL.`],
+        reason: `חלק מהקמפיינים מעל יעד ה-CPL שלך (CA$${context.targetCpl}).`,
+        evidence: [`${overTarget.length} קמפיינים נמצאים כרגע מעל יעד ה-CPL.`],
         evidence_state: measurementTrust === 'untrusted' ? 'unknown' : 'likely',
-        prerequisite: measurementTrust === 'untrusted' ? 'Resolve measurement trust first.' : 'No blocking prerequisite.',
-        user_instruction: 'Reduce bid pressure in above-target campaigns and prioritize efficient segments first.',
+        prerequisite: measurementTrust === 'untrusted' ? 'יש לחזק קודם את אמון המדידה.' : 'אין תנאי סף חוסמים.',
+        user_instruction: 'להפחית לחץ הצעות מחיר בקמפיינים שמעל היעד ולתעדף קודם פלחים יעילים.',
         operator_steps: [
-          'Google Ads > Campaigns > sort by Cost/conv.',
-          'Open campaigns above target CPL and reduce bids or tighten match types.',
-          'Check search terms and remove irrelevant intent before saving.',
-          'Monitor CPL trend daily for 3-5 days.',
+          'Google Ads > Campaigns > מיון לפי Cost/conv.',
+          'לפתוח קמפיינים שמעל יעד CPL ולהפחית הצעות מחיר או להדק סוגי התאמה.',
+          'לבדוק מונחי חיפוש ולהסיר כוונה לא רלוונטית לפני שמירה.',
+          'לנטר מגמת CPL מדי יום למשך 3-5 ימים.',
         ],
-        monitor_after_change: 'Watch campaign CPL and conversion volume after each adjustment.',
-        reassess_timing: 'Re-upload updated reports after 3-7 days.',
-        expected_outcome: 'Account trend moves closer to target CPL.',
-        risk_if_ignored: 'Budget can continue shifting into expensive lead acquisition.',
+        monitor_after_change: 'לנטר CPL ונפח המרות בקמפיין אחרי כל התאמה.',
+        reassess_timing: 'להעלות מחדש דוחות מעודכנים לאחר 3-7 ימים.',
+        expected_outcome: 'מגמת החשבון מתקרבת ליעד ה-CPL.',
+        risk_if_ignored: 'התקציב עלול להמשיך לזרום לרכישת לידים יקרה.',
         do_not_do_yet: measurementTrust === 'untrusted',
         requires_business_context: false,
         blocked_by_tracking: measurementTrust === 'untrusted',
@@ -453,26 +453,26 @@ function buildAdDecisions(ads, measurementTrust) {
     action_type: 'ad_copy_review',
     action_priority: 3,
     execution_step: 4,
-    confidence: measurementTrust === 'untrusted' ? 'Low confidence' : 'Medium confidence',
+    confidence: measurementTrust === 'untrusted' ? 'ביטחון נמוך' : 'ביטחון בינוני',
     category: 'controlRisk',
     entity_level: 'adGroup',
-    entity_name: weakAds[0].adGroup ?? 'Multiple ad groups',
-    reason: 'Ads data shows weak CTR with non-converting spend.',
-    evidence: [`${weakAds.length} ad row(s) meet low-CTR and zero-conversion criteria.`],
+    entity_name: weakAds[0].adGroup ?? 'מספר קבוצות מודעות',
+    reason: 'נתוני המודעות מצביעים על CTR חלש עם הוצאה שלא ממירה.',
+    evidence: [`${weakAds.length} שורות מודעות עומדות בתנאי CTR נמוך ואפס המרות.`],
     evidence_state: measurementTrust === 'untrusted' ? 'unknown' : 'likely',
-    prerequisite: measurementTrust === 'untrusted' ? 'Validate conversion tracking first.' : 'No blocking prerequisite.',
-    user_instruction: 'Review ad copy relevance in affected groups and test clearer service-intent messaging.',
+    prerequisite: measurementTrust === 'untrusted' ? 'יש לאמת קודם מעקב המרות.' : 'אין תנאי סף חוסמים.',
+    user_instruction: 'לבדוק רלוונטיות נוסחי מודעה בקבוצות שנפגעו ולבדוק מסרים ברורים יותר לכוונת שירות.',
     operator_steps: [
-      'Google Ads > Ads > filter to impacted ad groups.',
-      'Open ads with low CTR and zero conversions.',
-      'Create 1-2 variants with clearer service intent and local qualifiers.',
-      'Keep one control ad active for comparison.',
-      'Review CTR and conversion rate after 5-7 days.',
+      'Google Ads > Ads > לסנן לקבוצות מודעות שנפגעו.',
+      'לפתוח מודעות עם CTR נמוך ואפס המרות.',
+      'ליצור 1-2 וריאציות עם כוונת שירות ברורה יותר וסייגים מקומיים.',
+      'להשאיר מודעת ביקורת אחת פעילה להשוואה.',
+      'לבדוק CTR ושיעור המרה לאחר 5-7 ימים.',
     ],
-    monitor_after_change: 'Track CTR, conversion rate, and cost/conv. for the revised ad group.',
-    reassess_timing: 'Re-upload Ads and Ad Group reports after 7 days.',
-    expected_outcome: 'Better CTR and more qualified click mix.',
-    risk_if_ignored: 'Low-relevance ads can keep wasting spend and limit quality score improvement.',
+    monitor_after_change: 'לנטר CTR, שיעור המרה ועלות להמרה עבור קבוצת המודעות שעודכנה.',
+    reassess_timing: 'להעלות מחדש דוחות מודעות וקבוצות מודעות לאחר 7 ימים.',
+    expected_outcome: 'CTR טוב יותר ותמהיל קליקים איכותי יותר.',
+    risk_if_ignored: 'מודעות עם רלוונטיות נמוכה ימשיכו לבזבז תקציב ולהגביל שיפור בציון איכות.',
     do_not_do_yet: false,
     requires_business_context: false,
     blocked_by_tracking: measurementTrust === 'untrusted',
@@ -505,22 +505,22 @@ function buildDeviceDecisions(devices, measurementTrust, context) {
     confidence: measurementTrust === 'untrusted' ? 'Low confidence' : 'Medium confidence',
     category: 'waste',
     entity_level: 'device',
-    entity_name: weak[0].device ?? 'Device segment',
-    reason: 'One or more device segments show material spend with zero conversions.',
-    evidence: weak.slice(0, 3).map(d => `${d.device ?? 'Unknown'}: CA$${num(d.cost).toFixed(2)} spend, ${num(d.conversions)} conversions`),
+    entity_name: weak[0].device ?? 'פלח מכשיר',
+    reason: 'פלח מכשיר אחד או יותר מציג הוצאה משמעותית ללא המרות.',
+    evidence: weak.slice(0, 3).map(d => `${d.device ?? 'לא ידוע'}: הוצאה CA$${num(d.cost).toFixed(2)}, ${num(d.conversions)} המרות`),
     evidence_state: measurementTrust === 'untrusted' ? 'unknown' : 'confirmed',
-    prerequisite: measurementTrust === 'untrusted' ? 'Resolve tracking trust first.' : 'No blocking prerequisite.',
-    user_instruction: 'Apply negative bid adjustments to weak device segments and recheck search terms before broader cuts.',
+    prerequisite: measurementTrust === 'untrusted' ? 'יש לפתור קודם את אמון המעקב.' : 'אין תנאי סף חוסמים.',
+    user_instruction: 'להחיל התאמות הצעת מחיר שליליות על פלחי מכשיר חלשים ולבדוק שוב מונחי חיפוש לפני קיצוץ רחב.',
     operator_steps: [
-      'Google Ads > Devices tab in relevant campaign(s).',
-      'Apply a moderate negative bid adjustment (for example -10% to -20%) first, not full exclusion.',
-      'Check search terms and conversion trend before deeper cuts.',
-      'Keep changes small and monitor 3-5 days.',
+      'Google Ads > לשונית Devices בקמפיינים הרלוונטיים.',
+      'להחיל קודם התאמת הצעת מחיר שלילית מתונה (למשל ‎-10% עד ‎-20%), לא החרגה מלאה.',
+      'לבדוק מונחי חיפוש ומגמת המרות לפני קיצוץ עמוק יותר.',
+      'לשמור על שינויים קטנים ולנטר 3-5 ימים.',
     ],
-    monitor_after_change: 'Track device-level CPA and conversion volume after bid adjustment.',
-    reassess_timing: 'Re-upload Devices and Campaign reports after 3-7 days.',
-    expected_outcome: 'Reduced device-level waste.',
-    risk_if_ignored: 'Budget leakage can continue in underperforming device segments.',
+    monitor_after_change: 'לנטר CPA ונפח המרות ברמת מכשיר לאחר התאמת ההצעה.',
+    reassess_timing: 'להעלות מחדש דוחות מכשירים וקמפיינים לאחר 3-7 ימים.',
+    expected_outcome: 'צמצום בזבוז ברמת מכשיר.',
+    risk_if_ignored: 'זליגת התקציב עלולה להמשיך בפלחי מכשיר חלשים.',
     do_not_do_yet: measurementTrust === 'untrusted',
     requires_business_context: false,
     blocked_by_tracking: measurementTrust === 'untrusted',
@@ -538,26 +538,26 @@ function buildDeviceDecisions(devices, measurementTrust, context) {
       action_type: 'device_scale_support',
       action_priority: 4,
       execution_step: 5,
-      confidence: measurementTrust === 'trusted' ? 'Medium confidence' : 'Low confidence',
+      confidence: measurementTrust === 'trusted' ? 'ביטחון בינוני' : 'ביטחון נמוך',
       category: 'opportunity',
       entity_level: 'device',
-      entity_name: top.device ?? 'Device segment',
-      reason: 'At least one device segment is materially more efficient than peers.',
-      evidence: [`${top.device ?? 'Unknown'}: CA$${topCpl.toFixed(2)} CPA with ${num(top.conversions)} conversions`],
+      entity_name: top.device ?? 'פלח מכשיר',
+      reason: 'לפחות פלח מכשיר אחד יעיל משמעותית ביחס לאחרים.',
+      evidence: [`${top.device ?? 'לא ידוע'}: CPA של CA$${topCpl.toFixed(2)} עם ${num(top.conversions)} המרות`],
       evidence_state: measurementTrust === 'trusted' ? 'likely' : 'unknown',
       prerequisite: measurementTrust === 'trusted'
-        ? 'Waste and tracking issues should already be under control.'
-        : 'Resolve measurement trust first.',
-      user_instruction: `After core fixes, test a small positive bid adjustment on ${top.device ?? 'the winning device segment'}.`,
+        ? 'בעיות בזבוז ומעקב אמורות להיות כבר בשליטה.'
+        : 'יש לפתור קודם את אמון המדידה.',
+      user_instruction: `אחרי תיקוני בסיס, לבדוק התאמת הצעת מחיר חיובית קטנה ב-${top.device ?? 'פלח המכשיר המנצח'}.`,
       operator_steps: [
-        'Google Ads > Devices tab.',
-        'Increase bid slightly on the best device segment (+5% to +10%).',
-        'Confirm CPA remains within target after 3-5 days.',
+        'Google Ads > לשונית Devices.',
+        'להעלות מעט את ההצעה בפלח המכשיר הטוב ביותר (+5% עד +10%).',
+        'לוודא שה-CPA נשאר בטווח היעד לאחר 3-5 ימים.',
       ],
-      monitor_after_change: 'Monitor device CPA and absolute conversion volume.',
-      reassess_timing: 'Re-upload Devices report after 5-7 days.',
-      expected_outcome: 'Incremental growth from the strongest device segment.',
-      risk_if_ignored: 'You may underinvest in a proven efficient segment.',
+      monitor_after_change: 'לנטר CPA במכשיר ונפח המרות מוחלט.',
+      reassess_timing: 'להעלות מחדש דוח מכשירים לאחר 5-7 ימים.',
+      expected_outcome: 'צמיחה הדרגתית מהפלח היעיל ביותר במכשירים.',
+      risk_if_ignored: 'ייתכן תת-השקעה בפלח שכבר הוכיח יעילות.',
       do_not_do_yet: measurementTrust !== 'trusted',
       requires_business_context: context.targetCpl == null,
       blocked_by_tracking: measurementTrust !== 'trusted',
@@ -580,7 +580,7 @@ function buildLocationDecisions(locations, measurementTrust, context) {
 
   if (weak.length) {
     const topWeak = weak[0];
-    const locationLabel = topWeak.location ?? 'Location segment';
+    const locationLabel = topWeak.location ?? 'פלח מיקום';
     const appearsInServiceArea = serviceAreaTokens.length
       ? serviceAreaTokens.some(t => locationLabel.toLowerCase().includes(t))
       : null;
@@ -596,32 +596,32 @@ function buildLocationDecisions(locations, measurementTrust, context) {
     action_priority: 2,
     execution_step: 2,
     confidence: measurementTrust === 'untrusted' || !context.serviceArea
-      ? 'Low confidence'
-      : 'Medium confidence',
+      ? 'ביטחון נמוך'
+      : 'ביטחון בינוני',
     category: 'waste',
     entity_level: 'location',
     entity_name: locationLabel,
-    reason: 'One or more location segments show spend with no recorded conversions.',
-    evidence: weak.slice(0, 3).map(l => `${l.location ?? 'Unknown'}: CA$${num(l.cost).toFixed(2)} spend, ${num(l.conversions)} conversions`),
+    reason: 'פלח מיקום אחד או יותר מציג הוצאה ללא המרות מתועדות.',
+    evidence: weak.slice(0, 3).map(l => `${l.location ?? 'לא ידוע'}: הוצאה CA$${num(l.cost).toFixed(2)}, ${num(l.conversions)} המרות`),
     evidence_state: measurementTrust === 'untrusted' ? 'unknown' : 'confirmed',
     prerequisite: measurementTrust === 'untrusted'
-      ? 'Resolve tracking trust first.'
+      ? 'יש לפתור קודם את אמון המעקב.'
       : !context.serviceArea
-        ? 'Add service area context before deciding on geo reductions.'
-        : 'No blocking prerequisite.',
+        ? 'יש להוסיף אזור שירות לפני החלטות על הפחתות גאוגרפיות.'
+        : 'אין תנאי סף חוסמים.',
     user_instruction: appearsInServiceArea === true
-      ? 'Reduce bids first for this location segment; do not exclude immediately.'
-      : 'Review location fit against service area, then reduce bids before considering exclusion.',
+      ? 'להפחית קודם הצעות מחיר בפלח מיקום זה; לא לבצע החרגה מיידית.'
+      : 'לבדוק התאמת המיקום לאזור השירות, ואז להפחית הצעות מחיר לפני ששוקלים החרגה.',
     operator_steps: [
-      'Google Ads > Locations report in impacted campaign(s).',
-      'Compare spend and conversions for weak geos.',
-      'Apply a modest bid reduction first (for example -10% to -20%).',
-      'Do not exclude until at least one follow-up report confirms the pattern.',
+      'Google Ads > דוח Locations בקמפיינים שנפגעו.',
+      'להשוות הוצאה והמרות עבור אזורים חלשים.',
+      'להחיל קודם הפחתת הצעת מחיר מתונה (למשל ‎-10% עד ‎-20%).',
+      'לא להחריג עד שלפחות דוח מעקב אחד מאשר את הדפוס.',
     ],
-    monitor_after_change: 'Track location-level CPA and conversion trend after the bid reduction.',
-    reassess_timing: 'Re-upload Location report after 5-7 days.',
-    expected_outcome: 'Cleaner spend allocation across geographies.',
-    risk_if_ignored: 'Spend can remain concentrated in low-performing geographies.',
+    monitor_after_change: 'לנטר CPA ומגמת המרות ברמת מיקום לאחר הפחתת ההצעה.',
+    reassess_timing: 'להעלות מחדש דוח מיקומים לאחר 5-7 ימים.',
+    expected_outcome: 'חלוקת תקציב נקייה יותר בין אזורים גאוגרפיים.',
+    risk_if_ignored: 'ההוצאה עלולה להישאר מרוכזת באזורים חלשים.',
     do_not_do_yet: classification !== 'review_before_acting',
     requires_business_context: !context.serviceArea,
     blocked_by_tracking: measurementTrust === 'untrusted',
@@ -643,27 +643,27 @@ function buildLocationDecisions(locations, measurementTrust, context) {
       action_type: 'location_scale_support',
       action_priority: 4,
       execution_step: 5,
-      confidence: context.serviceArea && measurementTrust === 'trusted' ? 'Medium confidence' : 'Low confidence',
+      confidence: context.serviceArea && measurementTrust === 'trusted' ? 'ביטחון בינוני' : 'ביטחון נמוך',
       category: 'opportunity',
       entity_level: 'location',
-      entity_name: top.location ?? 'Location segment',
-      reason: 'A location segment appears efficient against your target CPL.',
-      evidence: [`${top.location ?? 'Unknown'}: ${num(top.conversions)} conversions on CA$${num(top.cost).toFixed(2)} spend`],
+      entity_name: top.location ?? 'פלח מיקום',
+      reason: 'פלח מיקום נראה יעיל ביחס ליעד ה-CPL שלך.',
+      evidence: [`${top.location ?? 'לא ידוע'}: ${num(top.conversions)} המרות על הוצאה של CA$${num(top.cost).toFixed(2)}`],
       evidence_state: measurementTrust === 'trusted' ? 'likely' : 'unknown',
       prerequisite: measurementTrust === 'trusted'
-        ? 'Core waste and tracking blockers should be resolved first.'
-        : 'Resolve tracking trust before scaling.',
-      user_instruction: 'After cleanup phases, test a small positive bid adjustment for strong geos still within service area.',
+        ? 'יש לפתור קודם חסמים מרכזיים של בזבוז ומעקב.'
+        : 'יש לפתור אמון מעקב לפני סקייל.',
+      user_instruction: 'לאחר שלבי הניקוי, לבדוק התאמת הצעת מחיר חיובית קטנה לאזורים חזקים שנמצאים עדיין באזור השירות.',
       operator_steps: [
-        'Google Ads > Locations tab.',
-        'Confirm strong geo is within your service area and lead intent is acceptable.',
-        'Apply a small positive bid adjustment (+5% to +10%).',
-        'Monitor CPA and lead quality notes before scaling further.',
+        'Google Ads > לשונית Locations.',
+        'לוודא שהאזור החזק נמצא באזור השירות שלך ושכוונת הליד מתאימה.',
+        'להחיל התאמת הצעת מחיר חיובית קטנה (+5% עד +10%).',
+        'לנטר CPA והערות איכות ליד לפני הגדלה נוספת.',
       ],
-      monitor_after_change: 'Track geo CPA and lead quality trend after adjustment.',
-      reassess_timing: 'Re-upload Location and Campaign reports after 5-7 days.',
-      expected_outcome: 'Careful growth from geos already showing efficient conversion behavior.',
-      risk_if_ignored: 'You may underfund high-performing geos.',
+      monitor_after_change: 'לנטר CPA גאוגרפי ומגמת איכות לידים לאחר ההתאמה.',
+      reassess_timing: 'להעלות מחדש דוחות מיקום וקמפיין לאחר 5-7 ימים.',
+      expected_outcome: 'צמיחה זהירה מאזורים שכבר מציגים התנהגות המרה יעילה.',
+      risk_if_ignored: 'ייתכן מימון חסר של אזורים עם ביצועים גבוהים.',
       do_not_do_yet: measurementTrust !== 'trusted' || !context.serviceArea,
       requires_business_context: !context.serviceArea || context.targetCpl == null,
       blocked_by_tracking: measurementTrust !== 'trusted',
@@ -705,27 +705,27 @@ function buildContextDrivenDecisions(data, measurementTrust, context, reportCove
         action_type: 'excluded_service_alignment',
         action_priority: 2,
         execution_step: 2,
-        confidence: highConfidence ? 'High confidence' : 'Medium confidence',
+        confidence: highConfidence ? 'ביטחון גבוה' : 'ביטחון בינוני',
         category: 'waste',
         entity_level: 'account',
-        entity_name: 'Excluded service terms',
-        reason: 'Uploaded terms/keywords contain services marked as excluded in your business settings.',
-        evidence: excludedMatches.slice(0, 5).map(m => `${m.level}: ${m.label ?? 'Unknown'}`),
+        entity_name: 'מונחי שירות מוחרגים',
+        reason: 'מונחים/מילות מפתח שהועלו כוללים שירותים שסומנו כמוחרגים בהגדרות העסק שלך.',
+        evidence: excludedMatches.slice(0, 5).map(m => `${m.level}: ${m.label ?? 'לא ידוע'}`),
         evidence_state: highConfidence ? 'confirmed' : 'likely',
-        prerequisite: hasSearchTerms ? 'No blocking prerequisite.' : 'Upload Search Terms report for safer exclusions.',
+        prerequisite: hasSearchTerms ? 'אין תנאי סף חוסמים.' : 'יש להעלות דוח מונחי חיפוש לצורך החרגות בטוחות יותר.',
         user_instruction: highConfidence
-          ? 'Add matched excluded-service queries as negative keywords now.'
-          : 'Review matched terms first, then add negatives only for clearly excluded services.',
+          ? 'להוסיף עכשיו שאילתות תואמות לשירותים מוחרגים כמילות מפתח שליליות.'
+          : 'לבדוק קודם את המונחים התואמים, ואז להוסיף שלילות רק לשירותים שמוחרגים בבירור.',
         operator_steps: [
-          'Google Ads > Search terms report.',
-          'Filter by excluded service wording from your settings.',
-          'Add exact or phrase negatives for terms that are clearly unwanted.',
-          'Check impact on lead volume after 3-5 days.',
+          'Google Ads > דוח Search terms.',
+          'לסנן לפי ניסוח השירותים המוחרגים מתוך ההגדרות שלך.',
+          'להוסיף שלילות בהתאמה מדויקת או ביטויית למונחים לא רצויים באופן ברור.',
+          'לבדוק השפעה על נפח לידים לאחר 3-5 ימים.',
         ],
-        monitor_after_change: 'Watch wasted spend and conversion volume after adding negatives.',
-        reassess_timing: 'Re-upload Search Terms and Campaign reports in 3-7 days.',
-        expected_outcome: 'Spend shifts away from services you do not want to sell.',
-        risk_if_ignored: 'Budget may continue going to intentionally unwanted demand.',
+        monitor_after_change: 'לנטר הוצאה מבוזבזת ונפח המרות לאחר הוספת שלילות.',
+        reassess_timing: 'להעלות מחדש דוחות מונחי חיפוש וקמפיינים תוך 3-7 ימים.',
+        expected_outcome: 'התקציב יוסט משירותים שאינך רוצה למכור.',
+        risk_if_ignored: 'התקציב עלול להמשיך לזרום לביקוש שאינך מעוניין בו.',
         do_not_do_yet: false,
         requires_business_context: false,
         blocked_by_tracking: false,
@@ -740,24 +740,24 @@ function buildContextDrivenDecisions(data, measurementTrust, context, reportCove
       action_type: 'value_signal_guardrail',
       action_priority: 3,
       execution_step: 1,
-      confidence: 'High confidence',
+      confidence: 'ביטחון גבוה',
       category: 'measurementRisk',
       entity_level: 'account',
-      entity_name: 'Value tracking guardrail',
-      reason: 'Average deal value is set, but offline conversion imports are missing or unknown.',
-      evidence: ['Value-based optimization confidence is limited without offline conversion completeness.'],
+      entity_name: 'מגן בטיחות לערך',
+      reason: 'ערך עסקה ממוצע הוגדר, אך ייבוא המרות אופליין חסר או לא ידוע.',
+      evidence: ['רמת הביטחון באופטימיזציה מבוססת ערך מוגבלת ללא שלמות נתוני המרות אופליין.'],
       evidence_state: 'confirmed',
-      prerequisite: 'Enable and validate offline conversion imports if possible.',
-      user_instruction: 'Use CPA guidance cautiously and avoid strong value/LTV assumptions until offline conversion data is reliable.',
+      prerequisite: 'יש להפעיל ולאמת ייבוא המרות אופליין אם אפשר.',
+      user_instruction: 'להשתמש בהנחיות CPA בזהירות ולהימנע מהנחות ערך/LTV חזקות עד שנתוני האופליין אמינים.',
       operator_steps: [
         'Google Ads > Tools > Conversions.',
-        'Check whether offline/CRM conversion actions are imported and primary where intended.',
-        'Confirm upload cadence and dedup settings.',
+        'לבדוק אם פעולות המרה אופליין/CRM מיובאות ומוגדרות כראשיות בהתאם לצורך.',
+        'לאשר תדירות העלאה והגדרות מניעת כפילויות.',
       ],
-      monitor_after_change: 'Monitor conversion value consistency after imports are enabled.',
-      reassess_timing: 'Re-upload reports after one full reporting cycle.',
-      expected_outcome: 'More reliable value-aware optimization decisions.',
-      risk_if_ignored: 'You may over- or under-scale based on incomplete value signals.',
+      monitor_after_change: 'לנטר עקביות בערכי ההמרה לאחר הפעלת הייבוא.',
+      reassess_timing: 'להעלות מחדש דוחות לאחר מחזור דיווח מלא אחד.',
+      expected_outcome: 'החלטות אופטימיזציה מבוססות ערך יהיו אמינות יותר.',
+      risk_if_ignored: 'עלולה להתבצע הגדלה או הקטנה על בסיס אותות ערך חלקיים.',
       do_not_do_yet: false,
       requires_business_context: false,
       blocked_by_tracking: false,
@@ -771,26 +771,26 @@ function buildContextDrivenDecisions(data, measurementTrust, context, reportCove
       action_type: 'lead_quality_guardrail',
       action_priority: 3,
       execution_step: 1,
-      confidence: 'High confidence',
+      confidence: 'ביטחון גבוה',
       category: 'measurementRisk',
       entity_level: 'account',
-      entity_name: 'Lead quality guardrail',
-      reason: 'Business quality preferences are defined, but CSV conversion counts alone cannot validate lead quality.',
+      entity_name: 'מגן איכות לידים',
+      reason: 'העדפות איכות עסקיות הוגדרו, אך ספירת המרות ב-CSV לבדה לא מאמתת איכות ליד.',
       evidence: [
-        context.preferredLeadType ? `Preferred lead type: ${context.preferredLeadType}` : 'Preferred lead type not set',
-        context.goodLeadNote ? `Good lead note: ${context.goodLeadNote}` : 'Good lead note not set',
+        context.preferredLeadType ? `סוג ליד מועדף: ${context.preferredLeadType}` : 'סוג ליד מועדף לא הוגדר',
+        context.goodLeadNote ? `הערת ליד איכותי: ${context.goodLeadNote}` : 'הערת ליד איכותי לא הוגדרה',
       ],
       evidence_state: 'confirmed',
-      prerequisite: 'Use CRM or call quality checks for quality confirmation.',
-      user_instruction: 'Treat conversion count as quantity only; validate lead quality manually before scaling hard.',
+      prerequisite: 'יש להשתמש ב-CRM או בדיקות איכות שיחות כדי לאשר איכות.',
+      user_instruction: 'להתייחס לספירת המרות ככמות בלבד; לאמת איכות ליד ידנית לפני הגדלה אגרסיבית.',
       operator_steps: [
-        'Review CRM outcomes or call notes for top converting entities.',
-        'Confirm that converted leads match your preferred lead profile.',
+        'לבדוק תוצאות CRM או הערות שיחה עבור הישויות הממירות ביותר.',
+        'לוודא שהלידים שהומרו תואמים לפרופיל הליד המועדף.',
       ],
-      monitor_after_change: 'Track close rate or qualified-lead ratio alongside conversion volume.',
-      reassess_timing: 'Reassess weekly with fresh reports and quality feedback.',
-      expected_outcome: 'Safer scaling decisions aligned with true lead quality.',
-      risk_if_ignored: 'You may scale low-quality leads that look good in raw conversion counts.',
+      monitor_after_change: 'לנטר שיעור סגירה או יחס לידים איכותיים לצד נפח המרות.',
+      reassess_timing: 'לבחון מחדש אחת לשבוע עם דוחות עדכניים ומשוב איכות.',
+      expected_outcome: 'החלטות סקייל בטוחות יותר שמותאמות לאיכות ליד אמיתית.',
+      risk_if_ignored: 'עלולה להתבצע הגדלה ללידים באיכות נמוכה שנראים טוב רק בספירת המרות גולמית.',
       do_not_do_yet: false,
       requires_business_context: false,
       blocked_by_tracking: false,
@@ -816,23 +816,23 @@ function buildGuardrailDecisions(
       action_type: 'freeze_scaling',
       action_priority: 1,
       execution_step: 1,
-      confidence: 'High confidence',
+      confidence: 'ביטחון גבוה',
       category: 'measurementRisk',
       entity_level: 'account',
-      entity_name: 'Account-wide',
-      reason: 'Tracking trust is low, so efficiency-driven scaling decisions are unsafe.',
-      evidence: ['Measurement issues were detected in uploaded data or tracking trust is set to not trusted.'],
+      entity_name: 'ברמת החשבון',
+      reason: 'אמון המעקב נמוך ולכן החלטות סקייל מבוססות יעילות אינן בטוחות.',
+      evidence: ['זוהו בעיות מדידה בנתונים שהועלו או שאמון המעקב מוגדר כלא אמין.'],
       evidence_state: 'confirmed',
-      prerequisite: 'Fix tracking and confirm conversion integrity.',
-      user_instruction: 'Do not increase budgets or bids for scale yet.',
+      prerequisite: 'לתקן מעקב ולאשר תקינות המרות.',
+      user_instruction: 'לא להעלות תקציבים או הצעות מחיר לסקייל בשלב זה.',
       operator_steps: [
-        'Pause any planned budget increases.',
-        'Resolve tracking issues first in Google Ads conversion settings and tags.',
+        'לעצור כל העלאת תקציב מתוכננת.',
+        'לפתור קודם בעיות מעקב בהגדרות המרות ובתגיות של Google Ads.',
       ],
-      monitor_after_change: 'Confirm conversion counts become plausible before resuming scale.',
-      reassess_timing: 'Re-upload reports immediately after tracking fixes begin and again after 3-7 days.',
-      expected_outcome: 'Prevents scaling into unreliable signals.',
-      risk_if_ignored: 'You may scale spend on false positives and increase CPA quickly.',
+      monitor_after_change: 'לוודא שספירות ההמרה הופכות סבירות לפני חזרה לסקייל.',
+      reassess_timing: 'להעלות מחדש דוחות מיד אחרי התחלת תיקוני המעקב ושוב לאחר 3-7 ימים.',
+      expected_outcome: 'מונע סקייל על בסיס אותות לא אמינים.',
+      risk_if_ignored: 'ייתכן סקייל על חיוביים שגויים והעלאת CPA מהירה.',
       do_not_do_yet: true,
       requires_business_context: false,
       blocked_by_tracking: false,
@@ -846,23 +846,23 @@ function buildGuardrailDecisions(
       action_type: 'upload_coverage_improvement',
       action_priority: 3,
       execution_step: 1,
-      confidence: 'Medium confidence',
+      confidence: 'ביטחון בינוני',
       category: 'measurementRisk',
       entity_level: 'account',
-      entity_name: 'Account-wide',
-      reason: 'Some report slots are missing and reduce decision confidence.',
-      evidence: [`Missing reports: ${missingReports.join(', ')}`],
+      entity_name: 'ברמת החשבון',
+      reason: 'חלק משדות העלאת הדוחות חסרים ולכן רמת הביטחון בהחלטות יורדת.',
+      evidence: [`דוחות חסרים: ${missingReports.join(', ')}`],
       evidence_state: 'confirmed',
-      prerequisite: 'None',
-      user_instruction: 'Upload missing report slots to improve decision confidence before major account changes.',
+      prerequisite: 'ללא',
+      user_instruction: 'יש להעלות את הדוחות החסרים כדי לשפר את רמת הביטחון לפני שינויים משמעותיים בחשבון.',
       operator_steps: [
-        'Export missing report types from Google Ads for the same date range.',
-        'Upload each file to the matching fixed slot in the UI.',
+        'לייצא את סוגי הדוחות החסרים מ-Google Ads עבור אותו טווח תאריכים.',
+        'להעלות כל קובץ לשדה ההעלאה הקבוע והמתאים בממשק.',
       ],
-      monitor_after_change: 'Check that missing-report warnings are reduced in the next run.',
-      reassess_timing: 'Re-run analysis immediately after uploading missing reports.',
-      expected_outcome: 'Higher confidence and better decision precision.',
-      risk_if_ignored: 'Important decisions may remain review-first instead of action-ready.',
+      monitor_after_change: 'לבדוק שהאזהרות על דוחות חסרים מצטמצמות בהרצה הבאה.',
+      reassess_timing: 'להריץ ניתוח מחדש מיד לאחר העלאת הדוחות החסרים.',
+      expected_outcome: 'רמת ביטחון גבוהה יותר ודיוק החלטות טוב יותר.',
+      risk_if_ignored: 'החלטות חשובות עשויות להישאר במצב בדיקה במקום להיות מוכנות לפעולה.',
       do_not_do_yet: false,
       requires_business_context: false,
       blocked_by_tracking: false,
@@ -876,24 +876,24 @@ function buildGuardrailDecisions(
       action_type: 'business_context_completion',
       action_priority: 3,
       execution_step: 1,
-      confidence: 'High confidence',
+      confidence: 'ביטחון גבוה',
       category: 'measurementRisk',
       entity_level: 'account',
-      entity_name: 'Business settings',
-      reason: 'Some recommendations require business context to be safe and specific.',
-      evidence: [`Missing settings: ${missingBusinessContext.join(', ')}`],
+      entity_name: 'הגדרות עסקיות',
+      reason: 'חלק מההמלצות דורשות הקשר עסקי כדי להיות בטוחות וספציפיות.',
+      evidence: [`הגדרות חסרות: ${missingBusinessContext.join(', ')}`],
       evidence_state: 'confirmed',
-      prerequisite: 'None',
-      user_instruction: 'Complete missing business settings in the form above uploads.',
+      prerequisite: 'ללא',
+      user_instruction: 'יש להשלים את ההגדרות העסקיות החסרות בטופס שמעל אזור ההעלאות.',
       operator_steps: [
-        'Open Business Context form.',
-        'Fill missing fields and save.',
-        'Run analysis again so decisions can use your context.',
+        'לפתוח את טופס ההקשר העסקי.',
+        'למלא שדות חסרים ולשמור.',
+        'להריץ ניתוח מחדש כדי שההחלטות ישתמשו בהקשר שלך.',
       ],
-      monitor_after_change: 'Verify fewer context-blocked decisions in next run.',
-      reassess_timing: 'Re-run immediately after saving settings.',
-      expected_outcome: 'Recommendations become more aligned with your business economics and service scope.',
-      risk_if_ignored: 'Actions may be generic and require manual review before execution.',
+      monitor_after_change: 'לוודא שבהרצה הבאה יש פחות החלטות שחסומות בגלל הקשר חסר.',
+      reassess_timing: 'להריץ מחדש מיד לאחר שמירת ההגדרות.',
+      expected_outcome: 'ההמלצות יהיו מותאמות יותר לכלכלת העסק ולהיקף השירות שלך.',
+      risk_if_ignored: 'פעולות עשויות להישאר כלליות ולדרוש בדיקה ידנית לפני ביצוע.',
       do_not_do_yet: false,
       requires_business_context: false,
       blocked_by_tracking: false,
@@ -907,24 +907,24 @@ function buildGuardrailDecisions(
       action_type: 'broad_keyword_guardrail',
       action_priority: 2,
       execution_step: 2,
-      confidence: 'High confidence',
+      confidence: 'ביטחון גבוה',
       category: 'controlRisk',
       entity_level: 'account',
-      entity_name: 'Broad-match guardrail',
-      reason: 'Search Terms report is missing, so broad keyword pauses are riskier.',
-      evidence: ['Broad-match changes without search-term evidence can block profitable queries.'],
+      entity_name: 'מגן בטיחות להתאמה רחבה',
+      reason: 'דוח מונחי חיפוש חסר, ולכן עצירת מילות מפתח בהתאמה רחבה מסוכנת יותר.',
+      evidence: ['שינויים בהתאמה רחבה בלי ראיות ממונחי חיפוש עלולים לחסום שאילתות רווחיות.'],
       evidence_state: 'confirmed',
-      prerequisite: 'Upload Search Terms report before aggressive broad-keyword cuts.',
-      user_instruction: 'Do not pause broad keywords yet. First review actual search terms.',
+      prerequisite: 'יש להעלות דוח מונחי חיפוש לפני קיצוצים אגרסיביים במילים רחבות.',
+      user_instruction: 'לא לעצור עדיין מילות מפתח רחבות. קודם לבדוק מונחי חיפוש בפועל.',
       operator_steps: [
-        'Export and upload Search Terms report.',
-        'Audit irrelevant queries and add negatives first.',
-        'Only then evaluate broad keyword pauses.',
+        'לייצא ולהעלות דוח מונחי חיפוש.',
+        'לבדוק שאילתות לא רלוונטיות ולהוסיף קודם שלילות.',
+        'רק לאחר מכן לבחון עצירה של מילות מפתח רחבות.',
       ],
-      monitor_after_change: 'Track impression and conversion volume after any broad-match adjustment.',
-      reassess_timing: 'Re-run after Search Terms upload and changes.',
-      expected_outcome: 'Safer broad-match control with lower risk of killing good demand.',
-      risk_if_ignored: 'Good queries can be cut accidentally, reducing lead flow.',
+      monitor_after_change: 'לנטר נפח חשיפות והמרות אחרי כל התאמה בהתאמה רחבה.',
+      reassess_timing: 'להריץ מחדש לאחר העלאת דוח מונחי חיפוש וביצוע השינויים.',
+      expected_outcome: 'שליטה בטוחה יותר בהתאמה רחבה עם סיכון נמוך יותר לפגיעה בביקוש איכותי.',
+      risk_if_ignored: 'שאילתות טובות עלולות להיחתך בטעות ולצמצם זרימת לידים.',
       do_not_do_yet: true,
       requires_business_context: false,
       blocked_by_tracking: false,
@@ -938,23 +938,23 @@ function buildGuardrailDecisions(
       action_type: 'location_exclusion_guardrail',
       action_priority: 2,
       execution_step: 2,
-      confidence: 'High confidence',
+      confidence: 'ביטחון גבוה',
       category: 'controlRisk',
       entity_level: 'account',
-      entity_name: 'Geo guardrail',
-      reason: 'Service area is not set, so geo exclusions are not safe yet.',
-      evidence: ['Location performance alone cannot confirm business service coverage.'],
+      entity_name: 'מגן בטיחות גאוגרפי',
+      reason: 'אזור שירות לא הוגדר, ולכן החרגות גאוגרפיות עדיין אינן בטוחות.',
+      evidence: ['ביצועי מיקום לבדם לא יכולים לאשר כיסוי שירות עסקי.'],
       evidence_state: 'confirmed',
-      prerequisite: 'Set service area in business context first.',
-      user_instruction: 'Do not exclude locations yet. Use bid reductions only until service area is defined.',
+      prerequisite: 'יש להגדיר קודם אזור שירות בהקשר העסקי.',
+      user_instruction: 'לא להחריג עדיין מיקומים. להשתמש רק בהפחתות הצעת מחיר עד שאזור השירות מוגדר.',
       operator_steps: [
-        'Set service area in Business Context form.',
-        'Use temporary location bid reductions instead of exclusions.',
+        'להגדיר אזור שירות בטופס ההקשר העסקי.',
+        'להשתמש זמנית בהפחתות הצעת מחיר למיקומים במקום החרגות.',
       ],
-      monitor_after_change: 'Track whether weak geos remain weak after moderate bid reductions.',
-      reassess_timing: 'Re-run after service area is saved and 3-7 days of data accrue.',
-      expected_outcome: 'Prevents accidental exclusion of valid service geographies.',
-      risk_if_ignored: 'You may exclude viable demand in areas you actually serve.',
+      monitor_after_change: 'לנטר האם אזורים חלשים נשארים חלשים גם אחרי הפחתות מתונות.',
+      reassess_timing: 'להריץ מחדש לאחר שמירת אזור השירות ולאחר 3-7 ימי נתונים חדשים.',
+      expected_outcome: 'מונע החרגה בטעות של אזורי שירות תקפים.',
+      risk_if_ignored: 'ייתכן שתוחרג בטעות תנועה איכותית מאזורים שבהם אתה כן נותן שירות.',
       do_not_do_yet: true,
       requires_business_context: true,
       blocked_by_tracking: false,
@@ -968,23 +968,23 @@ function buildGuardrailDecisions(
       action_type: 'cpa_caution_guardrail',
       action_priority: 2,
       execution_step: 1,
-      confidence: 'High confidence',
+      confidence: 'ביטחון גבוה',
       category: 'measurementRisk',
       entity_level: 'account',
-      entity_name: 'CPA guardrail',
-      reason: 'Tracking is not fully trusted, so CPA conclusions should be treated as directional only.',
-      evidence: ['Measurement trust is caution level.'],
+      entity_name: 'מגן בטיחות CPA',
+      reason: 'המעקב אינו אמין לחלוטין ולכן מסקנות CPA צריכות להיחשב ככיוון בלבד.',
+      evidence: ['רמת האמון במדידה היא מצב זהירות.'],
       evidence_state: 'confirmed',
-      prerequisite: 'Strengthen conversion trust before major CPA-driven reallocations.',
-      user_instruction: 'Use small changes only; avoid large reallocations based solely on CPA.',
+      prerequisite: 'יש לחזק אמון בהמרות לפני הקצאות מחדש גדולות המבוססות על CPA.',
+      user_instruction: 'לבצע רק שינויים קטנים; להימנע מהסטות תקציב גדולות המבוססות רק על CPA.',
       operator_steps: [
-        'Validate conversion action setup and counting method.',
-        'Make only incremental bid/budget moves until trust improves.',
+        'לאמת הגדרת פעולות המרה ושיטת ספירה.',
+        'לבצע רק צעדים הדרגתיים בהצעות מחיר/תקציב עד לשיפור רמת האמון.',
       ],
-      monitor_after_change: 'Watch for stable conversion counts before taking larger actions.',
-      reassess_timing: 'Re-run after tracking checks and next reporting cycle.',
-      expected_outcome: 'Reduces risk of overreacting to partially trusted performance data.',
-      risk_if_ignored: 'Large account moves may be made on unstable CPA signals.',
+      monitor_after_change: 'לוודא שספירת ההמרות יציבה לפני צעדים גדולים יותר.',
+      reassess_timing: 'להריץ מחדש אחרי בדיקות מעקב ולאחר מחזור הדיווח הבא.',
+      expected_outcome: 'מפחית את הסיכון לתגובת יתר על נתוני ביצועים באמון חלקי.',
+      risk_if_ignored: 'שינויים גדולים בחשבון עלולים להתבסס על אותות CPA לא יציבים.',
       do_not_do_yet: false,
       requires_business_context: false,
       blocked_by_tracking: false,
@@ -1054,9 +1054,9 @@ function buildAccountStatus(measurementTrust, decisions, missingReports, missing
 }
 
 function statusHeadline(measurementTrust, highPriority) {
-  if (measurementTrust === 'untrusted') return 'Do not scale yet. Fix measurement trust first.';
-  if (highPriority > 0) return 'Act now on high-priority waste and control items.';
-  return 'Account is stable enough for gradual optimization.';
+  if (measurementTrust === 'untrusted') return 'לא לבצע סקייל עדיין. יש לתקן קודם את אמון המדידה.';
+  if (highPriority > 0) return 'יש לפעול עכשיו על פריטי בזבוז ושליטה בעדיפות גבוהה.';
+  return 'החשבון יציב מספיק לאופטימיזציה הדרגתית.';
 }
 
 function buildKnowledgeBoundaries(measurementTrust, businessContext, reportCoverage) {
@@ -1064,24 +1064,24 @@ function buildKnowledgeBoundaries(measurementTrust, businessContext, reportCover
 
   return {
     confirmed: [
-      'Spend, clicks, impressions, and recorded conversions from uploaded CSV data.',
-      'Waste and risk patterns at available entity levels.',
+      'הוצאה, קליקים, חשיפות והמרות מתועדות מתוך קובצי CSV שהועלו.',
+      'דפוסי בזבוז וסיכון ברמות הישויות הזמינות.',
     ],
     likely: [
-      'Intent mismatch and relevance issues inferred from performance patterns.',
-      'Scaling potential of currently efficient entities.',
-      ...(missingHighReports.length ? [`Confidence reduced due to missing high-impact reports: ${missingHighReports.join(', ')}`] : []),
+      'חוסר התאמה בכוונת חיפוש ובעיות רלוונטיות שמוסקות מדפוסי ביצועים.',
+      'פוטנציאל סקייל של ישויות יעילות כרגע.',
+      ...(missingHighReports.length ? [`רמת הביטחון ירדה בגלל דוחות חסרים בעלי השפעה גבוהה: ${missingHighReports.join(', ')}`] : []),
     ],
     unknown: [
-      'Lead quality and close rate quality (requires CRM/sales feedback).',
-      'Call quality or form quality beyond conversion count.',
-      'Full landing-page quality context outside CSV metrics.',
-      'Offline conversion completeness unless explicitly confirmed in settings.',
+      'איכות ליד ושיעור סגירה אמיתי (דורש משוב CRM/מכירות).',
+      'איכות שיחות או איכות טפסים מעבר לספירת המרות.',
+      'תמונת איכות מלאה של דף הנחיתה מחוץ למדדי CSV.',
+      'שלמות המרות אופליין, אלא אם אושרה במפורש בהגדרות.',
       ...(businessContext.offlineConversionsImported === false
-        ? ['Offline conversions are marked as not imported, so value-based conclusions are incomplete.']
+        ? ['המרות אופליין מסומנות כלא מיובאות, ולכן מסקנות מבוססות ערך אינן שלמות.']
         : []),
       ...(measurementTrust === 'untrusted'
-        ? ['Optimization impact cannot be trusted until tracking integrity is resolved.']
+        ? ['אי אפשר לסמוך על השפעת האופטימיזציה עד לפתרון תקינות המעקב.']
         : []),
     ],
   };
@@ -1089,72 +1089,72 @@ function buildKnowledgeBoundaries(measurementTrust, businessContext, reportCover
 
 function buildSummaryNote(measurementTrust, buckets) {
   if (measurementTrust === 'untrusted') {
-    return 'Tracking trust is low. Resolve measurement issues before major optimization changes.';
+    return 'אמון המדידה נמוך. יש לפתור בעיות מדידה לפני שינויי אופטימיזציה משמעותיים.';
   }
 
   if (buckets.immediateActions.length > 0) {
-    return 'Start with immediate actions, then move to review and scale phases in order.';
+    return 'יש להתחיל בפעולות המיידיות, ואז לעבור לפי הסדר לשלבי בדיקה וסקייל.';
   }
 
-  return 'No urgent blockers found. Continue with cautious optimization and monitoring.';
+  return 'לא נמצאו חסמים דחופים. אפשר להמשיך באופטימיזציה זהירה ובניטור.';
 }
 
 function buildOperatorSteps(finding, entity, context) {
-  const subject = entity.name || 'this entity';
+  const subject = entity.name || 'ישות זו';
 
   if (finding.category === 'measurementRisk') {
     return [
       'Google Ads > Tools > Conversions.',
-      'Verify primary conversion actions and counting setup.',
-      'Check tag firing and deduplication before further optimizations.',
-      'Re-run analysis after measurement fixes.',
+      'לאמת פעולות המרה ראשיות והגדרות ספירה.',
+      'לבדוק הפעלת תגיות ומניעת כפילויות לפני אופטימיזציות נוספות.',
+      'להריץ ניתוח מחדש לאחר תיקוני מדידה.',
     ];
   }
 
   if (finding.category === 'waste') {
     return [
-      'Google Ads > Search terms or Keywords report.',
-      `Open ${subject} and review recent spend vs conversions.`,
-      'Apply a controlled change (negative keyword or bid reduction).',
-      'Check impact before making additional cuts.',
+      'Google Ads > דוח Search terms או Keywords.',
+      `לפתוח את ${subject} ולבדוק הוצאה עדכנית מול המרות.`,
+      'להחיל שינוי מבוקר (מילת מפתח שלילית או הפחתת הצעת מחיר).',
+      'לבדוק השפעה לפני קיצוצים נוספים.',
     ];
   }
 
   if (finding.category === 'controlRisk') {
     return [
-      'Open the relevant campaign/ad group in Google Ads.',
-      'Review match type, ad relevance, and structural settings.',
-      'Apply one controlled fix at a time.',
-      'Monitor quality and CPA trend after the update.',
+      'לפתוח ב-Google Ads את הקמפיין/קבוצת המודעות הרלוונטיים.',
+      'לבדוק סוג התאמה, רלוונטיות מודעה והגדרות מבנה.',
+      'להחיל תיקון מבוקר אחד בכל פעם.',
+      'לנטר איכות ומגמת CPA אחרי העדכון.',
     ];
   }
 
   return [
-    'Confirm measurement trust and waste clean-up are complete.',
-    'Open the relevant entity and apply a small scale test (+5% to +10%).',
+    'לוודא שאמון המדידה וניקוי הבזבוז הושלמו.',
+    'לפתוח את הישות הרלוונטית ולהחיל בדיקת סקייל קטנה (+5% עד +10%).',
     context.targetCpl != null
-      ? `Check that CPA remains within target CPL (CA$${context.targetCpl}).`
-      : 'Monitor CPA closely during the test period.',
-    'Reassess before adding more budget or bid increases.',
+      ? `לוודא שה-CPA נשאר בתוך יעד ה-CPL (CA$${context.targetCpl}).`
+      : 'לנטר CPA מקרוב בתקופת הבדיקה.',
+    'לבחון מחדש לפני הוספת תקציב או העלאות הצעת מחיר נוספות.',
   ];
 }
 
 function buildMonitorGuidance(finding) {
   if (finding.category === 'measurementRisk') {
-    return 'Monitor conversion count consistency and conversion-to-click plausibility.';
+    return 'לנטר עקביות בספירת המרות והיגיון ביחס המרות-לקליקים.';
   }
   if (finding.category === 'waste') {
-    return 'Monitor spend reduction and conversion retention after the change.';
+    return 'לנטר ירידת הוצאה ושימור המרות אחרי השינוי.';
   }
   if (finding.category === 'controlRisk') {
-    return 'Monitor CTR, quality indicators, and CPA stability.';
+    return 'לנטר CTR, מדדי איכות ויציבות CPA.';
   }
-  return 'Monitor CPA and conversion volume before expanding changes.';
+  return 'לנטר CPA ונפח המרות לפני הרחבת השינויים.';
 }
 
 function confidenceRank(confidence) {
-  if (confidence === 'High confidence') return 0;
-  if (confidence === 'Medium confidence') return 1;
+  if (confidence === 'ביטחון גבוה') return 0;
+  if (confidence === 'ביטחון בינוני') return 1;
   return 2;
 }
 

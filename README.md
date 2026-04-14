@@ -1,239 +1,235 @@
-# Garage Door PPC Decision Assistant
+# עוזר החלטות PPC לדלתות מוסך
 
-Practical Google Ads decision-support tool for Garage Door lead-gen accounts.
+כלי פרקטי לתמיכה בקבלת החלטות ב-Google Ads עבור חשבונות לידים בתחום דלתות מוסך.
 
-You upload Google Ads CSV reports, and the assistant tells you:
+מעלים דוחות CSV מ-Google Ads, והמערכת מציגה:
 
-- what to do now,
-- what to review before acting,
-- what not to change yet,
-- what can be scaled later,
-- and how confident the system is.
+- מה לבצע עכשיו
+- מה לבדוק לפני פעולה
+- מה לא לשנות עדיין
+- מה מתאים לסקייל בהמשך
+- ומה רמת הביטחון של כל המלצה
 
-The product is designed for non-expert operators, not just PPC specialists.
+המערכת מיועדת גם למשתמשים שאינם מומחי PPC.
 
-## Who This Is For
+## למי זה מיועד
 
-- Owner-operators and managers running local Garage Door PPC campaigns.
-- Teams that need safe, practical guidance from CSV exports.
-- Users who want a decision order, not a flat findings list.
+- בעלי עסקים ומנהלים שמפעילים קמפיינים מקומיים
+- צוותים שצריכים הנחיה בטוחה ופרקטית מקבצי CSV
+- משתמשים שרוצים סדר החלטות ברור, לא רק רשימת ממצאים
 
-## What The Tool Does
+## מה הכלי עושה
 
-1. Accepts up to 7 Google Ads CSV report types in fixed upload slots.
-2. Normalizes and validates each report against a canonical schema.
-3. Runs rule analysis for waste, opportunities, control risks, and measurement risks.
-4. Builds a decision layer above findings with confidence and prerequisites.
-5. Renders a decision-first report in this order:
-   - Step 1: Verify tracking trust
-   - Step 2: Stop waste now
-   - Step 3: Tighten control
-   - Step 4: Improve ads/relevance/quality
-   - Step 5: Scale winners carefully
+1. מקבל עד 7 סוגי דוחות CSV בחריצי העלאה קבועים.
+2. מנרמל ומוודא תקינות לכל דוח מול סכימה אחידה.
+3. מריץ כללים לזיהוי בזבוז, הזדמנויות, סיכוני שליטה וסיכוני מדידה.
+4. בונה שכבת החלטות מעל הממצאים, עם רמת ביטחון ותנאי סף.
+5. מציג דוח מוכוון החלטות לפי סדר קבוע:
+   - שלב 1: אימות מעקב ואמון מדידה
+   - שלב 2: עצירת בזבוז
+   - שלב 3: הידוק שליטה
+   - שלב 4: שיפור מודעות/רלוונטיות/איכות
+   - שלב 5: סקייל זהיר למנצחים
 
-## The 7 Report Files (And Why They Matter)
+## 7 הדוחות (ולמה הם חשובים)
 
-The upload slots are fixed in the UI. Upload order does not matter.
+סדר ההעלאה לא משנה. השדה (slot) שאליו מעלים כן משנה.
 
-- Campaign: totals, winner/loser campaigns, impression share, budget/rank constraints
-- Ad Group: group-level waste and structure issues
-- Search Terms: negative keyword opportunities and intent quality
-- Keywords: match type control, quality score, CTR/CPC/CPA efficiency
-- Ads: ad-level quality signals (copy/relevance hints)
-- Devices: device-specific waste/winner signals
-- Location: geo-specific waste/winner signals
+- Campaign: סכומי חשבון, קמפיינים מנצחים/חלשים, מגבלות תקציב/דירוג
+- Ad Group: בזבוז ובעיות מבנה ברמת קבוצת מודעות
+- Search Terms: הזדמנויות למילות מפתח שליליות ואיכות כוונה
+- Keywords: שליטה בסוג התאמה, ציון איכות, יעילות CTR/CPC/CPA
+- Ads: אותות איכות ברמת מודעה (נוסח/רלוונטיות)
+- Devices: אותות בזבוז/מנצחים לפי מכשיר
+- Location: אותות בזבוז/מנצחים לפי מיקום
 
-### Most Important Files
+### דוחות בעדיפות גבוהה
 
-If you can only upload a subset, prioritize:
+אם אפשר להעלות רק חלק:
 
 1. Campaign
 2. Search Terms
 3. Keywords
 4. Ad Group
 
-Ads, Devices, and Location are still useful and improve confidence/detail.
+Ads, Devices, Location עדיין מוסיפים דיוק וביטחון.
 
-## Upload Behavior
+## התנהגות העלאה
 
-- Upload order: does not matter.
-- Slot mapping: does matter (each file must go in the correct slot).
-- If a file appears to be uploaded in the wrong slot, the app warns you.
-- If required columns are missing for a given file, that file is blocked from analysis.
+- סדר העלאה: לא משנה.
+- התאמה לשדה הנכון: כן משנה.
+- אם קובץ כנראה הועלה לשדה שגוי, תוצג אזהרה.
+- אם חסרות עמודות חובה, אותו דוח יחסם לניתוח.
 
-## Business Context (Recommended)
+## הקשר עסקי (מומלץ)
 
-The UI includes a lightweight business settings form.
-These settings are saved locally in your browser and used in decision logic.
+בממשק יש טופס הגדרות עסקיות קל משקל.
+ההגדרות נשמרות מקומית בדפדפן ונכנסות ללוגיקת ההחלטות.
 
-Supported settings:
+שדות נתמכים:
 
 - target CPL
 - service area
 - excluded services
 - preferred lead type
 - average deal value
-- whether tracking is trusted
-- whether offline conversions are imported
-- optional note for what counts as a good lead
+- tracking trusted
+- offline conversions imported
+- good lead note (אופציונלי)
 
-If context is missing, some recommendations are marked review-first instead of immediate action.
+כאשר ההקשר חסר, חלק מההמלצות מסומנות ל"בדיקה לפני פעולה" במקום "לבצע עכשיו".
 
-How to use this form well:
+איך למלא נכון:
 
-1. Fill at least target CPL, service area, tracking trust, and offline conversion status.
-2. Add excluded services so negative-keyword guidance can be more specific.
-3. Add preferred lead type / good lead note so you remember conversion count is not lead quality.
-4. Save the form before clicking Analyze.
+1. למלא לפחות target CPL, service area, tracking trusted, offline conversions imported.
+2. למלא excluded services כדי לדייק המלצות שלילות.
+3. למלא preferred lead type/good lead note כדי לזכור שספירת המרות אינה איכות ליד.
+4. לשמור את הטופס לפני לחיצה על ניתוח.
 
-## Confidence Levels
+## רמות ביטחון
 
-Every decision has one of:
+לכל החלטה מוצגת רמת ביטחון:
 
-- High confidence
-- Medium confidence
-- Low confidence
+- ביטחון גבוה
+- ביטחון בינוני
+- ביטחון נמוך
 
-Confidence is based on:
+הביטחון מחושב לפי:
 
-- available data volume
-- presence/absence of relevant report types
-- tracking trust state
-- direct evidence vs inferred conclusion
-- missing business context
-- safety of immediate execution
+- נפח הנתונים הזמין
+- קיום/חוסר בדוחות רלוונטיים
+- מצב אמון המעקב
+- ראיה ישירה מול מסקנה מוסקת
+- הקשר עסקי חסר
+- בטיחות ביצוע מיידי
 
-## Confirmed vs Likely vs Unknown
+## מאומת / סביר / לא ידוע
 
-The report explicitly separates:
+הדוח מפריד במפורש בין:
 
-- Confirmed from CSV data
-- Likely but inferred
-- Unknown from CSV alone
+- מאומת מתוך הנתונים
+- סביר אך מוסק
+- לא ידוע מתוך CSV בלבד
 
-Examples of unknown/partial without external systems:
+דברים שלא ניתן להסיק במלואם בלי מערכות חיצוניות:
 
-- lead quality
-- close rate quality
-- call quality
-- full landing page quality context
-- CRM accuracy
-- offline conversion completeness (unless confirmed)
+- איכות ליד אמיתית
+- איכות שיעור סגירה
+- איכות שיחות
+- איכות דף נחיתה מלאה
+- דיוק CRM
+- שלמות המרות אופליין (אלא אם אושר במפורש)
 
-## Safe Usage Flow For Non-Experts
+## זרימת עבודה בטוחה למשתמש לא-מומחה
 
-When you run an analysis:
+1. להתחיל מסטטוס חשבון ומשלב 1.
+2. אם אמון המעקב נמוך, לטפל קודם במדידה.
+3. לבצע פעולות "מה לעשות עכשיו".
+4. לעבור על "לבדוק לפני פעולה" בזהירות.
+5. לכבד הנחיות "לא לשנות עדיין".
+6. לעבור ל"סקייל בהמשך" רק אחרי פתיחת חסמים מוקדמים.
 
-1. Start with Account Status and Step 1.
-2. If tracking trust is untrusted, fix measurement first.
-3. Apply Do This Now actions (highest safety/priority).
-4. Handle Review Before Acting items with caution.
-5. Respect Do Not Change Yet guardrails.
-6. Only move to Scale Later once earlier blockers are resolved.
+## פירוש דליי החלטות
 
-## Decision Buckets Explained
+- מה לעשות עכשיו:
+  פעולות שסווגו כ-safe_to_do_now.
 
-- Do This Now:
-   Actions currently classified as safe_to_do_now.
-   Usually small, high-impact, and low-regret changes.
+- לבדוק לפני פעולה:
+  פעולות שסווגו כ-review_before_acting.
 
-- Review Before Acting:
-   Actions classified as review_before_acting.
-   You should verify intent, fit, or context before saving changes.
+- פעולות משניות:
+  פעולות חשובות אך לא דחופות, ולא חסומות.
 
-- Secondary Actions:
-   Useful actions that are not urgent and not blocked.
+- לא לשנות עדיין:
+  פעולות חסומות עקב ראיות חלשות, אמון מעקב נמוך או הקשר עסקי חסר.
 
-- Do Not Change Yet:
-   Actions blocked by weak evidence, tracking trust issues, or missing business context.
+- סקייל בהמשך:
+  פעולות צמיחה לאחר טיפול ביסודות.
 
-- Scale Later:
-   Growth actions shown only after foundational issues are handled.
+## פעולות שבדרך כלל בטוח לבצע מיד
 
-## What Is Usually Safe To Do Directly
+- הוספת שלילות ברורות ממונחי חיפוש לא רלוונטיים
+- הפחתות הצעת מחיר מתונות (לא החרגה מלאה) בפלחים בזבזניים
+- תיקון בעיות מדידה כשמופיעות התראות
 
-- Add obvious negative keywords from clearly irrelevant search terms.
-- Apply moderate bid reductions (not full exclusions) on repeatedly wasteful segments.
-- Fix measurement setup issues when flagged.
+## פעולות שבדרך כלל דורשות בדיקה לפני ביצוע
 
-## What Should Usually Be Reviewed First
+- עצירת broad ללא ראיות מלאות ממונחי חיפוש
+- החרגות מיקום בלי אישור התאמה לאזור שירות
+- סקייל כשיעד CPL חסר או ערך אופליין לא שלם
+- כל פעולה עם ביטחון בינוני/נמוך או ראיה מוסקת
 
-- Broad keyword pauses when Search Terms evidence is incomplete.
-- Location exclusions without confirmed service-area fit.
-- Scaling moves when target CPL is missing or value tracking is incomplete.
-- Any action with medium/low confidence or inferred evidence.
+## כללי בטיחות קשיחים
 
-## Hard Guardrails
+- לא להעלות תקציבים כשאמון המעקב חלש
+- לא לעצור broad לפני בדיקת מונחי חיפוש
+- לא להחריג מיקומים לפני אימות התאמה לאזור שירות
+- לא להתייחס לספירת המרות כאינדיקציה לאיכות ליד
+- לא לבסס החלטות CPA חזקות כשאמון המדידה חלש
 
-- Do not raise budgets yet when tracking trust is weak.
-- Do not pause broad keywords before reviewing search terms.
-- Do not exclude locations before confirming service-area fit.
-- Do not treat conversion count alone as lead quality.
-- Do not trust CPA conclusions fully when conversion trust is weak.
+## דוחות חסרים והקשר חסר
 
-## Missing Files And Missing Context
+- דוחות חסרים לא תמיד עוצרים ניתוח, אך מורידים ביטחון.
+- חסר בדוחות משמעותיים מוריד אמינות להמלצות חזקות.
+- הגדרות עסקיות חסרות עשויות לחסום פעולות מיידיות.
 
-- Missing reports do not always stop analysis, but they reduce confidence.
-- Missing high-impact reports reduce reliability of strong recommendations.
-- Missing business settings can block some actions from being immediate.
+שני הסוגים מוצגים בבירור בממשק.
 
-Both are shown clearly in the UI.
+## תדירות הרצה מחדש אחרי שינויים
 
-## Re-Run Cadence After Changes
+- אחרי תיקונים דחופים (מדידה/בזבוז): להריץ שוב תוך 3-7 ימים.
+- אחרי ניסויי נוסח מודעות: להריץ שוב סביב 7 ימים.
+- אחרי ניסויי סקייל (ביד/תקציב): להריץ שוב תוך 5-7 ימים.
+- אם ההוצאה גבוהה: להריץ בתדירות גבוהה יותר.
 
-- After urgent fixes (tracking/waste): re-run in 3-7 days.
-- After ad copy tests: re-run in about 7 days.
-- After bid or budget scaling tests: re-run in 5-7 days.
-- If spend is high, run more frequently to reduce risk.
+מומלץ להעלות מחדש את אותם 7 דוחות בכל מחזור כדי להשוות לפני/אחרי בצורה אמינה.
 
-Always try to re-upload the same 7 report slots after changes so before/after comparison stays reliable.
+## פיתוח מקומי
 
-## Local Development
+### דרישות מקדימות
 
-### Prerequisites
+- Node.js 18 ומעלה
 
-- Node.js 18+
-
-### Install
+### התקנה
 
 ```bash
 npm install
 ```
 
-### Run (Frontend + Backend)
+### הרצה (Frontend + Backend)
 
 ```bash
 npm run dev
 ```
 
-Starts:
+כתובות ברירת מחדל:
 
 - Frontend (Vite): http://localhost:5173
 - Backend (Express): http://localhost:3001
 
-### Build
+### בנייה
 
 ```bash
 npm run build
 ```
 
-### Start Server (Production-style)
+### הרצת שרת (Production-style)
 
 ```bash
 npm run start
 ```
 
-## Key Assumptions And Limitations
+## הנחות ומגבלות
 
-- Input files are standard Google Ads CSV exports.
-- Findings and decisions are rule-based guidance, not predictive models.
-- Local history and business settings are browser-local only (no database).
-- The app does not directly access CRM, call recordings, or revenue systems.
-- Lead quality, close rate, and sales quality still require manual/CRM validation.
+- הקלט הוא קובצי CSV סטנדרטיים מ-Google Ads.
+- הממצאים וההחלטות מבוססי כללים, לא מודלים חזויים.
+- היסטוריה והגדרות נשמרות מקומית בדפדפן בלבד (ללא DB).
+- המערכת לא ניגשת ישירות ל-CRM, הקלטות שיחות או מערכות הכנסה.
+- איכות ליד, close rate ואיכות מכירה עדיין דורשים אימות ידני/CRM.
 
-## Technical Notes
+## הערות טכניות
 
-- One active frontend entry path: index.html -> src/main.js.
-- Canonical normalized metric naming uses conversionRate.
-- Totals/waste/best-performer use explicit non-overlapping source hierarchy to avoid double counting.
-- Decision output includes structured action objects with priority, confidence, prerequisites, and safety flags.
+- נתיב frontend פעיל אחד: index.html -> src/main.js.
+- שם מדד מנורמל קנוני לשיעור המרה: conversionRate.
+- חישובי totals/waste/best-performer משתמשים בהיררכיית מקור מפורשת ללא חפיפה כדי למנוע ספירה כפולה.
+- פלט ההחלטות כולל אובייקטים מובנים עם עדיפות, ביטחון, תנאי סף ודגלי בטיחות.

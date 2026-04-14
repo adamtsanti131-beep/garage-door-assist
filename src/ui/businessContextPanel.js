@@ -21,12 +21,12 @@ export function initBusinessContextPanel(onContextChange) {
     event.preventDefault();
     const next = readFormValues(form);
     const saved = saveBusinessContext(next);
-    status.textContent = 'Saved. These settings will be used in the next analysis.';
+    status.textContent = 'נשמר. ההגדרות האלה ישמשו בניתוח הבא.';
     onContextChange(saved);
   });
 
   form.addEventListener('input', () => {
-    status.textContent = 'Unsaved changes';
+    status.textContent = 'יש שינויים שלא נשמרו';
   });
 
   onContextChange(context);

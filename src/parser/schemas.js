@@ -66,45 +66,45 @@ export const COLUMN_ALIASES = [
 
 export const SCHEMAS = {
   [REPORT_TYPES.CAMPAIGN]: {
-    label: 'Campaign Report',
+    label: 'דוח קמפיינים',
     required:  ['campaign', 'clicks', 'impressions', 'cost', 'conversions'],
     preferred: ['ctr', 'avgCpc', 'conversionRate', 'costPerConversion',
                 'searchImprShare', 'searchLostIsRank', 'searchLostIsBudget'],
   },
 
   [REPORT_TYPES.AD_GROUP]: {
-    label: 'Ad Group Report',
+    label: 'דוח קבוצות מודעות',
     required:  ['campaign', 'adGroup', 'clicks', 'impressions', 'cost', 'conversions'],
     preferred: ['ctr', 'avgCpc', 'conversionRate', 'costPerConversion'],
   },
 
   [REPORT_TYPES.SEARCH_TERMS]: {
-    label: 'Search Terms Report',
+    label: 'דוח מונחי חיפוש',
     required:  ['searchTerm', 'campaign', 'clicks', 'cost', 'conversions'],
     preferred: ['adGroup', 'impressions', 'ctr', 'avgCpc', 'conversionRate',
                 'costPerConversion', 'matchType'],
   },
 
   [REPORT_TYPES.KEYWORDS]: {
-    label: 'Keywords Report',
+    label: 'דוח מילות מפתח',
     required:  ['keyword', 'campaign', 'adGroup', 'matchType', 'clicks', 'cost', 'conversions'],
     preferred: ['impressions', 'ctr', 'avgCpc', 'conversionRate', 'costPerConversion', 'qualityScore'],
   },
 
   [REPORT_TYPES.ADS]: {
-    label: 'Ads Report',
+    label: 'דוח מודעות',
     required:  ['campaign', 'adGroup', 'clicks', 'impressions', 'cost', 'conversions'],
     preferred: ['ctr', 'finalUrl', 'adDescription'],
   },
 
   [REPORT_TYPES.DEVICES]: {
-    label: 'Devices Report',
+    label: 'דוח מכשירים',
     required:  ['device', 'campaign', 'clicks', 'cost', 'conversions'],
     preferred: ['impressions', 'ctr', 'avgCpc', 'conversionRate', 'costPerConversion'],
   },
 
   [REPORT_TYPES.LOCATION]: {
-    label: 'Location Report',
+    label: 'דוח מיקומים',
     required:  ['location', 'campaign', 'clicks', 'cost', 'conversions'],
     preferred: ['impressions', 'ctr', 'avgCpc', 'conversionRate', 'costPerConversion'],
   },

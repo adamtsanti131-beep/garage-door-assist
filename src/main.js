@@ -32,8 +32,8 @@ function onFilesChange(files) {
   const hasAny = Object.values(files).some(f => f !== null);
   document.getElementById('btn-analyze').disabled = !hasAny;
   document.getElementById('analyze-hint').textContent = hasAny
-    ? 'Ready to analyze'
-    : 'Upload at least one CSV to analyze';
+    ? 'מוכן לניתוח'
+    : 'יש להעלות לפחות קובץ CSV אחד לניתוח';
 }
 
 function onBusinessContextChange(context) {
@@ -48,8 +48,8 @@ async function runAnalysis() {
 
   btn.disabled = true;
   btn.classList.add('loading');
-  btn.textContent  = 'Analyzing...';
-  hint.textContent = 'Checking server...';
+  btn.textContent  = 'מנתח...';
+  hint.textContent = 'בודק זמינות שרת...';
 
   try {
     // ── Server connectivity check ─────────────────────────────────────────────
@@ -60,12 +60,12 @@ async function runAnalysis() {
     } catch {
       throw new Error(
         'Analysis server is not running. ' +
-        'Open a terminal in the project folder and run: npm run dev  ' +
-        '(both Vite and the Express server must start)'
+        'פתח טרמינל בתיקיית הפרויקט והריץ: npm run dev  ' +
+        '(גם Vite וגם שרת Express חייבים לעלות)'
       );
     }
 
-    hint.textContent = 'Uploading files...';
+    hint.textContent = 'מעלה קבצים...';
 
     const formData = new FormData();
     for (const [key, file] of Object.entries(currentFiles)) {
@@ -75,13 +75,13 @@ async function runAnalysis() {
     currentBusinessContext = readCurrentBusinessContext();
     formData.append('businessContext', JSON.stringify(currentBusinessContext));
 
-    hint.textContent = 'Running analysis...';
+    hint.textContent = 'מריץ ניתוח...';
 
     let response;
     try {
       response = await fetch('/analyze', { method: 'POST', body: formData });
     } catch {
-      throw new Error('Cannot reach server. Open a terminal in the project folder and run: npm run dev');
+      throw new Error('לא ניתן להתחבר לשרת. פתח טרמינל בתיקיית הפרויקט והרץ: npm run dev');
     }
 
     if (!response.ok) {
@@ -93,9 +93,9 @@ async function runAnalysis() {
         errorMsg = parsed.error || `Server returned ${response.status}`;
       } catch {
         if (response.status === 502 || response.status === 503 || response.status === 504) {
-          errorMsg = 'Cannot reach the analysis server. Make sure "npm run dev" is running and both Vite and the Express server started correctly.';
+          errorMsg = 'לא ניתן להגיע לשרת הניתוח. ודא ש-"npm run dev" רץ ושגם Vite וגם שרת Express עלו תקין.';
         } else {
-          errorMsg = `Server returned ${response.status}. Check the terminal for error details.`;
+          errorMsg = `השרת החזיר ${response.status}. בדוק את הטרמינל לפרטי שגיאה.`;
         }
       }
       throw new Error(errorMsg);
@@ -116,14 +116,14 @@ async function runAnalysis() {
 
     const immediate = report.decisionFlow?.decisionBuckets?.immediateActions?.length ?? 0;
     const review = report.decisionFlow?.decisionBuckets?.reviewBeforeAction?.length ?? 0;
-    hint.textContent = `Done — ${immediate} immediate action${immediate !== 1 ? 's' : ''}, ${review} review item${review !== 1 ? 's' : ''}`;
+    hint.textContent = `הושלם — ${immediate} פעולה מיידית, ${review} פריט לבדיקה`;
 
   } catch (err) {
-    hint.textContent = `Error: ${err.message}`;
+    hint.textContent = `שגיאה: ${err.message}`;
     console.error('[PPC Assistant]', err);
   } finally {
     btn.disabled    = false;
     btn.classList.remove('loading');
-    btn.textContent = 'Analyze Reports';
+    btn.textContent = 'ניתוח דוחות';
   }
 }

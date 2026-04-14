@@ -40,7 +40,7 @@ app.post('/analyze', upload.fields(UPLOAD_FIELDS), (req, res) => {
     const businessContext = parseBusinessContext(req.body?.businessContext);
 
     if (Object.keys(files).length === 0) {
-      return res.status(400).json({ error: 'No CSV files were uploaded.' });
+      return res.status(400).json({ error: 'לא הועלו קובצי CSV.' });
     }
 
     // Parse each file using the correct parser for its slot type
@@ -56,7 +56,7 @@ app.post('/analyze', upload.fields(UPLOAD_FIELDS), (req, res) => {
 
       // Block this report type if required columns are missing
       if (!result.validation.ok) {
-        console.warn(`[/analyze] ${reportType} blocked:`, result.validation.errors);
+        console.warn(`[/analyze] ${reportType} נחסם:`, result.validation.errors);
         continue;
       }
 
@@ -77,7 +77,7 @@ app.post('/analyze', upload.fields(UPLOAD_FIELDS), (req, res) => {
     const hasAnyData = Object.values(data).some(arr => arr.length > 0);
     if (!hasAnyData) {
       return res.status(400).json({
-        error: 'All uploaded files failed validation. Check that you uploaded the correct report types.',
+        error: 'כל הקבצים שהועלו נכשלו בבדיקת תקינות. יש לוודא שהועלו סוגי הדוחות הנכונים.',
         validationResults,
       });
     }
@@ -91,7 +91,7 @@ app.post('/analyze', upload.fields(UPLOAD_FIELDS), (req, res) => {
     res.json(report);
 
   } catch (err) {
-    console.error('[/analyze] Unexpected error:', err);
+    console.error('[/analyze] שגיאה לא צפויה:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -125,16 +125,16 @@ if (hasDist) {
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {
-  console.error('[/analyze] Middleware error:', err);
-  res.status(500).json({ error: err.message || 'Unexpected server error' });
+  console.error('[/analyze] שגיאת תווכה:', err);
+  res.status(500).json({ error: err.message || 'שגיאת שרת לא צפויה' });
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`PPC Assistant server running → http://localhost:${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
+  console.log(`שרת עוזר PPC פעיל בכתובת: http://localhost:${PORT}`);
+  console.log(`בדיקת תקינות: http://localhost:${PORT}/health`);
 });
 
 function parseBusinessContext(raw) {

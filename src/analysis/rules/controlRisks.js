@@ -33,9 +33,9 @@ function nonConvertingCampaigns(campaigns) {
     findings.push({
       category: 'controlRisk',
       severity: 'high',
-      what: `Campaign "${camp.campaign ?? 'Unknown campaign'}" spent CA$${fmt(camp.cost)} with zero conversions.`,
-      why: 'A whole campaign spending without conversion output points to structural targeting or execution issues.',
-      action: 'Verify tracking first, then audit targeting and landing page alignment. Pause until corrected if needed.',
+      what: `הקמפיין "${camp.campaign ?? 'קמפיין לא ידוע'}" הוציא CA$${fmt(camp.cost)} ללא המרות.`,
+      why: 'קמפיין שלם שמוציא תקציב ללא תוצאות המרה מצביע על בעיית טירגוט או ביצוע מבנית.',
+      action: 'לאמת קודם מעקב המרות, ואז לבדוק טירגוט והתאמת דף נחיתה. לעצור עד תיקון במקרה הצורך.',
       data: camp,
       signal: 'non-converting-campaign',
     });
@@ -60,9 +60,9 @@ function expensiveKeywords(keywords) {
     findings.push({
       category: 'controlRisk',
       severity,
-      what: `Keyword "${kw.keyword ?? 'Unknown keyword'}" (${kw.matchType ?? 'unknown match type'}) is at CA$${fmt(cpl)} CPA.`,
-      why: `CPA is above the poor threshold (CA$${T.cplPoor}) and likely unsustainable for efficient growth.`,
-      action: 'Reduce bid by 20-30%, review intent quality, and pause if efficiency does not recover.',
+      what: `מילת המפתח "${kw.keyword ?? 'מילת מפתח לא ידועה'}" (${kw.matchType ?? 'סוג התאמה לא ידוע'}) עומדת על CA$${fmt(cpl)} CPA.`,
+      why: `ה-CPA גבוה מסף ביצועים חלש (CA$${T.cplPoor}) וסביר שאינו בר קיימא לצמיחה יעילה.`,
+      action: 'להוריד הצעת מחיר ב-20%-30%, לבדוק איכות כוונת חיפוש, ולעצור אם היעילות לא משתפרת.',
       data: kw,
       signal: 'expensive-keyword',
     });
@@ -83,9 +83,9 @@ function lowQualityScoreKeywords(keywords) {
     findings.push({
       category: 'controlRisk',
       severity: kw.qualityScore <= 2 ? 'high' : 'medium',
-      what: `Keyword "${kw.keyword ?? 'Unknown keyword'}" has Quality Score ${kw.qualityScore}/10.`,
-      why: 'Low quality score usually increases CPC and reduces competitive ad rank.',
-      action: 'Improve ad relevance, expected CTR, and landing page alignment for this keyword cluster.',
+      what: `מילת המפתח "${kw.keyword ?? 'מילת מפתח לא ידועה'}" עם ציון איכות ${kw.qualityScore}/10.`,
+      why: 'ציון איכות נמוך בדרך כלל מעלה CPC ומחליש את דירוג המודעה בתחרות.',
+      action: 'לשפר רלוונטיות מודעה, CTR צפוי והתאמת דף נחיתה לקבוצת המילים הזו.',
       data: kw,
       signal: 'low-quality-score',
     });
@@ -111,9 +111,9 @@ function broadMatchWithoutNegatives(keywords) {
     findings.push({
       category: 'controlRisk',
       severity: 'medium',
-      what: `${broadKeywords.length} broad-match keywords spent CA$${fmt(totalBroadSpend)} with zero conversions.`,
-      why: 'Broad match without strong negative coverage often leaks spend to low-intent queries.',
-      action: 'Audit search terms, expand negatives, and shift fragile broad terms to phrase or exact where appropriate.',
+      what: `${broadKeywords.length} מילות מפתח בהתאמה רחבה הוציאו CA$${fmt(totalBroadSpend)} ללא המרות.`,
+      why: 'התאמה רחבה ללא כיסוי שלילות חזק גורמת לרוב לזליגת תקציב לשאילתות עם כוונה נמוכה.',
+      action: 'לבדוק מונחי חיפוש, להרחיב רשימת שלילות, ולהעביר מונחים רחבים בעייתיים להתאמה ביטויית או מדויקת כשצריך.',
       data: { broadKeywords, totalBroadSpend },
       signal: 'broad-match-risk',
     });
@@ -136,9 +136,9 @@ function lowImpressionShare(campaigns) {
     findings.push({
       category: 'controlRisk',
       severity: 'medium',
-      what: `Campaign "${camp.campaign ?? 'Unknown campaign'}" has only ${fmt(is)}% search impression share.`,
-      why: 'The campaign converts but misses a large share of eligible demand.',
-      action: 'Identify whether loss is budget- or rank-driven, then adjust budget, bid, or quality inputs accordingly.',
+      what: `לקמפיין "${camp.campaign ?? 'קמפיין לא ידוע'}" יש רק ${fmt(is)}% נתח חשיפות בחיפוש.`,
+      why: 'הקמפיין ממיר אך מפספס חלק גדול מהביקוש הזכאי.',
+      action: 'לזהות אם האובדן נובע מתקציב או דירוג, ואז להתאים תקציב, הצעת מחיר או איכות בהתאם.',
       data: camp,
       signal: 'low-impression-share',
     });

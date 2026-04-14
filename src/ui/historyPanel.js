@@ -13,7 +13,7 @@ export function initHistoryPanel(onLoadReport) {
   renderList(onLoadReport);
 
   document.getElementById('btn-clear-history')?.addEventListener('click', () => {
-    if (confirm('Clear all analysis history? This cannot be undone.')) {
+    if (confirm('למחוק את כל היסטוריית הניתוחים? לא ניתן לשחזר.')) {
       clearHistory();
       renderList(onLoadReport);
     }
@@ -38,7 +38,7 @@ function renderList(onLoadReport) {
   listEl.innerHTML = '';
 
   if (history.length === 0) {
-    listEl.innerHTML = '<p class="history-empty">No previous analyses yet.</p>';
+    listEl.innerHTML = '<p class="history-empty">אין עדיין ניתוחים קודמים.</p>';
     return;
   }
 
@@ -48,7 +48,7 @@ function renderList(onLoadReport) {
     el.setAttribute('role', 'button');
     el.setAttribute('tabindex', '0');
 
-    const dateStr = new Date(entry.timestamp).toLocaleString('en-CA', {
+    const dateStr = new Date(entry.timestamp).toLocaleString('he-IL', {
       dateStyle: 'medium',
       timeStyle: 'short',
     });

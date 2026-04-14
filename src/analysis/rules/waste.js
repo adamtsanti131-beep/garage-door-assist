@@ -43,17 +43,17 @@ function zeroLeadsHighSpend(rows) {
 
     if (!meetsWasteThreshold) continue;
 
-    const label = r.searchTerm ?? r.keyword ?? 'Unknown term';
+    const label = r.searchTerm ?? r.keyword ?? 'מונח לא ידוע';
     const severity = r.cost >= T.minSpendForWaste ? 'high' : 'medium';
 
     findings.push({
       category: 'waste',
       severity,
-      what: `"${label}" spent CA$${fmt(r.cost)} with ${r.clicks} clicks and zero conversions.`,
-      why: 'The volume is high enough to treat this as reliable waste, not a random fluctuation.',
+      what: `"${label}" הוציא CA$${fmt(r.cost)} עם ${r.clicks} קליקים וללא המרות.`,
+      why: 'נפח הנתונים מספיק גבוה כדי להחשיב זאת כבזבוז אמין ולא כרעש אקראי.',
       action: r.searchTerm
-        ? `Add "${label}" as a negative keyword, or negate only the irrelevant fragment if part of the term is still useful.`
-        : 'Inspect related search terms and add non-relevant queries as negatives before allocating more budget.',
+        ? `להוסיף את "${label}" כמילת מפתח שלילית, או לשלול רק את החלק הלא רלוונטי אם חלק מהמונח עדיין שימושי.`
+        : 'לבדוק מונחי חיפוש קשורים ולהוסיף שלילות לשאילתות לא רלוונטיות לפני הגדלת תקציב.',
       data: r,
       signal: 'zero-leads-term',
     });
@@ -78,9 +78,9 @@ function overallWastedSpendPct(rows, sourceKey) {
     return [{
       category: 'waste',
       severity: 'high',
-      what: `${pct100(pct)}% of spend from ${labelForSource(sourceKey)} generated zero conversions (CA$${fmt(wastedSpend)} of CA$${fmt(totalSpend)}).`,
-      why: 'A large share of spend is producing no measurable outcome, which materially weakens account efficiency.',
-      action: 'Run a waste clean-up pass: tighten match types, add negatives from search terms, and reduce bids on non-converting entities.',
+      what: `${pct100(pct)}% מההוצאה מתוך ${labelForSource(sourceKey)} יצרו אפס המרות (CA$${fmt(wastedSpend)} מתוך CA$${fmt(totalSpend)}).`,
+      why: 'חלק גדול מהתקציב לא מייצר תוצאה מדידה ולכן פוגע מהותית ביעילות החשבון.',
+      action: 'להריץ ניקוי בזבוז: להדק סוגי התאמה, להוסיף שלילות ממונחי החיפוש, ולהוריד הצעות מחיר בישויות לא ממירות.',
       data: { wastedSpend, totalSpend, source: sourceKey },
       signal: 'wasted-spend-share',
     }];
@@ -90,9 +90,9 @@ function overallWastedSpendPct(rows, sourceKey) {
     return [{
       category: 'waste',
       severity: 'medium',
-      what: `${pct100(pct)}% of spend from ${labelForSource(sourceKey)} generated zero conversions (CA$${fmt(wastedSpend)} of CA$${fmt(totalSpend)}).`,
-      why: 'The account is leaking budget in areas that currently do not convert.',
-      action: 'Review non-converting entities and tighten targeting before scaling.',
+      what: `${pct100(pct)}% מההוצאה מתוך ${labelForSource(sourceKey)} יצרו אפס המרות (CA$${fmt(wastedSpend)} מתוך CA$${fmt(totalSpend)}).`,
+      why: 'החשבון מדליף תקציב לאזורים שבשלב זה אינם ממירים.',
+      action: 'לבדוק ישויות שאינן ממירות ולהדק טירגוט לפני הגדלה.',
       data: { wastedSpend, totalSpend, source: sourceKey },
       signal: 'wasted-spend-share',
     }];
@@ -114,9 +114,9 @@ function expensiveKeywordsNoLeads(keywords) {
     findings.push({
       category: 'waste',
       severity: 'medium',
-      what: `Keyword "${kw.keyword ?? 'Unknown keyword'}" (${kw.matchType ?? 'unknown match type'}) has ${kw.clicks} clicks and CA$${fmt(kw.cost)} spend with zero conversions.`,
-      why: 'At this click volume, the keyword is a strong waste candidate.',
-      action: 'Lower bid by 20%, validate intent and landing-page fit, then pause if no improvement after a review cycle.',
+      what: `מילת המפתח "${kw.keyword ?? 'מילת מפתח לא ידועה'}" (${kw.matchType ?? 'סוג התאמה לא ידוע'}) קיבלה ${kw.clicks} קליקים והוצאה של CA$${fmt(kw.cost)} ללא המרות.`,
+      why: 'בנפח קליקים כזה זו מועמדת חזקה לבזבוז.',
+      action: 'להוריד הצעת מחיר ב-20%, לאמת כוונת חיפוש והתאמת דף נחיתה, ואז לעצור אם אין שיפור אחרי מחזור בדיקה.',
       data: kw,
       signal: 'non-converting-keyword',
     });
@@ -137,9 +137,9 @@ function nonConvertingAdGroups(adGroups) {
     findings.push({
       category: 'waste',
       severity: 'medium',
-      what: `Ad group "${ag.adGroup ?? 'Unknown ad group'}" in campaign "${ag.campaign ?? 'Unknown campaign'}" spent CA$${fmt(ag.cost)} with zero conversions.`,
-      why: 'The issue appears structural at ad-group scope, not isolated to a single term.',
-      action: 'Audit term quality, ad relevance, and landing page alignment; pause if correction attempts fail.',
+      what: `קבוצת המודעות "${ag.adGroup ?? 'קבוצת מודעות לא ידועה'}" בקמפיין "${ag.campaign ?? 'קמפיין לא ידוע'}" הוציאה CA$${fmt(ag.cost)} ללא המרות.`,
+      why: 'נראה שמדובר בבעיה מבנית ברמת קבוצת מודעות, לא במקרה נקודתי של מונח בודד.',
+      action: 'לבצע ביקורת איכות מונחים, רלוונטיות מודעה והתאמת דף נחיתה; לעצור אם ניסיונות התיקון לא מצליחים.',
       data: ag,
       signal: 'non-converting-adgroup',
     });
@@ -155,13 +155,13 @@ function pct100(n) { return (n * 100).toFixed(0); }
 
 function labelForSource(sourceKey) {
   const labels = {
-    campaigns: 'campaign-level data',
-    adGroups: 'ad-group-level data',
-    keywords: 'keyword-level data',
-    searchTerms: 'search-term-level data',
-    ads: 'ad-level data',
-    devices: 'device-level data',
-    locations: 'location-level data',
+    campaigns: 'נתונים ברמת קמפיין',
+    adGroups: 'נתונים ברמת קבוצת מודעות',
+    keywords: 'נתונים ברמת מילת מפתח',
+    searchTerms: 'נתונים ברמת מונח חיפוש',
+    ads: 'נתונים ברמת מודעה',
+    devices: 'נתונים ברמת מכשיר',
+    locations: 'נתונים ברמת מיקום',
   };
-  return labels[sourceKey] ?? 'the selected dataset';
+  return labels[sourceKey] ?? 'מערך הנתונים שנבחר';
 }

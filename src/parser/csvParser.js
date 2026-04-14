@@ -18,13 +18,13 @@ export function parseCSV(csvText) {
   const dataLines = lines.filter(line => line.trim() !== '');
 
   if (dataLines.length === 0) {
-    throw new Error('The CSV file appears to be empty.');
+    throw new Error('נראה שקובץ ה-CSV ריק.');
   }
 
   // Find the header row — Google Ads sometimes prepends 1-2 metadata lines
   const headerIndex = findHeaderRow(dataLines);
   if (headerIndex === -1) {
-    throw new Error('Could not find a valid header row in this CSV.');
+    throw new Error('לא נמצאה שורת כותרת תקינה בקובץ ה-CSV.');
   }
 
   const headers = parseCSVLine(dataLines[headerIndex]).map(h => h.trim());
@@ -46,7 +46,7 @@ export function parseCSV(csvText) {
   }
 
   if (rows.length === 0) {
-    throw new Error('No data rows found after the header. Is this the right file?');
+    throw new Error('לא נמצאו שורות נתונים אחרי הכותרת. האם זה הקובץ הנכון?');
   }
 
   return { headers, rows };

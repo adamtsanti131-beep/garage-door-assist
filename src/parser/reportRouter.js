@@ -36,7 +36,7 @@ const PARSERS = {
 export function routeReport(csvText, reportType) {
   const parser = PARSERS[reportType];
   if (!parser) {
-    return errorResult(`Unknown report type: "${reportType}"`);
+    return errorResult(`סוג דוח לא מוכר: "${reportType}"`);
   }
 
   const result = parser(csvText);
@@ -50,7 +50,7 @@ export function routeReport(csvText, reportType) {
         const detectedLabel = SCHEMAS[detected]?.label ?? detected;
         const expectedLabel = SCHEMAS[reportType]?.label ?? reportType;
         result.validation.warnings.unshift(
-          `This file looks like a "${detectedLabel}" report but was uploaded to the "${expectedLabel}" slot. Check you uploaded the right file.`
+          `נראה שזה קובץ מסוג "${detectedLabel}", אבל הוא הועלה לשדה "${expectedLabel}". יש לבדוק שהקובץ הועלה למקום הנכון.`
         );
       }
     }

@@ -9,7 +9,7 @@ export function renderReport(report) {
   section.style.display = '';
 
   document.getElementById('report-date').textContent = new Date(report.timestamp)
-    .toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short' });
+    .toLocaleString('he-IL', { dateStyle: 'medium', timeStyle: 'short' });
 
   renderSummary(report.summary);
   renderAccountStatus(report.decisionFlow?.accountStatus);
@@ -18,10 +18,10 @@ export function renderReport(report) {
   renderCoverage(report.decisionFlow?.reportCoverage ?? [], report.decisionFlow?.missingBusinessContext ?? []);
   renderLimitations(report.decisionFlow?.knowledgeBoundaries);
 
-  renderFindings('items-waste',            report.waste,            'No waste detected — budget looks well targeted.');
-  renderFindings('items-opportunities',    report.opportunities,    'No clear scaling opportunities identified yet.');
-  renderFindings('items-control-risks',    report.controlRisks,     'No structural control issues found.');
-  renderFindings('items-measurement-risks',report.measurementRisks, 'No measurement or tracking issues detected.');
+  renderFindings('items-waste',            report.waste,            'לא זוהה בזבוז — התקציב נראה ממוקד היטב.');
+  renderFindings('items-opportunities',    report.opportunities,    'עדיין לא זוהו הזדמנויות סקייל ברורות.');
+  renderFindings('items-control-risks',    report.controlRisks,     'לא נמצאו בעיות שליטה מבניות.');
+  renderFindings('items-measurement-risks',report.measurementRisks, 'לא זוהו סיכוני מדידה או מעקב.');
   renderActions ('items-actions',          report.topActions);
 
   section.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -45,16 +45,16 @@ function renderSummary(summary) {
   const high = summary.highSeverityCount ?? 0;
   const best = summary.bestPerformer
     ? `"${esc(summary.bestPerformer.label)}" — CA$${summary.bestPerformer.cpa.toFixed(0)}/conv`
-    : 'Not enough data';
-  const totalsSource = summary.totalsSource ? esc(summary.totalsSource) : 'none';
+    : 'אין מספיק נתונים';
+  const totalsSource = summary.totalsSource ? esc(formatDataSource(summary.totalsSource)) : 'ללא';
 
   el.innerHTML = `
-    <div class="summary-stat"><span class="summary-label">Total Spend</span><span class="summary-value">${spend}</span></div>
-    <div class="summary-stat"><span class="summary-label">Conversions</span><span class="summary-value">${conv}</span></div>
-    <div class="summary-stat"><span class="summary-label">Avg. CPA</span><span class="summary-value">${cpa}</span></div>
-    <div class="summary-stat ${high > 0 ? 'summary-stat--alert' : ''}"><span class="summary-label">High Priority</span><span class="summary-value">${high} item${high !== 1 ? 's' : ''}</span></div>
-    <div class="summary-stat summary-stat--wide"><span class="summary-label">Best Performer</span><span class="summary-value">${best}</span></div>
-    <div class="summary-stat summary-stat--wide"><span class="summary-label">Totals Source</span><span class="summary-value">${totalsSource}</span></div>
+    <div class="summary-stat"><span class="summary-label">סך הוצאה</span><span class="summary-value">${spend}</span></div>
+    <div class="summary-stat"><span class="summary-label">המרות</span><span class="summary-value">${conv}</span></div>
+    <div class="summary-stat"><span class="summary-label">CPA ממוצע</span><span class="summary-value">${cpa}</span></div>
+    <div class="summary-stat ${high > 0 ? 'summary-stat--alert' : ''}"><span class="summary-label">עדיפות גבוהה</span><span class="summary-value">${high} פריטים</span></div>
+    <div class="summary-stat summary-stat--wide"><span class="summary-label">הביצוע הטוב ביותר</span><span class="summary-value">${best}</span></div>
+    <div class="summary-stat summary-stat--wide"><span class="summary-label">מקור הסכומים</span><span class="summary-value">${totalsSource}</span></div>
   `;
 }
 
@@ -69,12 +69,12 @@ function renderAccountStatus(status) {
 
   container.innerHTML = `
     <div class="status-card status-card--${esc(status.readiness)}">
-      <strong>Account Status: ${esc(status.headline)}</strong>
-      <span>Measurement trust: ${esc(status.measurementTrust)}</span>
-      <span>High-priority actions: ${esc(String(status.highPriorityActions))}</span>
-      <span>Blocked actions: ${esc(String(status.blockedActions))}</span>
-      <span>Missing reports: ${esc(String(status.missingReportsCount))}</span>
-      <span>Missing business settings: ${esc(String(status.missingBusinessContextCount))}</span>
+      <strong>סטטוס חשבון: ${esc(status.headline)}</strong>
+      <span>אמון במדידה: ${esc(formatMeasurementTrust(status.measurementTrust))}</span>
+      <span>פעולות בעדיפות גבוהה: ${esc(String(status.highPriorityActions))}</span>
+      <span>פעולות חסומות: ${esc(String(status.blockedActions))}</span>
+      <span>דוחות חסרים: ${esc(String(status.missingReportsCount))}</span>
+      <span>שדות עסקיים חסרים: ${esc(String(status.missingBusinessContextCount))}</span>
     </div>
   `;
 }
@@ -97,27 +97,27 @@ function renderDecisionBuckets(buckets) {
   renderDecisionList(
     'items-immediate-actions',
     buckets.immediateActions,
-    'No immediate action required right now.'
+    'אין כרגע פעולה מיידית נדרשת.'
   );
   renderDecisionList(
     'items-review-actions',
     buckets.reviewBeforeAction,
-    'No review-only actions currently flagged.'
+    'אין כרגע פעולות שסומנו לבדיקה בלבד.'
   );
   renderDecisionList(
     'items-secondary-actions',
     buckets.secondaryActions,
-    'No secondary actions currently flagged.'
+    'אין כרגע פעולות משניות שסומנו.'
   );
   renderDecisionList(
     'items-hold-actions',
     buckets.doNotTouchYet,
-    'Nothing is currently blocked or on hold.'
+    'אין כרגע פעולות חסומות או בהמתנה.'
   );
   renderDecisionList(
     'items-scale-actions',
     buckets.scaleLater,
-    'No scale-later actions are safe yet.'
+    'אין עדיין פעולות סקייל בטוחות לביצוע.'
   );
 }
 
@@ -136,20 +136,20 @@ function renderDecisionList(containerId, items, emptyMessage) {
     el.className = 'report-item report-item--decision';
     el.innerHTML = `
       <div class="report-item-header">
-        <span class="report-item-badge report-item-badge--${confidenceTone(d.confidence)}">${esc(d.confidence)}</span>
+        <span class="report-item-badge report-item-badge--${confidenceTone(d.confidence)}">${esc(formatConfidence(d.confidence))}</span>
         <strong class="report-item-what">${esc(d.user_instruction)}</strong>
       </div>
-      <p class="report-item-why"><strong>Why:</strong> ${esc(d.reason)}</p>
-      <p class="report-item-action"><strong>Entity:</strong> ${esc(d.entity_level)} / ${esc(d.entity_name)}</p>
-      <p class="report-item-action"><strong>Step:</strong> ${esc(String(d.execution_step))} | <strong>Priority:</strong> ${esc(String(d.action_priority))}</p>
-      <p class="report-item-action"><strong>Safety:</strong> ${esc(formatSafety(d.safety_classification))}</p>
-      <p class="report-item-action"><strong>Prerequisite:</strong> ${esc(d.prerequisite)}</p>
-      <p class="report-item-action"><strong>How to execute:</strong> ${esc((d.operator_steps ?? []).slice(0, 2).join(' -> '))}</p>
-      <p class="report-item-action"><strong>Monitor:</strong> ${esc(d.monitor_after_change ?? 'Monitor performance after this change.')}</p>
-      <p class="report-item-action"><strong>Reassess:</strong> ${esc(d.reassess_timing ?? 'Re-upload reports after changes and reassess.')}</p>
-      <p class="report-item-action"><strong>Expected outcome:</strong> ${esc(d.expected_outcome)}</p>
-      <p class="report-item-action"><strong>Risk if ignored:</strong> ${esc(d.risk_if_ignored)}</p>
-      <p class="report-item-action"><strong>Evidence state:</strong> ${esc(d.evidence_state)}${d.blocked_by_tracking ? ' | Blocked by tracking trust' : ''}${d.requires_business_context ? ' | Needs business context' : ''}</p>
+      <p class="report-item-why"><strong>למה:</strong> ${esc(d.reason)}</p>
+      <p class="report-item-action"><strong>ישות:</strong> ${esc(d.entity_level)} / ${esc(d.entity_name)}</p>
+      <p class="report-item-action"><strong>שלב:</strong> ${esc(String(d.execution_step))} | <strong>עדיפות:</strong> ${esc(String(d.action_priority))}</p>
+      <p class="report-item-action"><strong>רמת בטיחות:</strong> ${esc(formatSafety(d.safety_classification))}</p>
+      <p class="report-item-action"><strong>תנאי סף:</strong> ${esc(d.prerequisite)}</p>
+      <p class="report-item-action"><strong>איך לבצע:</strong> ${esc((d.operator_steps ?? []).slice(0, 2).join(' -> '))}</p>
+      <p class="report-item-action"><strong>מה לנטר:</strong> ${esc(d.monitor_after_change ?? 'יש לנטר ביצועים לאחר השינוי.')}</p>
+      <p class="report-item-action"><strong>מתי לבדוק שוב:</strong> ${esc(d.reassess_timing ?? 'יש להעלות מחדש דוחות לאחר שינויים ולבחון שוב.')}</p>
+      <p class="report-item-action"><strong>תוצאה צפויה:</strong> ${esc(d.expected_outcome)}</p>
+      <p class="report-item-action"><strong>סיכון אם מתעלמים:</strong> ${esc(d.risk_if_ignored)}</p>
+      <p class="report-item-action"><strong>מצב הראיות:</strong> ${esc(formatEvidenceState(d.evidence_state))}${d.blocked_by_tracking ? ' | חסום עד חיזוק אמון המדידה' : ''}${d.requires_business_context ? ' | דורש הקשר עסקי' : ''}</p>
     `;
     container.appendChild(el);
   }
@@ -163,9 +163,9 @@ function renderCoverage(reportCoverage, missingBusinessContext) {
   for (const item of reportCoverage) {
     rows.push(`
       <div class="report-item">
-        <strong>${esc(item.label)}: ${item.present ? 'Uploaded' : 'Missing'}</strong>
-        <span class="item-detail">Rows: ${esc(String(item.rowCount))} | Used for: ${esc(item.usedFor)}</span>
-        ${item.impactIfMissing ? `<span class="item-detail">Impact: ${esc(item.impactIfMissing)}</span>` : ''}
+        <strong>${esc(item.label)}: ${item.present ? 'הועלה' : 'חסר'}</strong>
+        <span class="item-detail">שורות: ${esc(String(item.rowCount))} | משמש עבור: ${esc(item.usedFor)}</span>
+        ${item.impactIfMissing ? `<span class="item-detail">השפעה: ${esc(item.impactIfMissing)}</span>` : ''}
       </div>
     `);
   }
@@ -173,29 +173,29 @@ function renderCoverage(reportCoverage, missingBusinessContext) {
   if (missingBusinessContext.length > 0) {
     rows.push(`
       <div class="report-item">
-        <strong>Missing business settings</strong>
-        <span class="item-detail">${esc(missingBusinessContext.join(', '))}</span>
+        <strong>הגדרות עסקיות חסרות</strong>
+        <span class="item-detail">${esc(missingBusinessContext.map(formatContextKey).join(', '))}</span>
       </div>
     `);
   }
 
   container.innerHTML = rows.length > 0
     ? rows.join('')
-    : '<p class="report-empty">No coverage information available.</p>';
+    : '<p class="report-empty">אין מידע זמין על כיסוי דוחות.</p>';
 }
 
 function renderLimitations(boundaries) {
   const container = document.getElementById('items-limitations');
   if (!container) return;
   if (!boundaries) {
-    container.innerHTML = '<p class="report-empty">No limitations data available.</p>';
+    container.innerHTML = '<p class="report-empty">אין כרגע מידע על מגבלות הידע.</p>';
     return;
   }
 
   const html = [
-    buildLimitationGroup('Confirmed from data', boundaries.confirmed),
-    buildLimitationGroup('Likely but inferred', boundaries.likely),
-    buildLimitationGroup('Unknown from CSV alone', boundaries.unknown),
+    buildLimitationGroup('מאומת מתוך הנתונים', boundaries.confirmed),
+    buildLimitationGroup('סביר אך מוסק', boundaries.likely),
+    buildLimitationGroup('לא ידוע מתוך CSV בלבד', boundaries.unknown),
   ].join('');
 
   container.innerHTML = html;
@@ -232,7 +232,7 @@ function renderFindings(containerId, items, emptyMessage) {
         <strong class="report-item-what">${esc(item.what)}</strong>
       </div>
       <p class="report-item-why">${esc(item.why)}</p>
-      <p class="report-item-action"><strong>Action:</strong> ${esc(item.action)}</p>
+      <p class="report-item-action"><strong>פעולה:</strong> ${esc(item.action)}</p>
     `;
     container.appendChild(el);
   }
@@ -246,7 +246,7 @@ function renderActions(containerId, actions) {
   container.innerHTML = '';
 
   if (!actions || actions.length === 0) {
-    container.innerHTML = `<p class="report-empty">No actions generated.</p>`;
+    container.innerHTML = `<p class="report-empty">לא נוצרו פעולות.</p>`;
     return;
   }
 
@@ -273,18 +273,72 @@ function esc(str) {
 }
 
 function confidenceTone(confidence) {
-  if (confidence === 'High confidence') return 'high';
-  if (confidence === 'Medium confidence') return 'medium';
+  if (confidence === 'ביטחון גבוה' || confidence === 'High confidence') return 'high';
+  if (confidence === 'ביטחון בינוני' || confidence === 'Medium confidence') return 'medium';
   return 'low';
 }
 
 function formatSafety(value) {
   const map = {
     safe_to_do_now: 'Safe to do now',
-    review_before_acting: 'Review before acting',
-    not_safe_from_csv_alone: 'Not safe from CSV alone',
-    blocked_until_tracking_trusted: 'Blocked until tracking is trusted',
-    blocked_until_business_context_provided: 'Blocked until business context is provided',
+    review_before_acting: 'לבדוק לפני פעולה',
+    not_safe_from_csv_alone: 'לא בטוח לפעול על סמך CSV בלבד',
+    blocked_until_tracking_trusted: 'חסום עד שאמון המדידה ישתפר',
+    blocked_until_business_context_provided: 'חסום עד מילוי הקשר עסקי',
   };
-  return map[value] ?? String(value ?? 'Unknown');
+  map.safe_to_do_now = 'בטוח לבצע עכשיו';
+  return map[value] ?? String(value ?? 'לא ידוע');
+}
+
+function formatConfidence(value) {
+  const map = {
+    'ביטחון גבוה': 'ביטחון גבוה',
+    'ביטחון בינוני': 'ביטחון בינוני',
+    'ביטחון נמוך': 'ביטחון נמוך',
+    'High confidence': 'ביטחון גבוה',
+    'Medium confidence': 'ביטחון בינוני',
+    'Low confidence': 'ביטחון נמוך',
+  };
+  return map[value] ?? String(value ?? 'לא ידוע');
+}
+
+function formatEvidenceState(value) {
+  const map = {
+    confirmed: 'מאומת',
+    likely: 'סביר',
+    unknown: 'לא ידוע',
+  };
+  return map[value] ?? String(value ?? 'לא ידוע');
+}
+
+function formatContextKey(value) {
+  const map = {
+    targetCpl: 'יעד CPL',
+    serviceArea: 'אזור שירות',
+    trackingTrusted: 'אמון במעקב',
+    offlineConversionsImported: 'ייבוא המרות אופליין',
+  };
+  return map[value] ?? String(value ?? 'לא ידוע');
+}
+
+function formatMeasurementTrust(value) {
+  const map = {
+    trusted: 'אמין',
+    caution: 'זהירות',
+    untrusted: 'לא אמין',
+  };
+  return map[value] ?? String(value ?? 'לא ידוע');
+}
+
+function formatDataSource(value) {
+  const map = {
+    campaigns: 'קמפיינים',
+    adGroups: 'קבוצות מודעות',
+    keywords: 'מילות מפתח',
+    searchTerms: 'מונחי חיפוש',
+    ads: 'מודעות',
+    devices: 'מכשירים',
+    locations: 'מיקומים',
+  };
+  return map[value] ?? String(value ?? 'לא ידוע');
 }

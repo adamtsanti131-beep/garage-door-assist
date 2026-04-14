@@ -77,7 +77,7 @@ function findBestPerformer(rows, sourceKey) {
 
   candidates.sort((a, b) => (a.cost / a.conversions) - (b.cost / b.conversions));
   const best = candidates[0];
-  const label = best.searchTerm ?? best.keyword ?? best.campaign ?? best.adGroup ?? 'Unknown';
+  const label = best.searchTerm ?? best.keyword ?? best.campaign ?? best.adGroup ?? 'לא ידוע';
   return {
     label,
     cpa:         best.cost / best.conversions,
@@ -117,9 +117,9 @@ function deriveTopActions(findings, decisionLayer) {
 
   // Fill with defaults if fewer than 3 findings
   const defaults = [
-    { action: 'Review your Search Terms report and add irrelevant queries as negative keywords.',      reason: 'Negative keyword hygiene is the highest-ROI maintenance task in a local PPC account.' },
-    { action: 'Check that conversion tracking is firing correctly for calls and form submissions.',    reason: 'Without accurate conversion data, optimisation decisions are based on incomplete information.' },
-    { action: 'Ensure your best-converting campaigns are not hitting their daily budget cap early.',   reason: 'Budget limits on converting campaigns directly cap lead volume.' },
+    { action: 'בדוק את דוח מונחי החיפוש והוסף שאילתות לא רלוונטיות כמילות מפתח שליליות.',      reason: 'היגיינת מילות מפתח שליליות היא משימת תחזוקה עם החזר גבוה בחשבון PPC מקומי.' },
+    { action: 'ודא שמעקב ההמרות פועל נכון עבור שיחות ושליחות טפסים.',    reason: 'ללא נתוני המרה מדויקים, החלטות אופטימיזציה מבוססות על מידע חלקי.' },
+    { action: 'ודא שהקמפיינים שממירים הכי טוב לא נתקעים מוקדם מדי בתקרת התקציב היומית.',   reason: 'מגבלת תקציב בקמפיינים ממירים מגבילה ישירות את נפח הלידים.' },
   ];
 
   const actions = top.map((f, i) => ({

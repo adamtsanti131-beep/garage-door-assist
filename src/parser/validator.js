@@ -25,7 +25,7 @@ import { SCHEMAS } from './schemas.js';
 export function validate(rows, reportType, foundFields) {
   const schema = SCHEMAS[reportType];
   if (!schema) {
-    return fatal(`Unknown report type: "${reportType}"`);
+    return fatal(`סוג דוח לא מוכר: "${reportType}"`);
   }
 
   const errors   = [];
@@ -35,19 +35,19 @@ export function validate(rows, reportType, foundFields) {
   const missingRequired = schema.required.filter(f => !foundFields.includes(f));
   if (missingRequired.length > 0) {
     const labels = missingRequired.map(toLabel).join(', ');
-    errors.push(`Missing required column(s): ${labels}. This report cannot be analyzed.`);
+    errors.push(`חסרות עמודות חובה: ${labels}. לא ניתן לנתח את הדוח הזה.`);
   }
 
   // ── Preferred column check ────────────────────────────────────────────────
   const missingPreferred = schema.preferred.filter(f => !foundFields.includes(f));
   if (missingPreferred.length > 0) {
     const labels = missingPreferred.map(toLabel).join(', ');
-    warnings.push(`Missing preferred column(s): ${labels}. Some insights may be limited.`);
+    warnings.push(`חסרות עמודות מומלצות: ${labels}. חלק מהתובנות עשויות להיות מוגבלות.`);
   }
 
   // ── Empty file check ──────────────────────────────────────────────────────
   if (rows.length === 0) {
-    errors.push('No data rows found in this file after the header row.');
+    errors.push('לא נמצאו שורות נתונים בקובץ אחרי שורת הכותרת.');
   }
 
   // ── Suspicious data checks (only if file is otherwise valid) ─────────────
@@ -81,45 +81,45 @@ function checkForSuspiciousData(rows, warnings) {
 
   // All rows have 0 conversions recorded — could be tracking issue
   if (totalConv === 0 && totalCost !== null && totalCost > 0) {
-    warnings.push('Zero conversions recorded across all rows. Verify your conversion tracking is set up correctly.');
+    warnings.push('אפס המרות בכל השורות. יש לוודא שמעקב ההמרות מוגדר נכון.');
   }
 
   // More conversions than clicks is almost always a tracking problem
   if (totalConv !== null && totalClicks !== null && totalConv > totalClicks && totalClicks > 0) {
-    warnings.push(`Conversions (${totalConv}) exceed clicks (${totalClicks}). This usually indicates a conversion tracking configuration issue.`);
+    warnings.push(`ההמרות (${totalConv}) גבוהות מהקליקים (${totalClicks}). בדרך כלל זו בעיית הגדרת מעקב המרות.`);
   }
 
   // Very high CTR on any row (>50% is almost always a data error or brand keyword issue)
   const highCtrRow = rows.find(r => r.ctr !== null && r.ctr > 50);
   if (highCtrRow) {
-    warnings.push(`Unusually high CTR detected (${highCtrRow.ctr?.toFixed(1)}%). Check for data errors or very narrow branded keywords.`);
+    warnings.push(`זוהה CTR חריג (${highCtrRow.ctr?.toFixed(1)}%). יש לבדוק שגיאות נתונים או מילות מותג צרות מאוד.`);
   }
 }
 
 /** Convert an internal field name back to a readable label. */
 function toLabel(field) {
   const labels = {
-    campaign:            'Campaign',
-    adGroup:             'Ad group',
-    searchTerm:          'Search term',
-    keyword:             'Keyword',
-    matchType:           'Match type',
-    device:              'Device',
-    location:            'User location',
-    clicks:              'Clicks',
-    impressions:         'Impressions',
-    cost:                'Cost',
-    conversions:         'Conversions',
+    campaign:            'קמפיין',
+    adGroup:             'קבוצת מודעות',
+    searchTerm:          'מונח חיפוש',
+    keyword:             'מילת מפתח',
+    matchType:           'סוג התאמה',
+    device:              'מכשיר',
+    location:            'מיקום משתמש',
+    clicks:              'קליקים',
+    impressions:         'חשיפות',
+    cost:                'עלות',
+    conversions:         'המרות',
     ctr:                 'CTR',
-    avgCpc:              'Avg. CPC',
-    conversionRate:      'Conv. rate',
-    costPerConversion:   'Cost / conv.',
-    searchImprShare:     'Search impr. share',
-    searchLostIsRank:    'Search lost IS (rank)',
-    searchLostIsBudget:  'Search lost IS (budget)',
-    qualityScore:        'Quality Score',
-    finalUrl:            'Final URL',
-    adDescription:       'Description',
+    avgCpc:              'CPC ממוצע',
+    conversionRate:      'שיעור המרה',
+    costPerConversion:   'עלות להמרה',
+    searchImprShare:     'נתח חשיפות חיפוש',
+    searchLostIsRank:    'איבוד נתח חשיפות (דירוג)',
+    searchLostIsBudget:  'איבוד נתח חשיפות (תקציב)',
+    qualityScore:        'ציון איכות',
+    finalUrl:            'כתובת יעד',
+    adDescription:       'תיאור מודעה',
   };
   return labels[field] || field;
 }
