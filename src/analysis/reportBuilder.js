@@ -4,22 +4,21 @@
  * Adds a summary section with account-level metrics.
  */
 
+import {
+  pickAccountTotalsSource,
+  pickBestPerformerSource,
+  sumMetric,
+} from './dataSources.js';
+
 /**
  * @param {Finding[]} findings  — from rulesEngine.runRules()
  * @param {DataSets}  data      — normalized data sets
  * @returns {Report}
  */
 export function buildReport(findings, data) {
-  const allRows = [
-    ...(data.campaigns   ?? []),
-    ...(data.adGroups    ?? []),
-    ...(data.searchTerms ?? []),
-    ...(data.keywords    ?? []),
-  ];
-
   return {
     timestamp:        new Date().toISOString(),
-    summary:          buildSummary(findings, allRows, data.campaigns ?? []),
+    summary:          buildSummary(findings, data),
     waste:            findings.filter(f => f.category === 'waste'),
     opportunities:    findings.filter(f => f.category === 'opportunity'),
     controlRisks:     findings.filter(f => f.category === 'controlRisk'),
@@ -30,16 +29,17 @@ export function buildReport(findings, data) {
 
 // ── Summary ───────────────────────────────────────────────────────────────────
 
-function buildSummary(findings, allRows, campaigns) {
-  // Prefer campaign-level totals; fall back to all rows
-  const source = campaigns.length > 0 ? campaigns : allRows;
+function buildSummary(findings, data) {
+  // Use one canonical level only. Never mix overlapping report levels.
+  const totalsSource = pickAccountTotalsSource(data);
+  const bestSource = pickBestPerformerSource(data);
 
-  const totalSpend       = sumNN(source, 'cost');
-  const totalConversions = sumNN(source, 'conversions');
+  const totalSpend       = sumMetric(totalsSource.rows, 'cost');
+  const totalConversions = sumMetric(totalsSource.rows, 'conversions');
   const avgCpa           = totalConversions > 0 ? totalSpend / totalConversions : null;
 
   const highCount = findings.filter(f => f.severity === 'high').length;
-  const bestPerformer = findBestPerformer([...allRows]);
+  const bestPerformer = findBestPerformer(bestSource.rows, bestSource.key);
 
   return {
     totalSpend:       totalSpend   > 0   ? totalSpend       : null,
@@ -47,13 +47,15 @@ function buildSummary(findings, allRows, campaigns) {
     avgCpa,
     highSeverityCount: highCount,
     bestPerformer,
+    totalsSource: totalsSource.key,
+    bestPerformerSource: bestSource.key,
   };
 }
 
 /**
  * Find the single best-performing row (lowest CPA with at least 2 conversions).
  */
-function findBestPerformer(rows) {
+function findBestPerformer(rows, sourceKey) {
   const candidates = rows.filter(r =>
     hasValue(r.conversions) && r.conversions >= 2 &&
     hasValue(r.cost) && r.cost > 0
@@ -68,6 +70,7 @@ function findBestPerformer(rows) {
     cpa:         best.cost / best.conversions,
     conversions: best.conversions,
     cost:        best.cost,
+    source:      sourceKey,
   };
 }
 
@@ -114,4 +117,3 @@ function deriveTopActions(findings) {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function hasValue(v)    { return v !== null && v !== undefined; }
-function sumNN(rows, k) { return rows.reduce((a, r) => a + (r[k] ?? 0), 0); }

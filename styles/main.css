@@ -10,21 +10,6 @@
   --color-text-muted: #64748b;
   --color-border: #e2e8f0;
 
-  --color-critical-bg: #fef2f2;
-  --color-critical-border: #fca5a5;
-  --color-critical-text: #991b1b;
-  --color-critical-heading: #dc2626;
-
-  --color-improvements-bg: #fffbeb;
-  --color-improvements-border: #fcd34d;
-  --color-improvements-text: #92400e;
-  --color-improvements-heading: #d97706;
-
-  --color-working-bg: #f0fdf4;
-  --color-working-border: #86efac;
-  --color-working-text: #14532d;
-  --color-working-heading: #16a34a;
-
   --color-actions-bg: #eff6ff;
   --color-actions-border: #93c5fd;
   --color-actions-text: #1e3a8a;
@@ -374,27 +359,6 @@ h2 {
   font-weight: 600;
   margin-bottom: 12px;
 }
-
-.report-card.critical {
-  background: var(--color-critical-bg);
-  border-color: var(--color-critical-border);
-  color: var(--color-critical-text);
-}
-.report-card.critical h3 { color: var(--color-critical-heading); }
-
-.report-card.improvements {
-  background: var(--color-improvements-bg);
-  border-color: var(--color-improvements-border);
-  color: var(--color-improvements-text);
-}
-.report-card.improvements h3 { color: var(--color-improvements-heading); }
-
-.report-card.working {
-  background: var(--color-working-bg);
-  border-color: var(--color-working-border);
-  color: var(--color-working-text);
-}
-.report-card.working h3 { color: var(--color-working-heading); }
 
 .report-card.actions {
   background: var(--color-actions-bg);

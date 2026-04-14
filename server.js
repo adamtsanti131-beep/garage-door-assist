@@ -11,6 +11,7 @@ import express from 'express';
 import multer  from 'multer';
 import cors    from 'cors';
 import path    from 'path';
+import fs      from 'fs';
 import { fileURLToPath } from 'url';
 
 import { REPORT_TYPES }  from './src/parser/schemas.js';
@@ -98,7 +99,11 @@ app.post('/analyze', upload.fields(UPLOAD_FIELDS), (req, res) => {
 // In production Render builds the Vite app first, then Express serves it.
 
 const distDir = path.join(__dirname, 'dist');
-app.use(express.static(distDir));
+const hasDist = fs.existsSync(path.join(distDir, 'index.html'));
+
+if (hasDist) {
+  app.use(express.static(distDir));
+}
 
 // ── GET /health ───────────────────────────────────────────────────────────────
 
@@ -108,9 +113,11 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 // Any request that isn't /analyze or /health falls through to index.html
 // so that browser refreshes on sub-routes don't 404.
 
-app.get('*', (_req, res) => {
-  res.sendFile(path.join(distDir, 'index.html'));
-});
+if (hasDist) {
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(distDir, 'index.html'));
+  });
+}
 
 // ── Global error handler ──────────────────────────────────────────────────────
 // Catches anything that slips past the route try/catch (e.g. multer errors)

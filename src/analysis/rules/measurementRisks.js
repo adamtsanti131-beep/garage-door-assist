@@ -2,20 +2,28 @@
  * measurementRisks.js
  * Rules that detect data quality and tracking issues.
  * These don't mean wasted spend, but rather: the data can't be trusted for decisions.
- * Language: Hebrew, practical and direct.
  */
 
 import { THRESHOLDS as T } from '../thresholds.js';
 
 export function measurementRiskRules(data) {
   const findings = [];
-  const { searchTerms = [], keywords = [], campaigns = [], adGroups = [] } = data;
+  const {
+    searchTerms = [],
+    keywords = [],
+    campaigns = [],
+    adGroups = [],
+    ads = [],
+    devices = [],
+    locations = [],
+  } = data;
   const allRows = [...campaigns, ...adGroups, ...searchTerms, ...keywords];
 
   findings.push(...manyClicksNoLeads([...searchTerms, ...keywords]));
   findings.push(...leadsExceedClicks(allRows));
   findings.push(...zeroLeadsWholeAccount(allRows));
   findings.push(...missingLeadData(campaigns));
+  findings.push(...missingSegmentCoverage(ads, devices, locations));
 
   return findings;
 }
@@ -31,14 +39,15 @@ function manyClicksNoLeads(rows) {
     if (!hasValue(r.clicks) || r.clicks < T.minClicksNoLeadsForTracking) continue;
     if (r.conversions !== 0 && r.conversions !== null) continue;
 
-    const label = r.searchTerm ?? r.keyword ?? 'לא ידוע';
+    const label = r.searchTerm ?? r.keyword ?? 'Unknown term';
     findings.push({
       category: 'measurementRisk',
       severity: 'medium',
-      what: `"${label}" — ${r.clicks} קליקים ואפס לידים.`,
-      why: `${r.clicks} קליקים בלי לידים זה משונה לעסק שירות. יכול שיש בעיית מעקב או רמת תנועה נמוכה.`,
-      action: `בדוק את מערכת המעקב: התקשורות קורות? הטופס שולח לידים? בדוק Google Tag Manager או Google Ads. אם הכל בסדר — בעיית כיוונון/איכות.`,
+      what: `"${label}" has ${r.clicks} clicks and zero conversions.`,
+      why: 'At this volume, either tracking is incomplete or traffic quality is materially off-target.',
+      action: 'Validate conversion tracking and attribution setup first, then review intent and landing-page fit.',
       data: r,
+      signal: 'many-clicks-no-leads',
     });
   }
   return findings;
@@ -53,14 +62,15 @@ function leadsExceedClicks(rows) {
     if (!hasValue(r.clicks) || !hasValue(r.conversions)) continue;
     if (r.clicks <= 0 || r.conversions <= r.clicks) continue;
 
-    const label = r.campaign ?? r.adGroup ?? r.keyword ?? r.searchTerm ?? 'לא ידוע';
+    const label = r.campaign ?? r.adGroup ?? r.keyword ?? r.searchTerm ?? 'Unknown entity';
     findings.push({
       category: 'measurementRisk',
       severity: 'high',
-      what: `"${label}" — ${r.conversions} לידים מ-${r.clicks} קליקים בלבד. זה לא אפשרי.`,
-      why: `לא יכול להיות יותר לידים מקליקים. זה בדרך כלל אומר ספירה כפולה של לידים או בחירת קונברסיה השגויה.`,
-      action: `בדוק Google Ads > כלים > קונברסיות. בדוק לטגים כפולים או שגויים. תקן לפני שמקבל החלטות על בסיס נתונים אלה.`,
+      what: `"${label}" shows ${r.conversions} conversions from only ${r.clicks} clicks.`,
+      why: 'More conversions than clicks is usually caused by duplicate counting or incorrect conversion definitions.',
+      action: 'Audit conversion actions, dedup settings, and tag firing logic before using this data for optimization.',
       data: r,
+      signal: 'conversions-exceed-clicks',
     });
   }
   return findings;
@@ -83,10 +93,11 @@ function zeroLeadsWholeAccount(rows) {
   return [{
     category: 'measurementRisk',
     severity: 'high',
-    what: `אפס לידים מכל הנתונים שהעלאת. כל ההוצאה: CA$${fmt(totalSpend)}.`,
-    why: `בעיה חמורה. לא סביר שעסק שירותים מקומי מקבל אפס פניות או לידים מתוך הוצאה כזו. בעיה במעקב.`,
-    action: `בדוק Google Ads > כלים > קונברסיות. האם יש קונברסיה אחת הפעלה? בדוק שהמעקב כללי ופעיל. בדוק ב-Google Tag Manager.`,
+    what: `No conversions are recorded across uploaded data despite CA$${fmt(totalSpend)} spend.`,
+    why: 'This usually indicates a measurement problem, not pure performance reality.',
+    action: 'Audit conversion actions, primary/secondary settings, and tag implementation in Google Ads and GTM.',
     data: { totalSpend, totalConvs },
+    signal: 'account-zero-conversions',
   }];
 }
 
@@ -102,10 +113,30 @@ function missingLeadData(campaigns) {
   return [{
     category: 'measurementRisk',
     severity: 'medium',
-    what: `דוח קמפיינים חסר עמודת לידים.`,
-    why: `בלי נתוני לידים לא יכול לזהות בזבוז או לחשב עלות לליד. זה מגביל הרבה מסקנות.`,
-    action: `בדוק את הדוח ב-Google Ads. ודא שכללת עמודות "קונברסיות" ו"עלות לקונברסיה". העלה דוח משודרג.`,
+    what: 'Campaign report has no conversion values.',
+    why: 'Without conversions, CPA and efficiency findings are severely limited.',
+    action: 'Re-export campaign data with Conversions and Cost / conv. columns included.',
     data: {},
+    signal: 'missing-campaign-conversions',
+  }];
+}
+
+function missingSegmentCoverage(ads, devices, locations) {
+  const missing = [];
+  if (!ads.length) missing.push('Ads');
+  if (!devices.length) missing.push('Devices');
+  if (!locations.length) missing.push('Location');
+
+  if (missing.length === 0 || missing.length === 3) return [];
+
+  return [{
+    category: 'measurementRisk',
+    severity: 'low',
+    what: `Some optional segment datasets are missing: ${missing.join(', ')}.`,
+    why: 'Partial segment coverage reduces confidence in channel-specific recommendations.',
+    action: 'Upload all optional segment reports when available for fuller diagnostics.',
+    data: { missingSegments: missing },
+    signal: 'partial-segment-coverage',
   }];
 }
 

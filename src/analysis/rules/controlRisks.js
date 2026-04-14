@@ -2,7 +2,6 @@
  * controlRisks.js
  * Rules that detect structural and control issues in the account.
  * These don't mean wasted spend directly, but indicate problems that could inflate CPL.
- * Language: Hebrew, practical and direct.
  */
 
 import { THRESHOLDS as T } from '../thresholds.js';
@@ -34,10 +33,11 @@ function nonConvertingCampaigns(campaigns) {
     findings.push({
       category: 'controlRisk',
       severity: 'high',
-      what: `קמפיין "${camp.campaign ?? 'לא ידוע'}" — הוצאה CA$${fmt(camp.cost)} ללא לידים.`,
-      why: `קמפיין שלם עם הוצאה משמעותית ובלי לידים. זה יכול להיות בעיה במעקב, בכיוונון או בעמוד הנחיתה.`,
-      action: `קודם בדוק: האם מעקב הלידים פועל? האם כיוונון תקין? האם דף הנחיתה טוען כראוי? אם הכל בסדר, שקול הפסקה או תיקון.`,
+      what: `Campaign "${camp.campaign ?? 'Unknown campaign'}" spent CA$${fmt(camp.cost)} with zero conversions.`,
+      why: 'A whole campaign spending without conversion output points to structural targeting or execution issues.',
+      action: 'Verify tracking first, then audit targeting and landing page alignment. Pause until corrected if needed.',
       data: camp,
+      signal: 'non-converting-campaign',
     });
   }
   return findings;
@@ -60,10 +60,11 @@ function expensiveKeywords(keywords) {
     findings.push({
       category: 'controlRisk',
       severity,
-      what: `"${kw.keyword ?? 'לא ידוע'}" [${kw.matchType ?? '?'}] — עלות לליד CA$${fmt(cpl)}.`,
-      why: `עלות הליד גבוהה מהרף המקסימלי (CA$${T.cplPoor}). לידים כאלה יקרים ביחס לשווי שהם מביאים.`,
-      action: `צמצם את ההצעה ב-20-30%. עקוב לשבוע. אם הוצאה לא משתפרת, שקול הפסקה او בדיקה של איכות התנועה.`,
+      what: `Keyword "${kw.keyword ?? 'Unknown keyword'}" (${kw.matchType ?? 'unknown match type'}) is at CA$${fmt(cpl)} CPA.`,
+      why: `CPA is above the poor threshold (CA$${T.cplPoor}) and likely unsustainable for efficient growth.`,
+      action: 'Reduce bid by 20-30%, review intent quality, and pause if efficiency does not recover.',
       data: kw,
+      signal: 'expensive-keyword',
     });
   }
   return findings;
@@ -82,10 +83,11 @@ function lowQualityScoreKeywords(keywords) {
     findings.push({
       category: 'controlRisk',
       severity: kw.qualityScore <= 2 ? 'high' : 'medium',
-      what: `"${kw.keyword ?? 'לא ידוע'}" — איכות ${kw.qualityScore}/10.`,
-      why: `איכות נמוכה משמעותה עלויות גבוהות יותר. המתחרים שלך עם ציוני איכות טובים משלמים פחות לקליק.`,
-      action: `בדוק: את המודעה מתאימה? דף הנחיתה רלוונטי? קצב קליקים מצופה טוב? אם הכל לא בסדר — שקול הפסקה והחלפה.`,
+      what: `Keyword "${kw.keyword ?? 'Unknown keyword'}" has Quality Score ${kw.qualityScore}/10.`,
+      why: 'Low quality score usually increases CPC and reduces competitive ad rank.',
+      action: 'Improve ad relevance, expected CTR, and landing page alignment for this keyword cluster.',
       data: kw,
+      signal: 'low-quality-score',
     });
   }
   return findings;
@@ -109,10 +111,11 @@ function broadMatchWithoutNegatives(keywords) {
     findings.push({
       category: 'controlRisk',
       severity: 'medium',
-      what: `${broadKeywords.length} מילות broad match — CA$${fmt(totalBroadSpend)} בלי לידים.`,
-      why: `Broad match ללא רשימה חזקה של מילים שליליות לעיתים קרובות לוכדת שאילתות שלא רלוונטיות. זה מקור נפוץ לבזבוז.`,
-      action: `בדוק דוח מילות חיפוש. הוסף כל שאילתה לא רלוונטית כמילה שלילית. שקול להעביר ל-phrase או exact match לשליטה טובה יותר.`,
+      what: `${broadKeywords.length} broad-match keywords spent CA$${fmt(totalBroadSpend)} with zero conversions.`,
+      why: 'Broad match without strong negative coverage often leaks spend to low-intent queries.',
+      action: 'Audit search terms, expand negatives, and shift fragile broad terms to phrase or exact where appropriate.',
       data: { broadKeywords, totalBroadSpend },
+      signal: 'broad-match-risk',
     });
   }
   return findings;
@@ -133,10 +136,11 @@ function lowImpressionShare(campaigns) {
     findings.push({
       category: 'controlRisk',
       severity: 'medium',
-      what: `קמפיין "${camp.campaign ?? 'לא ידוע'}" — נתח חשיפה רק ${fmt(is)}%.`,
-      why: `אתה מנצח לידים מהקמפיין הזה אבל רק בחלק מהחיפושים. המתחרים לוכדים את השאר.`,
-      action: `בדוק אם התקציב או דירוג המודעות הם הבעיה. אם תקציב — הגדל. אם דירוג — משפר Quality Score או הגדל הצעה.`,
+      what: `Campaign "${camp.campaign ?? 'Unknown campaign'}" has only ${fmt(is)}% search impression share.`,
+      why: 'The campaign converts but misses a large share of eligible demand.',
+      action: 'Identify whether loss is budget- or rank-driven, then adjust budget, bid, or quality inputs accordingly.',
       data: camp,
+      signal: 'low-impression-share',
     });
   }
   return findings;

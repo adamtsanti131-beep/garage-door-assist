@@ -2,19 +2,26 @@
  * opportunities.js
  * Rules that identify strong performers and scaling opportunities.
  * Focus: lead generation efficiency, growth potential.
- * Language: Hebrew, practical and direct.
  */
 
 import { THRESHOLDS as T } from '../thresholds.js';
 
 export function opportunityRules(data) {
   const findings = [];
-  const { searchTerms = [], keywords = [], campaigns = [], adGroups = [] } = data;
+  const {
+    searchTerms = [],
+    keywords = [],
+    campaigns = [],
+    devices = [],
+    locations = [],
+  } = data;
 
   findings.push(...strongLeaders([...searchTerms, ...keywords]));
   findings.push(...scalingCandidates([...searchTerms, ...keywords]));
   findings.push(...outperformingCampaigns(campaigns));
   findings.push(...budgetLimitedWinners(campaigns));
+  findings.push(...highIntentDevices(devices));
+  findings.push(...highIntentLocations(locations));
 
   return findings;
 }
@@ -35,7 +42,7 @@ function strongLeaders(rows) {
     const cpl = r.cost / r.conversions;
     if (cpl > T.cplGood) continue; // only <= 75 CAD
 
-    const label = r.searchTerm ?? r.keyword ?? 'לא ידוע';
+    const label = r.searchTerm ?? r.keyword ?? 'Unknown term';
     const isExcellent = cpl <= T.cplExcellent;
     const clicks = r.clicks ?? 0;
 
@@ -44,12 +51,13 @@ function strongLeaders(rows) {
       findings.push({
         category: 'opportunity',
         severity: 'high',
-        what: `"${label}" — ${r.conversions} לידים בעלות CA$${fmt(cpl)}/ליד (סה״כ CA$${fmt(r.cost)}).`,
-        why: `ביצועים מצוינים. זה הקמפיין שיביא לך הכי הרבה לקוחות בעבור כל דולר.`,
+        what: `"${label}" generated ${r.conversions} conversions at CA$${fmt(cpl)} CPA (CA$${fmt(r.cost)} spend).`,
+        why: 'This is a high-efficiency winner with enough data to protect and scale.',
         action: r.searchTerm
-          ? `הגן על המידע שלך בטו. כדאי להרחיב בעדינות. הוסף כמילה מדוקדקת אם עדיין לא.`
-          : `הגן על הצעת הקמפיין. שקול להרחיב את ההצעה. בדוק שתקציב מספיק כדי להרוץ כל היום.`,
+          ? `Promote this query to an exact-match keyword and increase bid carefully while monitoring CPA.`
+          : 'Protect budget share and test measured bid increases to scale volume.',
         data: r,
+        signal: 'strong-leader',
       });
     }
     // Good CPL with meaningful volume: Opportunity to scale
@@ -57,12 +65,13 @@ function strongLeaders(rows) {
       findings.push({
         category: 'opportunity',
         severity: 'medium',
-        what: `"${label}" — ${r.conversions} לידים בעלות CA$${fmt(cpl)}/ליד (סה״כ CA$${fmt(r.cost)}).`,
-        why: `ביצועים טובים עם נפח טוב. יש כאן פוטנציאל אמיתי להרחבה.`,
+        what: `"${label}" generated ${r.conversions} conversions at CA$${fmt(cpl)} CPA (CA$${fmt(r.cost)} spend).`,
+        why: 'Performance is efficient with usable volume, making it a practical scaling candidate.',
         action: r.searchTerm
-          ? `כדאי להגדיל את ההצעה ב-15–25%. עקוב על עלות הליד כשנפח גדל.`
-          : `כדאי לשקול הרחבה של הצעה. הגדל בעדינות ועקוב על ביצועים.`,
+          ? 'Increase bid by 15-25% in controlled steps and track CPA stability.'
+          : 'Scale bids gradually and monitor conversion efficiency each cycle.',
         data: r,
+        signal: 'strong-leader',
       });
     }
     // Good CPL but low volume: Just good performer, don't push scaling
@@ -70,12 +79,13 @@ function strongLeaders(rows) {
       findings.push({
         category: 'opportunity',
         severity: 'low',
-        what: `"${label}" — ${r.conversions} לידים בעלות CA$${fmt(cpl)}/ליד.`,
-        why: `ביצועים טובים. זה מה שכדאי להגן עליו.`,
+        what: `"${label}" generated ${r.conversions} conversions at CA$${fmt(cpl)} CPA.`,
+        why: 'Efficiency is good but sample size is still limited.',
         action: r.searchTerm
-          ? `הגן על הביצוע. הוסף כמילה מדוקדקת אם עדיין לא.`
-          : `הגן על הצעה. אל תוריד. כשנפח גדל, שקול להרחיב.`,
+          ? 'Keep this term protected and convert it to exact match if not already isolated.'
+          : 'Maintain current support and reconsider scaling when volume increases.',
         data: r,
+        signal: 'strong-leader',
       });
     }
   }
@@ -93,14 +103,15 @@ function scalingCandidates(rows) {
     if (!hasValue(r.cost) || r.cost >= 50) continue;
     if (!hasValue(r.conversionRate) || r.conversionRate < T.strongConvRatePct) continue;
 
-    const label = r.searchTerm ?? r.keyword ?? 'לא ידוע';
+    const label = r.searchTerm ?? r.keyword ?? 'Unknown term';
     findings.push({
       category: 'opportunity',
       severity: 'medium',
-      what: `"${label}" — ${fmt(r.conversionRate)}% שיעור לידים עם רק CA$${fmt(r.cost)} הוצאה.`,
-      why: `שיעור לידים גבוה בהוצאה נמוכה. יש פוטנציאל להרחבה ממשית.`,
-      action: `הגדל את ההצעה ב-15–20%. עקוב על עלות הליד כשנפח גדל.`,
+      what: `"${label}" has a ${fmt(r.conversionRate)}% conversion rate with only CA$${fmt(r.cost)} spend.`,
+      why: 'High conversion rate at low spend suggests untapped volume potential.',
+      action: 'Increase bids by 15-20% and monitor CPA while volume expands.',
       data: r,
+      signal: 'scale-candidate',
     });
   }
   return findings;
@@ -126,10 +137,11 @@ function outperformingCampaigns(campaigns) {
     findings.push({
       category: 'opportunity',
       severity: 'high',
-      what: `קמפיין "${camp.campaign ?? 'לא ידוע'}" — עלות לליד CA$${fmt(cpl)}, שהוא 25% יותר טוב מנתון הממוצע (CA$${fmt(avgCpl)}).`,
-      why: `הקמפיין הזה עובד יותר טוב מממוצע החשבון. הגדלת תקציב כאן תביא יותר לידים יעילים.`,
-      action: `הגן על תקציב הקמפיין. שקול להגדיל אותו מקמפיינים פחות יעילים.`,
+      what: `Campaign "${camp.campaign ?? 'Unknown campaign'}" is at CA$${fmt(cpl)} CPA, at least 25% better than account average CA$${fmt(avgCpl)}.`,
+      why: 'Budget shifted here is likely to increase conversions more efficiently than average.',
+      action: 'Protect this campaign budget first and reallocate from weaker campaigns where needed.',
       data: camp,
+      signal: 'outperforming-campaign',
     });
   }
   return findings;
@@ -154,10 +166,55 @@ function budgetLimitedWinners(campaigns) {
     findings.push({
       category: 'opportunity',
       severity: 'medium',
-      what: `קמפיין "${camp.campaign ?? 'לא ידוע'}" — מפסיד ${fmt(camp.searchLostIsBudget)}% נתח חשיפה בגלל תקציב.`,
-      why: `אתה מקבל לידים מהקמפיין הזה, אבל התקציב מונע מהמודעות להופיע בכל הזמנים שאתה יכול. זה אומר לידים אבודים.`,
-      action: `הגדל את התקציב היומי. אפילו +CA$20–30 יומיים יוכל להניב עוד לידים.`,
+      what: `Campaign "${camp.campaign ?? 'Unknown campaign'}" is losing ${fmt(camp.searchLostIsBudget)}% search impression share to budget.`,
+      why: 'The campaign converts but is budget constrained, so lead volume is likely capped.',
+      action: 'Increase daily budget in controlled increments and confirm CPA remains acceptable.',
       data: camp,
+      signal: 'budget-limited-winner',
+    });
+  }
+  return findings;
+}
+
+function highIntentDevices(devices) {
+  const findings = [];
+  for (const row of devices) {
+    if (!hasValue(row.device) || !hasValue(row.conversions) || !hasValue(row.cost)) continue;
+    if (row.conversions < T.minLeadsForScaling) continue;
+
+    const cpl = row.cost / row.conversions;
+    if (cpl > T.cplGood) continue;
+
+    findings.push({
+      category: 'opportunity',
+      severity: cpl <= T.cplExcellent ? 'high' : 'medium',
+      what: `Device segment "${row.device}" produced ${row.conversions} conversions at CA$${fmt(cpl)} CPA.`,
+      why: 'Device-level efficiency indicates where additional bid support can produce incremental leads.',
+      action: `Apply positive bid adjustments for ${row.device} while monitoring conversion quality.`,
+      data: row,
+      signal: 'high-intent-device',
+    });
+  }
+  return findings;
+}
+
+function highIntentLocations(locations) {
+  const findings = [];
+  for (const row of locations) {
+    if (!hasValue(row.location) || !hasValue(row.conversions) || !hasValue(row.cost)) continue;
+    if (row.conversions < T.minLeadsForScaling) continue;
+
+    const cpl = row.cost / row.conversions;
+    if (cpl > T.cplGood) continue;
+
+    findings.push({
+      category: 'opportunity',
+      severity: cpl <= T.cplExcellent ? 'high' : 'medium',
+      what: `Location segment "${row.location}" produced ${row.conversions} conversions at CA$${fmt(cpl)} CPA.`,
+      why: 'Location-level performance supports targeted geo bid or budget expansion.',
+      action: `Prioritize high-efficiency location "${row.location}" with controlled bid or budget increases.`,
+      data: row,
+      signal: 'high-intent-location',
     });
   }
   return findings;

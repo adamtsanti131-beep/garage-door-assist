@@ -40,21 +40,41 @@ export function runRules(data) {
 // ── Deduplication ─────────────────────────────────────────────────────────────
 
 /**
- * Remove findings that are essentially duplicates.
- * Two findings are duplicates if they share the same category and the same
- * primary label (first quoted term or first 60 chars of what).
+ * Remove duplicate findings without collapsing distinct recommendations.
+ * We dedupe only when category + signal + normalized subject + normalized action
+ * all match.
  */
 function deduplicate(findings) {
   const seen = new Set();
+
   return findings.filter(f => {
-    const key = `${f.category}::${extractLabel(f.what)}`;
+    const key = [
+      f.category ?? 'unknown',
+      f.signal ?? 'generic',
+      extractSubject(f.what),
+      normalizeText(f.action),
+    ].join('::');
+
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 }
 
-function extractLabel(what) {
+function extractSubject(what) {
   const quoted = what?.match(/"([^"]+)"/);
-  return quoted ? quoted[1].toLowerCase() : (what ?? '').slice(0, 60).toLowerCase();
+  if (quoted) return normalizeText(quoted[1]);
+
+  // Fallback to short normalized prefix if no explicit subject is quoted.
+  return normalizeText((what ?? '').slice(0, 80));
+}
+
+function normalizeText(value) {
+  return String(value ?? '')
+    .toLowerCase()
+    .replace(/ca\$\d+(\.\d+)?/g, 'amount')
+    .replace(/\d+(\.\d+)?%/g, 'pct')
+    .replace(/\d+(\.\d+)?/g, 'num')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
