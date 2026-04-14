@@ -4,8 +4,21 @@ import { normalizeRows } from '../normalizer.js';
 import { validate }      from '../validator.js';
 
 export function parseAdGroupReport(csvText) {
-  const { rows: rawRows } = parseCSV(csvText);
-  const { rows, foundFields } = normalizeRows(rawRows, REPORT_TYPES.AD_GROUP);
-  const validation = validate(rows, REPORT_TYPES.AD_GROUP, foundFields);
-  return { rows, foundFields, validation, reportType: REPORT_TYPES.AD_GROUP };
+  const { rows: rawRows, meta: parseMeta } = parseCSV(csvText);
+  const { rows, foundFields, droppedAggregateRows } = normalizeRows(rawRows, REPORT_TYPES.AD_GROUP);
+  const validation = validate(rows, REPORT_TYPES.AD_GROUP, foundFields, {
+    rawDataRowCount: parseMeta?.rawDataRowCount ?? null,
+    droppedAggregateRows: parseMeta?.droppedAggregateRows ?? 0,
+    droppedAggregateRowsInNormalizer: droppedAggregateRows,
+  });
+  return {
+    rows,
+    foundFields,
+    validation,
+    reportType: REPORT_TYPES.AD_GROUP,
+    parseMeta: {
+      ...(parseMeta ?? {}),
+      droppedAggregateRowsInNormalizer: droppedAggregateRows,
+    },
+  };
 }

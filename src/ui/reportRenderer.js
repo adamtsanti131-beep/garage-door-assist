@@ -47,6 +47,8 @@ function renderSummary(summary) {
     ? `"${esc(summary.bestPerformer.label)}" — CA$${summary.bestPerformer.cpa.toFixed(0)}/conv`
     : 'אין מספיק נתונים';
   const totalsSource = summary.totalsSource ? esc(formatDataSource(summary.totalsSource)) : 'ללא';
+  const totalsConfidence = esc(formatTotalsConfidence(summary.totalsSourceConfidence));
+  const totalsNote = esc(summary.totalsSourceNote ?? '');
 
   el.innerHTML = `
     <div class="summary-stat"><span class="summary-label">סך הוצאה</span><span class="summary-value">${spend}</span></div>
@@ -54,7 +56,8 @@ function renderSummary(summary) {
     <div class="summary-stat"><span class="summary-label">CPA ממוצע</span><span class="summary-value">${cpa}</span></div>
     <div class="summary-stat ${high > 0 ? 'summary-stat--alert' : ''}"><span class="summary-label">עדיפות גבוהה</span><span class="summary-value">${high} פריטים</span></div>
     <div class="summary-stat summary-stat--wide"><span class="summary-label">הביצוע הטוב ביותר</span><span class="summary-value">${best}</span></div>
-    <div class="summary-stat summary-stat--wide"><span class="summary-label">מקור הסכומים</span><span class="summary-value">${totalsSource}</span></div>
+    <div class="summary-stat summary-stat--wide"><span class="summary-label">מקור הסכומים</span><span class="summary-value">${totalsSource} (${totalsConfidence})</span></div>
+    <div class="summary-stat summary-stat--wide"><span class="summary-label">הערת אמינות</span><span class="summary-value">${totalsNote || '—'}</span></div>
   `;
 }
 
@@ -74,6 +77,9 @@ function renderAccountStatus(status) {
       <span>פעולות בעדיפות גבוהה: ${esc(String(status.highPriorityActions))}</span>
       <span>פעולות חסומות: ${esc(String(status.blockedActions))}</span>
       <span>דוחות חסרים: ${esc(String(status.missingReportsCount))}</span>
+      <span>דוחות חסומים: ${esc(String(status.blockedReportsCount ?? 0))}</span>
+      <span>דוחות בשימוש: ${esc(String(status.usedReportsCount ?? 0))}</span>
+      <span>בשימוש עם אזהרות: ${esc(String(status.usedWithWarningsCount ?? 0))}</span>
       <span>שדות עסקיים חסרים: ${esc(String(status.missingBusinessContextCount))}</span>
     </div>
   `;
@@ -163,9 +169,13 @@ function renderCoverage(reportCoverage, missingBusinessContext) {
   for (const item of reportCoverage) {
     rows.push(`
       <div class="report-item">
-        <strong>${esc(item.label)}: ${item.present ? 'הועלה' : 'חסר'}</strong>
-        <span class="item-detail">שורות: ${esc(String(item.rowCount))} | משמש עבור: ${esc(item.usedFor)}</span>
+        <strong>${esc(item.label)}: ${esc(formatCoverageStatus(item.status))}</strong>
+        <span class="item-detail">שורות בשימוש: ${esc(String(item.rowCount))} | משמש עבור: ${esc(item.usedFor)}</span>
+        <span class="item-detail">שורות Total/Subtotal שהוסרו: ${esc(String(item.droppedAggregateRows ?? 0))}</span>
         ${item.impactIfMissing ? `<span class="item-detail">השפעה: ${esc(item.impactIfMissing)}</span>` : ''}
+        ${item.blockReason ? `<span class="item-detail">סיבת חסימה: ${esc(item.blockReason)}</span>` : ''}
+        ${(item.errors ?? []).slice(0, 2).map(err => `<span class="item-detail">שגיאה: ${esc(err)}</span>`).join('')}
+        ${(item.warnings ?? []).slice(0, 2).map(warn => `<span class="item-detail">אזהרה: ${esc(warn)}</span>`).join('')}
       </div>
     `);
   }
@@ -339,6 +349,25 @@ function formatDataSource(value) {
     ads: 'מודעות',
     devices: 'מכשירים',
     locations: 'מיקומים',
+  };
+  return map[value] ?? String(value ?? 'לא ידוע');
+}
+
+function formatCoverageStatus(value) {
+  const map = {
+    not_uploaded: 'לא הועלה',
+    uploaded_used: 'הועלה ונעשה בו שימוש',
+    uploaded_blocked: 'הועלה אך נחסם',
+    uploaded_used_with_warnings: 'הועלה ונעשה בו שימוש עם אזהרות',
+  };
+  return map[value] ?? String(value ?? 'לא ידוע');
+}
+
+function formatTotalsConfidence(value) {
+  const map = {
+    high: 'אמינות גבוהה',
+    medium: 'אמינות בינונית',
+    low: 'אמינות נמוכה',
   };
   return map[value] ?? String(value ?? 'לא ידוע');
 }

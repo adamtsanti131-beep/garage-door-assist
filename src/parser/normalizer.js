@@ -21,14 +21,17 @@ import { COLUMN_ALIASES, DETECTION_SIGNALS, REPORT_TYPES } from './schemas.js';
  * @returns {{ rows: NormalizedRow[], foundFields: string[] }}
  */
 export function normalizeRows(rawRows, reportType) {
-  if (!rawRows.length) return { rows: [], foundFields: [] };
+  if (!rawRows.length) return { rows: [], foundFields: [], droppedAggregateRows: 0 };
 
   // Build a column→field map from the first row's keys
   const colMap = buildColumnMap(Object.keys(rawRows[0]));
   const foundFields = [...new Set(Object.values(colMap))];
 
-  const rows = rawRows.map(raw => normalizeRow(raw, colMap, reportType));
-  return { rows, foundFields };
+  const normalized = rawRows.map(raw => normalizeRow(raw, colMap, reportType));
+  const rows = normalized.filter(row => !isAggregateNormalizedRow(row));
+  const droppedAggregateRows = normalized.length - rows.length;
+
+  return { rows, foundFields, droppedAggregateRows };
 }
 
 /**
@@ -186,3 +189,27 @@ function isStringField(field) { return STRING_FIELDS.has(field); }
 function isNumber(v)   { return typeof v === 'number' && !isNaN(v); }
 function isPositive(v) { return isNumber(v) && v > 0; }
 function round(n, dp)  { return Math.round(n * 10 ** dp) / 10 ** dp; }
+
+function isAggregateNormalizedRow(row) {
+  const identityValues = [
+    row.searchTerm,
+    row.keyword,
+    row.adGroup,
+    row.campaign,
+    row.device,
+    row.location,
+  ].filter(v => typeof v === 'string' && v.trim() !== '');
+
+  if (identityValues.length === 0) return false;
+  const first = normalizeLabel(identityValues[0]);
+  return /^(total|subtotal|grand total|total:|total\s*-|sum\s+of)/i.test(first);
+}
+
+function normalizeLabel(value) {
+  return String(value ?? '')
+    .replace(/^\uFEFF/, '')
+    .replace(/["']/g, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+}

@@ -39,19 +39,27 @@ export function routeReport(csvText, reportType) {
     return errorResult(`סוג דוח לא מוכר: "${reportType}"`);
   }
 
-  const result = parser(csvText);
+  let result;
+  try {
+    result = parser(csvText);
+  } catch (err) {
+    return errorResult(
+      `לא ניתן היה לפענח את הקובץ. הסיבה: ${err?.message ?? 'מבנה CSV לא נתמך או קובץ פגום.'}`
+    );
+  }
 
   // Auto-detect the likely type and warn if it differs from the slot
   try {
-    const { rows: rawRows } = parseCSV(csvText);
-    if (rawRows.length > 0) {
-      const detected = detectReportType(Object.keys(rawRows[0]));
+    const { headers } = parseCSV(csvText);
+    if (headers.length > 0) {
+      const detected = detectReportType(headers);
       if (detected && detected !== reportType) {
         const detectedLabel = SCHEMAS[detected]?.label ?? detected;
         const expectedLabel = SCHEMAS[reportType]?.label ?? reportType;
         result.validation.warnings.unshift(
           `נראה שזה קובץ מסוג "${detectedLabel}", אבל הוא הועלה לשדה "${expectedLabel}". יש לבדוק שהקובץ הועלה למקום הנכון.`
         );
+        result.detectedType = detected;
       }
     }
   } catch {
@@ -75,6 +83,8 @@ function errorResult(message) {
       missingRequired: [],
       missingPreferred: [],
       rowCount: 0,
+      droppedAggregateRows: 0,
     },
+    parseMeta: { rawDataRowCount: 0, droppedAggregateRows: 0, droppedAggregateRowsInNormalizer: 0 },
   };
 }

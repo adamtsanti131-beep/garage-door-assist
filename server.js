@@ -33,6 +33,16 @@ app.use(express.json());
 // Each field accepts one CSV file. All fields are optional — send what you have.
 
 const UPLOAD_FIELDS = Object.values(REPORT_TYPES).map(name => ({ name, maxCount: 1 }));
+const ALL_REPORT_TYPES = Object.values(REPORT_TYPES);
+const REPORT_LABELS = {
+  [REPORT_TYPES.CAMPAIGN]: 'דוח קמפיינים',
+  [REPORT_TYPES.AD_GROUP]: 'דוח קבוצות מודעות',
+  [REPORT_TYPES.SEARCH_TERMS]: 'דוח מונחי חיפוש',
+  [REPORT_TYPES.KEYWORDS]: 'דוח מילות מפתח',
+  [REPORT_TYPES.ADS]: 'דוח מודעות',
+  [REPORT_TYPES.DEVICES]: 'דוח מכשירים',
+  [REPORT_TYPES.LOCATION]: 'דוח מיקומים',
+};
 
 app.post('/analyze', upload.fields(UPLOAD_FIELDS), (req, res) => {
   try {
@@ -46,6 +56,25 @@ app.post('/analyze', upload.fields(UPLOAD_FIELDS), (req, res) => {
     // Parse each file using the correct parser for its slot type
     const parsedReports = {};
     const validationResults = {};
+    const reportStatuses = {};
+
+    for (const reportType of ALL_REPORT_TYPES) {
+      const file = files[reportType]?.[0] ?? null;
+      if (!file) {
+        reportStatuses[reportType] = {
+          reportType,
+          label: REPORT_LABELS[reportType] ?? reportType,
+          status: 'not_uploaded',
+          uploaded: false,
+          fileName: null,
+          rowCount: 0,
+          droppedAggregateRows: 0,
+          warnings: [],
+          errors: [],
+          blockReason: null,
+        };
+      }
+    }
 
     for (const [reportType, fileArr] of Object.entries(files)) {
       const file = fileArr[0];
@@ -54,13 +83,41 @@ app.post('/analyze', upload.fields(UPLOAD_FIELDS), (req, res) => {
 
       validationResults[reportType] = result.validation;
 
+      const droppedAggregateRows =
+        (result.parseMeta?.droppedAggregateRows ?? 0)
+        + (result.parseMeta?.droppedAggregateRowsInNormalizer ?? 0);
+
+      const baseStatus = {
+        reportType,
+        label: REPORT_LABELS[reportType] ?? reportType,
+        uploaded: true,
+        fileName: file.originalname,
+        rowCount: result.validation?.rowCount ?? 0,
+        droppedAggregateRows,
+        warnings: result.validation?.warnings ?? [],
+        errors: result.validation?.errors ?? [],
+        detectedType: result.detectedType ?? null,
+        blockReason: null,
+      };
+
       // Block this report type if required columns are missing
       if (!result.validation.ok) {
         console.warn(`[/analyze] ${reportType} נחסם:`, result.validation.errors);
+        reportStatuses[reportType] = {
+          ...baseStatus,
+          status: 'uploaded_blocked',
+          blockReason: summarizeBlockReason(result.validation),
+        };
         continue;
       }
 
       parsedReports[reportType] = result.rows;
+      reportStatuses[reportType] = {
+        ...baseStatus,
+        status: result.validation.warnings?.length
+          ? 'uploaded_used_with_warnings'
+          : 'uploaded_used',
+      };
     }
 
     // Map slot names to the data shape the rules engine expects
@@ -79,14 +136,17 @@ app.post('/analyze', upload.fields(UPLOAD_FIELDS), (req, res) => {
       return res.status(400).json({
         error: 'כל הקבצים שהועלו נכשלו בבדיקת תקינות. יש לוודא שהועלו סוגי הדוחות הנכונים.',
         validationResults,
+        reportStatuses,
       });
     }
 
     const findings = runRules(data);
-    const report   = buildReport(findings, data, businessContext);
+    const report   = buildReport(findings, data, businessContext, reportStatuses);
 
     // Attach validation results so the frontend can show per-file warnings
     report.validationResults = validationResults;
+    report.reportStatuses = reportStatuses;
+    report.coverageStatusCounts = countCoverageStatuses(reportStatuses);
 
     res.json(report);
 
@@ -172,4 +232,30 @@ function toNullableBoolean(value) {
 function safeString(value) {
   if (value === null || value === undefined) return '';
   return String(value).trim();
+}
+
+function summarizeBlockReason(validation) {
+  if (!validation) return 'הקובץ נחסם עקב שגיאת בדיקה.';
+  if (validation.missingRequired?.length) return 'חסרות עמודות חובה.';
+
+  const firstError = validation.errors?.[0] ?? '';
+  if (firstError.includes('Total')) return 'לא נשארו שורות נתונים אחרי הסרת שורות Total/Subtotal.';
+  if (firstError.includes('פענח')) return 'מבנה CSV לא נתמך או קובץ פגום.';
+  if (firstError.includes('כותרת')) return 'מבנה ייצוא לא נתמך: לא נמצאה שורת כותרת תקינה.';
+  return firstError || 'הקובץ נחסם עקב שגיאת בדיקה.';
+}
+
+function countCoverageStatuses(reportStatuses) {
+  const counts = {
+    not_uploaded: 0,
+    uploaded_used: 0,
+    uploaded_blocked: 0,
+    uploaded_used_with_warnings: 0,
+  };
+
+  for (const item of Object.values(reportStatuses ?? {})) {
+    if (counts[item.status] != null) counts[item.status] += 1;
+  }
+
+  return counts;
 }

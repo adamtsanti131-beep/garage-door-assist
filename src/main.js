@@ -4,7 +4,7 @@
  * Analysis is done server-side via POST /analyze.
  */
 
-import { initUploader, showUploadWarnings } from './ui/uploader.js';
+import { initUploader, showUploadOutcome, showUploadWarnings } from './ui/uploader.js';
 import { initHistoryPanel, refreshHistoryPanel } from './ui/historyPanel.js';
 import { renderReport }  from './ui/reportRenderer.js';
 import { saveToHistory } from './storage/history.js';
@@ -103,7 +103,13 @@ async function runAnalysis() {
 
     const report = await response.json();
 
-    // Show per-file validation warnings under each upload card
+    // Show per-file usage status and warnings under each upload card
+    if (report.reportStatuses) {
+      for (const [key, status] of Object.entries(report.reportStatuses)) {
+        showUploadOutcome(key, status);
+      }
+    }
+
     if (report.validationResults) {
       for (const [key, result] of Object.entries(report.validationResults)) {
         if (result.warnings?.length) showUploadWarnings(key, result.warnings);

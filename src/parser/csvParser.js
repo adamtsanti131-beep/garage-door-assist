@@ -21,7 +21,7 @@ export function parseCSV(csvText) {
     throw new Error('נראה שקובץ ה-CSV ריק.');
   }
 
-  // Find the header row — Google Ads sometimes prepends 1-2 metadata lines
+  // Find the header row — Google Ads may prepend metadata blocks before the table header.
   const headerIndex = findHeaderRow(dataLines);
   if (headerIndex === -1) {
     throw new Error('לא נמצאה שורת כותרת תקינה בקובץ ה-CSV.');
@@ -30,14 +30,17 @@ export function parseCSV(csvText) {
   const headers = parseCSVLine(dataLines[headerIndex]).map(h => h.trim());
 
   const rows = [];
+  let droppedAggregateRows = 0;
   for (let i = headerIndex + 1; i < dataLines.length; i++) {
-    const line = dataLines[i].trim();
+    const line = dataLines[i];
     if (!line) continue;
 
-    // Skip Google Ads totals rows (they start with "Total" or "--")
-    if (/^["']?Total/i.test(line) || line.startsWith('--')) continue;
+    const values = parseCSVLine(line, i + 1);
+    if (isAggregateValuesRow(values)) {
+      droppedAggregateRows += 1;
+      continue;
+    }
 
-    const values = parseCSVLine(line);
     const row = {};
     headers.forEach((header, idx) => {
       row[header] = values[idx] !== undefined ? values[idx].trim() : '';
@@ -49,7 +52,15 @@ export function parseCSV(csvText) {
     throw new Error('לא נמצאו שורות נתונים אחרי הכותרת. האם זה הקובץ הנכון?');
   }
 
-  return { headers, rows };
+  return {
+    headers,
+    rows,
+    meta: {
+      headerIndex,
+      rawDataRowCount: Math.max(0, dataLines.length - (headerIndex + 1)),
+      droppedAggregateRows,
+    },
+  };
 }
 
 /**
@@ -58,18 +69,23 @@ export function parseCSV(csvText) {
  * We detect the header as the first line containing at least 2 known column signals.
  */
 function findHeaderRow(lines) {
-  const headerSignals = [
-    'clicks', 'impressions', 'campaign', 'keyword', 'search term', 'cost', 'ctr', 'conversions',
-  ];
+  let bestIndex = -1;
+  let bestScore = -1;
+  const scanLimit = Math.min(lines.length, 30);
 
-  for (let i = 0; i < Math.min(lines.length, 5); i++) {
-    const lower = lines[i].toLowerCase();
-    const matches = headerSignals.filter(signal => lower.includes(signal));
-    if (matches.length >= 2) return i;
+  for (let i = 0; i < scanLimit; i++) {
+    const columns = parseCSVLine(lines[i], i + 1).map(c => c.trim().toLowerCase()).filter(Boolean);
+    if (columns.length < 2) continue;
+
+    const score = scoreHeaderCandidate(columns);
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = i;
+    }
   }
 
-  // Fallback: treat the first line as the header
-  return 0;
+  if (bestScore >= 2) return bestIndex;
+  return -1;
 }
 
 /**
@@ -78,7 +94,7 @@ function findHeaderRow(lines) {
  * @param {string} line
  * @returns {string[]}
  */
-function parseCSVLine(line) {
+function parseCSVLine(line, lineNumber = null) {
   const result = [];
   let current = '';
   let inQuotes = false;
@@ -103,5 +119,48 @@ function parseCSVLine(line) {
   }
 
   result.push(current);
+  if (inQuotes) {
+    const where = lineNumber != null ? ` בשורה ${lineNumber}` : '';
+    throw new Error(`CSV פגום${where}: נמצאו מרכאות לא סגורות.`);
+  }
   return result;
+}
+
+function scoreHeaderCandidate(columns) {
+  const normalized = columns.map(normalizeToken);
+  const headerSignals = [
+    'campaign', 'ad group', 'search term', 'keyword', 'match type', 'device', 'location',
+    'clicks', 'impressions', 'ctr', 'cost', 'conversions', 'conv. rate', 'avg. cpc',
+    'cost / conv.', 'quality score', 'search impr. share',
+  ];
+
+  let score = 0;
+  for (const col of normalized) {
+    if (headerSignals.some(signal => col.includes(signal))) score += 1;
+  }
+  return score;
+}
+
+function isAggregateValuesRow(values) {
+  const trimmed = values.map(v => String(v ?? '').trim()).filter(Boolean);
+  if (trimmed.length === 0) return true;
+
+  const first = normalizeToken(trimmed[0]);
+  if (first === '--') return true;
+
+  return isAggregateLabel(first);
+}
+
+function isAggregateLabel(value) {
+  if (!value) return false;
+  return /^(total|subtotal|grand total|total:|total\s*-|sum\s+of)/i.test(value);
+}
+
+function normalizeToken(value) {
+  return String(value ?? '')
+    .replace(/^\uFEFF/, '')
+    .replace(/["']/g, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
 }

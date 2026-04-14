@@ -56,11 +56,13 @@ const DECISION_STEPS = [
   'שלב 5: הגדלה זהירה של מנצחים מוכחים',
 ];
 
-export function buildDecisionLayer(findings, data, summary, businessContext) {
-  const reportCoverage = buildReportCoverage(data);
+export function buildDecisionLayer(findings, data, summary, businessContext, reportStatuses = {}) {
+  const reportCoverage = buildReportCoverage(data, reportStatuses);
   const reportCoverageByKey = Object.fromEntries(reportCoverage.map(r => [r.reportKey, r]));
-  const missingReports = reportCoverage.filter(r => !r.present).map(r => r.label);
+  const missingReports = reportCoverage.filter(r => r.status === 'not_uploaded').map(r => r.label);
+  const blockedReports = reportCoverage.filter(r => r.status === 'uploaded_blocked').map(r => r.label);
   const missingBusinessContext = findMissingBusinessContext(businessContext);
+  const coverageSummary = buildCoverageSummary(reportCoverage);
 
   const measurementTrust = evaluateMeasurementTrust(findings, businessContext);
   const decisions = findings.map(f =>
@@ -79,6 +81,7 @@ export function buildDecisionLayer(findings, data, summary, businessContext) {
     measurementTrust,
     businessContext,
     reportCoverageByKey,
+    coverageSummary,
   ));
   decisions.push(...buildContextDrivenDecisions(
     data,
@@ -89,6 +92,7 @@ export function buildDecisionLayer(findings, data, summary, businessContext) {
   decisions.push(...buildGuardrailDecisions(
     measurementTrust,
     missingReports,
+    blockedReports,
     missingBusinessContext,
     businessContext,
     reportCoverageByKey,
@@ -103,13 +107,22 @@ export function buildDecisionLayer(findings, data, summary, businessContext) {
   const buckets = bucketDecisions(sorted);
 
   return {
-    accountStatus: buildAccountStatus(measurementTrust, sorted, missingReports, missingBusinessContext),
+    accountStatus: buildAccountStatus(
+      measurementTrust,
+      sorted,
+      missingReports,
+      blockedReports,
+      missingBusinessContext,
+      coverageSummary,
+    ),
     decisionOrder: DECISION_STEPS,
     decisions: sorted,
     decisionBuckets: buckets,
     missingReports,
+    blockedReports,
     missingBusinessContext,
     reportCoverage,
+    coverageSummary,
     knowledgeBoundaries: buildKnowledgeBoundaries(measurementTrust, businessContext, reportCoverage),
     summaryGuidance: {
       canActImmediately: measurementTrust !== 'untrusted' && buckets.immediateActions.length > 0,
@@ -121,23 +134,69 @@ export function buildDecisionLayer(findings, data, summary, businessContext) {
   };
 }
 
-function buildReportCoverage(data) {
+function buildReportCoverage(data, reportStatuses = {}) {
   return Object.values(REPORT_ROLE_MAP).map(info => {
     const rows = data[info.key] ?? [];
+    const uploadKey = reportTypeForDataKey(info.key);
+    const statusInfo = reportStatuses[uploadKey] ?? null;
+    const status = statusInfo?.status ?? 'not_uploaded';
+    const used = status === 'uploaded_used' || status === 'uploaded_used_with_warnings';
+
     return {
       reportKey: info.key,
       label: info.label,
-      present: rows.length > 0,
+      present: used,
+      status,
+      uploaded: status !== 'not_uploaded',
       rowCount: rows.length,
+      droppedAggregateRows: statusInfo?.droppedAggregateRows ?? 0,
+      warnings: statusInfo?.warnings ?? [],
+      errors: statusInfo?.errors ?? [],
+      blockReason: statusInfo?.blockReason ?? null,
       usedFor: info.usedFor,
       importance: info.importance,
-      impactIfMissing: rows.length > 0
+      impactIfMissing: used
         ? null
-        : info.importance === 'high'
-          ? 'רמת הביטחון יורדת בהחלטות בעלות השפעה גבוהה.'
-          : 'רמת הפירוט בהחלטות יורדת, אך ההנחיה המרכזית עדיין זמינה.',
+        : status === 'uploaded_blocked'
+          ? 'הקובץ הועלה אך נחסם, ולכן החלטות שתלויות בדוח זה יוחלשו או ייחסמו.'
+          : info.importance === 'high'
+            ? 'רמת הביטחון יורדת בהחלטות בעלות השפעה גבוהה.'
+            : 'רמת הפירוט בהחלטות יורדת, אך ההנחיה המרכזית עדיין זמינה.',
     };
   });
+}
+
+function buildCoverageSummary(reportCoverage) {
+  const summary = {
+    notUploadedCount: 0,
+    blockedCount: 0,
+    usedCount: 0,
+    usedWithWarningsCount: 0,
+    usedHighImpactCount: 0,
+  };
+
+  for (const item of reportCoverage) {
+    if (item.status === 'not_uploaded') summary.notUploadedCount += 1;
+    if (item.status === 'uploaded_blocked') summary.blockedCount += 1;
+    if (item.status === 'uploaded_used') summary.usedCount += 1;
+    if (item.status === 'uploaded_used_with_warnings') summary.usedWithWarningsCount += 1;
+    if (item.present && item.importance === 'high') summary.usedHighImpactCount += 1;
+  }
+
+  return summary;
+}
+
+function reportTypeForDataKey(dataKey) {
+  const map = {
+    campaigns: 'campaign',
+    adGroups: 'adGroup',
+    searchTerms: 'searchTerm',
+    keywords: 'keyword',
+    ads: 'ad',
+    devices: 'device',
+    locations: 'location',
+  };
+  return map[dataKey] ?? null;
 }
 
 function findMissingBusinessContext(context) {
@@ -244,8 +303,8 @@ function mapActionType(finding) {
     'low-quality-score': 'ad_relevance_improvement',
     'outperforming-campaign': 'scale_winner',
     'budget-limited-winner': 'scale_winner',
-    'high-intent-device': 'device_bid_optimization',
-    'high-intent-location': 'location_bid_optimization',
+    'high-intent-device': 'device_bid_control',
+    'high-intent-location': 'location_bid_control',
   };
 
   return bySignal[finding.signal] ?? categoryFallbackAction(finding.category);
@@ -397,12 +456,13 @@ function riskIfIgnoredFor(category) {
   return 'הגדלה עלולה להיעצר או להעלות CPA אם מבוצעת מוקדם מדי.';
 }
 
-function buildDatasetDrivenDecisions(data, measurementTrust, context) {
+function buildDatasetDrivenDecisions(data, measurementTrust, context, reportCoverageByKey, coverageSummary) {
   const decisions = [];
+  const strongCoverage = coverageSummary.usedHighImpactCount >= 2;
 
   decisions.push(...buildAdDecisions(data.ads ?? [], measurementTrust));
-  decisions.push(...buildDeviceDecisions(data.devices ?? [], measurementTrust, context));
-  decisions.push(...buildLocationDecisions(data.locations ?? [], measurementTrust, context));
+  decisions.push(...buildDeviceDecisions(data.devices ?? [], measurementTrust, context, strongCoverage));
+  decisions.push(...buildLocationDecisions(data.locations ?? [], measurementTrust, context, strongCoverage));
 
   // Business target context can moderate scaling confidence.
   if (context.targetCpl != null && data.campaigns?.length) {
@@ -415,7 +475,7 @@ function buildDatasetDrivenDecisions(data, measurementTrust, context) {
         confidence: 'ביטחון בינוני',
         category: 'controlRisk',
         entity_level: 'account',
-        entity_name: 'Account-wide',
+        entity_name: 'ברמת החשבון',
         reason: `חלק מהקמפיינים מעל יעד ה-CPL שלך (CA$${context.targetCpl}).`,
         evidence: [`${overTarget.length} קמפיינים נמצאים כרגע מעל יעד ה-CPL.`],
         evidence_state: measurementTrust === 'untrusted' ? 'unknown' : 'likely',
@@ -483,7 +543,7 @@ function buildAdDecisions(ads, measurementTrust) {
   }];
 }
 
-function buildDeviceDecisions(devices, measurementTrust, context) {
+function buildDeviceDecisions(devices, measurementTrust, context, strongCoverage) {
   const decisions = [];
   const weak = devices.filter(d => num(d.cost) >= 50 && num(d.conversions) === 0);
 
@@ -502,7 +562,7 @@ function buildDeviceDecisions(devices, measurementTrust, context) {
     action_type: 'device_bid_control',
     action_priority: 2,
     execution_step: 2,
-    confidence: measurementTrust === 'untrusted' ? 'Low confidence' : 'Medium confidence',
+    confidence: measurementTrust === 'untrusted' ? 'ביטחון נמוך' : 'ביטחון בינוני',
     category: 'waste',
     entity_level: 'device',
     entity_name: weak[0].device ?? 'פלח מכשיר',
@@ -531,7 +591,7 @@ function buildDeviceDecisions(devices, measurementTrust, context) {
     });
   }
 
-  if (winners.length) {
+  if (winners.length && strongCoverage) {
     const top = winners[0];
     const topCpl = num(top.cost) / Math.max(num(top.conversions), 1);
     decisions.push({
@@ -570,10 +630,40 @@ function buildDeviceDecisions(devices, measurementTrust, context) {
     });
   }
 
+  if (winners.length && !strongCoverage) {
+    decisions.push({
+      action_type: 'device_scale_guardrail',
+      action_priority: 3,
+      execution_step: 5,
+      confidence: 'ביטחון נמוך',
+      category: 'measurementRisk',
+      entity_level: 'account',
+      entity_name: 'ברמת החשבון',
+      reason: 'זוהו איתותי סקייל ממכשירים, אבל כיסוי הדוחות הגבוה-השפעה חלקי ולכן אין די ראיות להגדלה בטוחה.',
+      evidence: ['סקייל ממכשירים בלבד עלול להטעות כאשר דוחות Campaign/Search Terms/Keywords לא מכסים מספיק.'],
+      evidence_state: 'likely',
+      prerequisite: 'יש להשלים לפחות שני דוחות high-impact תקינים לפני סקייל.',
+      user_instruction: 'לא לבצע כרגע הגדלה לפי מכשיר בלבד. להשלים כיסוי דוחות ואז להריץ שוב.',
+      operator_steps: [
+        'להעלות דוחות Campaign, Search Terms או Keywords שחסרים/נחסמו.',
+        'להריץ ניתוח מחדש לפני העלאות הצעת מחיר לסקייל.',
+      ],
+      monitor_after_change: 'לעקוב שסטטוס הכיסוי עובר ל-used עבור דוחות high-impact.',
+      reassess_timing: 'להריץ שוב מיד אחרי העלאת הדוחות החסרים או תיקון החסומים.',
+      expected_outcome: 'סקייל יתבסס על תמונה רחבה יותר ולא רק על פילוח מכשיר.',
+      risk_if_ignored: 'סקייל מוקדם עלול לנפח הוצאה ללא שיפור עקבי.',
+      do_not_do_yet: true,
+      requires_business_context: false,
+      blocked_by_tracking: false,
+      review_required_before_action: false,
+      safety_classification: 'not_safe_from_csv_alone',
+    });
+  }
+
   return decisions;
 }
 
-function buildLocationDecisions(locations, measurementTrust, context) {
+function buildLocationDecisions(locations, measurementTrust, context, strongCoverage) {
   const decisions = [];
   const weak = locations.filter(l => num(l.cost) >= 50 && num(l.conversions) === 0);
   const serviceAreaTokens = tokenize(context.serviceArea);
@@ -637,7 +727,7 @@ function buildLocationDecisions(locations, measurementTrust, context) {
     return false;
   });
 
-  if (winners.length) {
+  if (winners.length && strongCoverage) {
     const top = winners[0];
     decisions.push({
       action_type: 'location_scale_support',
@@ -805,6 +895,7 @@ function buildContextDrivenDecisions(data, measurementTrust, context, reportCove
 function buildGuardrailDecisions(
   measurementTrust,
   missingReports,
+  blockedReports,
   missingBusinessContext,
   businessContext,
   reportCoverageByKey,
@@ -902,19 +993,57 @@ function buildGuardrailDecisions(
     });
   }
 
+  if (blockedReports.length > 0) {
+    decisions.push({
+      action_type: 'blocked_reports_resolution',
+      action_priority: 2,
+      execution_step: 1,
+      confidence: 'ביטחון גבוה',
+      category: 'measurementRisk',
+      entity_level: 'account',
+      entity_name: 'ברמת החשבון',
+      reason: 'חלק מהדוחות הועלו אך נחסמו, ולכן המערכת לא יכולה להשתמש בהם לצורך החלטות מלאות.',
+      evidence: [`דוחות חסומים: ${blockedReports.join(', ')}`],
+      evidence_state: 'confirmed',
+      prerequisite: 'יש לתקן את סיבת החסימה ולהעלות מחדש את הקבצים.',
+      user_instruction: 'לתקן קודם את הדוחות החסומים לפי הודעות השגיאה, ואז להריץ ניתוח מחדש.',
+      operator_steps: [
+        'לפתוח את פירוט הכיסוי ולבדוק סיבת חסימה לכל דוח.',
+        'לייצא מחדש את הדוח בפורמט Google Ads CSV תקין.',
+        'להעלות שוב לשדה המתאים בממשק.',
+      ],
+      monitor_after_change: 'לוודא שסטטוס הדוחות החסומים משתנה ל-used או used_with_warnings.',
+      reassess_timing: 'להריץ מחדש מיד אחרי העלאה מחדש.',
+      expected_outcome: 'המלצות מדויקות יותר עם פחות חסמים של כיסוי נתונים.',
+      risk_if_ignored: 'החלטות ימשיכו להיות שמרניות או חלקיות בגלל חסר ראיות.',
+      do_not_do_yet: false,
+      requires_business_context: false,
+      blocked_by_tracking: false,
+      review_required_before_action: true,
+      safety_classification: 'review_before_acting',
+    });
+  }
+
   if (reportCoverageByKey.searchTerms?.present !== true) {
+    const searchTermsBlocked = reportCoverageByKey.searchTerms?.status === 'uploaded_blocked';
     decisions.push({
       action_type: 'broad_keyword_guardrail',
       action_priority: 2,
       execution_step: 2,
-      confidence: 'ביטחון גבוה',
+      confidence: searchTermsBlocked ? 'ביטחון בינוני' : 'ביטחון גבוה',
       category: 'controlRisk',
       entity_level: 'account',
       entity_name: 'מגן בטיחות להתאמה רחבה',
-      reason: 'דוח מונחי חיפוש חסר, ולכן עצירת מילות מפתח בהתאמה רחבה מסוכנת יותר.',
-      evidence: ['שינויים בהתאמה רחבה בלי ראיות ממונחי חיפוש עלולים לחסום שאילתות רווחיות.'],
+      reason: searchTermsBlocked
+        ? 'דוח מונחי חיפוש הועלה אך נחסם, ולכן עצירת מילות מפתח בהתאמה רחבה מסוכנת יותר.'
+        : 'דוח מונחי חיפוש לא הועלה, ולכן עצירת מילות מפתח בהתאמה רחבה מסוכנת יותר.',
+      evidence: [searchTermsBlocked
+        ? 'יש לתקן את דוח מונחי החיפוש החסום לפני החלטות רחבות אגרסיביות.'
+        : 'שינויים בהתאמה רחבה בלי ראיות ממונחי חיפוש עלולים לחסום שאילתות רווחיות.'],
       evidence_state: 'confirmed',
-      prerequisite: 'יש להעלות דוח מונחי חיפוש לפני קיצוצים אגרסיביים במילים רחבות.',
+      prerequisite: searchTermsBlocked
+        ? 'יש לתקן ולהעלות מחדש את דוח מונחי החיפוש החסום לפני קיצוצים אגרסיביים במילים רחבות.'
+        : 'יש להעלות דוח מונחי חיפוש לפני קיצוצים אגרסיביים במילים רחבות.',
       user_instruction: 'לא לעצור עדיין מילות מפתח רחבות. קודם לבדוק מונחי חיפוש בפועל.',
       operator_steps: [
         'לייצא ולהעלות דוח מונחי חיפוש.',
@@ -1038,7 +1167,14 @@ function bucketDecisions(decisions) {
   };
 }
 
-function buildAccountStatus(measurementTrust, decisions, missingReports, missingBusinessContext) {
+function buildAccountStatus(
+  measurementTrust,
+  decisions,
+  missingReports,
+  blockedReports,
+  missingBusinessContext,
+  coverageSummary,
+) {
   const highPriority = decisions.filter(d => d.action_priority === 1).length;
   const blocked = decisions.filter(d => d.blocked_by_tracking).length;
 
@@ -1049,6 +1185,9 @@ function buildAccountStatus(measurementTrust, decisions, missingReports, missing
     highPriorityActions: highPriority,
     blockedActions: blocked,
     missingReportsCount: missingReports.length,
+    blockedReportsCount: blockedReports.length,
+    usedReportsCount: coverageSummary.usedCount,
+    usedWithWarningsCount: coverageSummary.usedWithWarningsCount,
     missingBusinessContextCount: missingBusinessContext.length,
   };
 }

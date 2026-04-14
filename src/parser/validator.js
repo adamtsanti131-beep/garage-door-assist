@@ -22,7 +22,13 @@ import { SCHEMAS } from './schemas.js';
  * @param {string[]} foundFields — list of internal field keys actually found in the file
  * @returns {ValidationResult}
  */
-export function validate(rows, reportType, foundFields) {
+export function validate(rows, reportType, foundFields, options = {}) {
+  const {
+    rawDataRowCount = null,
+    droppedAggregateRows = 0,
+    droppedAggregateRowsInNormalizer = 0,
+  } = options;
+
   const schema = SCHEMAS[reportType];
   if (!schema) {
     return fatal(`סוג דוח לא מוכר: "${reportType}"`);
@@ -47,7 +53,17 @@ export function validate(rows, reportType, foundFields) {
 
   // ── Empty file check ──────────────────────────────────────────────────────
   if (rows.length === 0) {
-    errors.push('לא נמצאו שורות נתונים בקובץ אחרי שורת הכותרת.');
+    const totalDropped = droppedAggregateRows + droppedAggregateRowsInNormalizer;
+    if ((rawDataRowCount ?? 0) > 0 && totalDropped > 0) {
+      errors.push('הקובץ הועלה, אך כל השורות סווגו כשורות סיכום/Total ולכן לא נשארו שורות נתונים לניתוח.');
+    } else {
+      errors.push('הקובץ הועלה, אך לא נמצאו שורות נתונים תקינות אחרי שורת הכותרת.');
+    }
+  }
+
+  if (droppedAggregateRows > 0 || droppedAggregateRowsInNormalizer > 0) {
+    const totalDropped = droppedAggregateRows + droppedAggregateRowsInNormalizer;
+    warnings.push(`הוסרו ${totalDropped} שורות Total/Subtotal באופן אוטומטי לפני הניתוח.`);
   }
 
   // ── Suspicious data checks (only if file is otherwise valid) ─────────────
@@ -62,6 +78,7 @@ export function validate(rows, reportType, foundFields) {
     missingRequired,
     missingPreferred,
     rowCount:         rows.length,
+    droppedAggregateRows: droppedAggregateRows + droppedAggregateRowsInNormalizer,
   };
 }
 

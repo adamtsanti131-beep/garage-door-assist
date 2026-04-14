@@ -17,9 +17,9 @@ import { buildDecisionLayer } from './decisionEngine.js';
  * @param {Object}    businessContext
  * @returns {Report}
  */
-export function buildReport(findings, data, businessContext = {}) {
+export function buildReport(findings, data, businessContext = {}, reportStatuses = {}) {
   const summary = buildSummary(findings, data);
-  const decisionLayer = buildDecisionLayer(findings, data, summary, businessContext);
+  const decisionLayer = buildDecisionLayer(findings, data, summary, businessContext, reportStatuses);
 
   return {
     timestamp:        new Date().toISOString(),
@@ -50,6 +50,7 @@ function buildSummary(findings, data) {
   const totalSpend       = sumMetric(totalsSource.rows, 'cost');
   const totalConversions = sumMetric(totalsSource.rows, 'conversions');
   const avgCpa           = totalConversions > 0 ? totalSpend / totalConversions : null;
+  const totalsSourceConfidence = confidenceForTotalsSource(totalsSource.key);
 
   const highCount = findings.filter(f => f.severity === 'high').length;
   const bestPerformer = findBestPerformer(bestSource.rows, bestSource.key);
@@ -61,6 +62,8 @@ function buildSummary(findings, data) {
     highSeverityCount: highCount,
     bestPerformer,
     totalsSource: totalsSource.key,
+    totalsSourceConfidence,
+    totalsSourceNote: totalsSourceGuidance(totalsSource.key),
     bestPerformerSource: bestSource.key,
   };
 }
@@ -104,6 +107,17 @@ function deriveTopActions(findings, decisionLayer) {
     }));
   }
 
+  const insufficientCoverage = (decisionLayer?.coverageSummary?.usedHighImpactCount ?? 0) < 2;
+  if (insufficientCoverage) {
+    return [{
+      priority: 1,
+      action: 'הנחיית גיבוי: להשלים קודם דוחות חסרים/חסומים בעלי השפעה גבוהה לפני פעולות אופטימיזציה אגרסיביות.',
+      reason: 'המלצות חזקות הוחלשו כי כיסוי הדוחות אינו מספיק כדי לתמוך בהחלטות בטוחות.',
+      severity: 'low',
+      source: 'fallback_insufficient_coverage',
+    }];
+  }
+
   const catPriority = { measurementRisk: 0, waste: 1, controlRisk: 2, opportunity: 3 };
   const sevPriority = { high: 0, medium: 1, low: 2 };
 
@@ -115,13 +129,6 @@ function deriveTopActions(findings, decisionLayer) {
 
   const top = sorted.slice(0, 3);
 
-  // Fill with defaults if fewer than 3 findings
-  const defaults = [
-    { action: 'בדוק את דוח מונחי החיפוש והוסף שאילתות לא רלוונטיות כמילות מפתח שליליות.',      reason: 'היגיינת מילות מפתח שליליות היא משימת תחזוקה עם החזר גבוה בחשבון PPC מקומי.' },
-    { action: 'ודא שמעקב ההמרות פועל נכון עבור שיחות ושליחות טפסים.',    reason: 'ללא נתוני המרה מדויקים, החלטות אופטימיזציה מבוססות על מידע חלקי.' },
-    { action: 'ודא שהקמפיינים שממירים הכי טוב לא נתקעים מוקדם מדי בתקרת התקציב היומית.',   reason: 'מגבלת תקציב בקמפיינים ממירים מגבילה ישירות את נפח הלידים.' },
-  ];
-
   const actions = top.map((f, i) => ({
     priority: i + 1,
     action:   f.action,
@@ -129,14 +136,27 @@ function deriveTopActions(findings, decisionLayer) {
     severity: f.severity,
   }));
 
-  while (actions.length < 3) {
-    const d = defaults[actions.length];
-    actions.push({ priority: actions.length + 1, action: d.action, reason: d.reason, severity: 'low' });
-  }
-
   return actions;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function hasValue(v)    { return v !== null && v !== undefined; }
+
+function confidenceForTotalsSource(sourceKey) {
+  if (!sourceKey) return 'low';
+  if (sourceKey === 'campaigns' || sourceKey === 'adGroups') return 'high';
+  if (sourceKey === 'keywords' || sourceKey === 'searchTerms') return 'medium';
+  return 'low';
+}
+
+function totalsSourceGuidance(sourceKey) {
+  if (!sourceKey) return 'לא נמצא מקור נתונים תקין לסיכומי חשבון.';
+  if (sourceKey === 'campaigns' || sourceKey === 'adGroups') {
+    return 'סיכומי החשבון מבוססים על מקור בעל אמינות גבוהה.';
+  }
+  if (sourceKey === 'keywords' || sourceKey === 'searchTerms') {
+    return 'סיכומי החשבון מבוססים על מקור חלופי בינוני; מומלץ להעלות גם דוח קמפיינים.';
+  }
+  return 'סיכומי החשבון מבוססים על מקור חלופי נמוך-אמינות (כמו מכשירים/מיקומים/מודעות). יש לפרש בזהירות.';
+}

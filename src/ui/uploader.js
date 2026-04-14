@@ -60,6 +60,36 @@ export function showUploadWarnings(key, warnings) {
   status.title = warnings.join('\n');
 }
 
+export function showUploadOutcome(key, statusInfo) {
+  const status = document.getElementById(`status-${key}`);
+  const card = document.getElementById(`upload-${key}`);
+  if (!status || !card || !statusInfo) return;
+
+  const map = {
+    not_uploaded: { text: 'לא הועלה', tone: '' },
+    uploaded_used: { text: 'הועלה ונעשה בו שימוש', tone: 'success' },
+    uploaded_blocked: { text: `הועלה אך נחסם: ${statusInfo.blockReason ?? 'שגיאת תקינות'}`, tone: 'error' },
+    uploaded_used_with_warnings: { text: 'הועלה ונעשה בו שימוש עם אזהרות', tone: 'success' },
+  };
+
+  const view = map[statusInfo.status] ?? map.not_uploaded;
+  const extras = [];
+  extras.push(`שורות בשימוש: ${statusInfo.rowCount ?? 0}`);
+  if ((statusInfo.droppedAggregateRows ?? 0) > 0) {
+    extras.push(`הוסרו ${statusInfo.droppedAggregateRows} שורות Total/Subtotal`);
+  }
+
+  status.textContent = `${view.text} · ${extras.join(' · ')}`;
+  status.title = [
+    ...(statusInfo.errors ?? []).slice(0, 3),
+    ...(statusInfo.warnings ?? []).slice(0, 3),
+  ].join('\n');
+
+  status.className = 'file-status' + (view.tone ? ' ' + view.tone : '');
+  card.classList.toggle('has-file', view.tone === 'success');
+  card.classList.toggle('has-error', view.tone === 'error');
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function setStatus(statusEl, cardEl, message, state) {

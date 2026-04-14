@@ -8,8 +8,21 @@ export function parseCampaignReport(csvText) {
 }
 
 function parseReport(csvText, type) {
-  const { rows: rawRows } = parseCSV(csvText);
-  const { rows, foundFields } = normalizeRows(rawRows, type);
-  const validation = validate(rows, type, foundFields);
-  return { rows, foundFields, validation, reportType: type };
+  const { rows: rawRows, meta: parseMeta } = parseCSV(csvText);
+  const { rows, foundFields, droppedAggregateRows } = normalizeRows(rawRows, type);
+  const validation = validate(rows, type, foundFields, {
+    rawDataRowCount: parseMeta?.rawDataRowCount ?? null,
+    droppedAggregateRows: parseMeta?.droppedAggregateRows ?? 0,
+    droppedAggregateRowsInNormalizer: droppedAggregateRows,
+  });
+  return {
+    rows,
+    foundFields,
+    validation,
+    reportType: type,
+    parseMeta: {
+      ...(parseMeta ?? {}),
+      droppedAggregateRowsInNormalizer: droppedAggregateRows,
+    },
+  };
 }
