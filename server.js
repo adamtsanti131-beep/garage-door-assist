@@ -37,6 +37,7 @@ const UPLOAD_FIELDS = Object.values(REPORT_TYPES).map(name => ({ name, maxCount:
 app.post('/analyze', upload.fields(UPLOAD_FIELDS), (req, res) => {
   try {
     const files = req.files || {};
+    const businessContext = parseBusinessContext(req.body?.businessContext);
 
     if (Object.keys(files).length === 0) {
       return res.status(400).json({ error: 'No CSV files were uploaded.' });
@@ -82,7 +83,7 @@ app.post('/analyze', upload.fields(UPLOAD_FIELDS), (req, res) => {
     }
 
     const findings = runRules(data);
-    const report   = buildReport(findings, data);
+    const report   = buildReport(findings, data, businessContext);
 
     // Attach validation results so the frontend can show per-file warnings
     report.validationResults = validationResults;
@@ -135,3 +136,40 @@ app.listen(PORT, () => {
   console.log(`PPC Assistant server running → http://localhost:${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
 });
+
+function parseBusinessContext(raw) {
+  if (!raw) return {};
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return {
+      targetCpl: toNullableNumber(parsed.targetCpl),
+      serviceArea: safeString(parsed.serviceArea),
+      excludedServices: safeString(parsed.excludedServices),
+      preferredLeadType: safeString(parsed.preferredLeadType),
+      averageDealValue: toNullableNumber(parsed.averageDealValue),
+      trackingTrusted: toNullableBoolean(parsed.trackingTrusted),
+      offlineConversionsImported: toNullableBoolean(parsed.offlineConversionsImported),
+      goodLeadNote: safeString(parsed.goodLeadNote),
+    };
+  } catch {
+    return {};
+  }
+}
+
+function toNullableNumber(value) {
+  if (value === '' || value === null || value === undefined) return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function toNullableBoolean(value) {
+  if (value === true || value === false) return value;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return null;
+}
+
+function safeString(value) {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
+}

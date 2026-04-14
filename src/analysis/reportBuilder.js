@@ -9,21 +9,34 @@ import {
   pickBestPerformerSource,
   sumMetric,
 } from './dataSources.js';
+import { buildDecisionLayer } from './decisionEngine.js';
 
 /**
  * @param {Finding[]} findings  — from rulesEngine.runRules()
  * @param {DataSets}  data      — normalized data sets
+ * @param {Object}    businessContext
  * @returns {Report}
  */
-export function buildReport(findings, data) {
+export function buildReport(findings, data, businessContext = {}) {
+  const summary = buildSummary(findings, data);
+  const decisionLayer = buildDecisionLayer(findings, data, summary, businessContext);
+
   return {
     timestamp:        new Date().toISOString(),
-    summary:          buildSummary(findings, data),
+    summary,
     waste:            findings.filter(f => f.category === 'waste'),
     opportunities:    findings.filter(f => f.category === 'opportunity'),
     controlRisks:     findings.filter(f => f.category === 'controlRisk'),
     measurementRisks: findings.filter(f => f.category === 'measurementRisk'),
-    topActions:       deriveTopActions(findings),
+    decisions:        decisionLayer.decisions,
+    decisionFlow:     decisionLayer,
+    topActions:       deriveTopActions(findings, decisionLayer),
+    businessContextUsed: {
+      targetCpl: businessContext.targetCpl ?? null,
+      serviceArea: businessContext.serviceArea ?? null,
+      trackingTrusted: businessContext.trackingTrusted ?? null,
+      offlineConversionsImported: businessContext.offlineConversionsImported ?? null,
+    },
   };
 }
 
@@ -80,7 +93,17 @@ function findBestPerformer(rows, sourceKey) {
  * Pick the 3 most important actions from findings.
  * Priority: high severity first, then by category order.
  */
-function deriveTopActions(findings) {
+function deriveTopActions(findings, decisionLayer) {
+  const immediate = decisionLayer?.decisionBuckets?.immediateActions ?? [];
+  if (immediate.length > 0) {
+    return immediate.slice(0, 3).map((d, i) => ({
+      priority: i + 1,
+      action: d.user_instruction,
+      reason: d.reason,
+      severity: d.confidence,
+    }));
+  }
+
   const catPriority = { measurementRisk: 0, waste: 1, controlRisk: 2, opportunity: 3 };
   const sevPriority = { high: 0, medium: 1, low: 2 };
 

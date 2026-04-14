@@ -8,14 +8,20 @@ import { initUploader, showUploadWarnings } from './ui/uploader.js';
 import { initHistoryPanel, refreshHistoryPanel } from './ui/historyPanel.js';
 import { renderReport }  from './ui/reportRenderer.js';
 import { saveToHistory } from './storage/history.js';
+import {
+  initBusinessContextPanel,
+  readCurrentBusinessContext,
+} from './ui/businessContextPanel.js';
 
 let currentFiles = {};
+let currentBusinessContext = {};
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
   initUploader(onFilesChange);
   initHistoryPanel(renderReport);
+  initBusinessContextPanel(onBusinessContextChange);
   document.getElementById('btn-analyze')?.addEventListener('click', runAnalysis);
 });
 
@@ -28,6 +34,10 @@ function onFilesChange(files) {
   document.getElementById('analyze-hint').textContent = hasAny
     ? 'Ready to analyze'
     : 'Upload at least one CSV to analyze';
+}
+
+function onBusinessContextChange(context) {
+  currentBusinessContext = context;
 }
 
 // ── Analysis ──────────────────────────────────────────────────────────────────
@@ -61,6 +71,9 @@ async function runAnalysis() {
     for (const [key, file] of Object.entries(currentFiles)) {
       if (file) formData.append(key, file);
     }
+
+    currentBusinessContext = readCurrentBusinessContext();
+    formData.append('businessContext', JSON.stringify(currentBusinessContext));
 
     hint.textContent = 'Running analysis...';
 
@@ -101,11 +114,9 @@ async function runAnalysis() {
     renderReport(report);
     refreshHistoryPanel(renderReport);
 
-    const total = (report.waste?.length ?? 0)
-                + (report.opportunities?.length ?? 0)
-                + (report.controlRisks?.length ?? 0)
-                + (report.measurementRisks?.length ?? 0);
-    hint.textContent = `Done — ${total} finding${total !== 1 ? 's' : ''}`;
+    const immediate = report.decisionFlow?.decisionBuckets?.immediateActions?.length ?? 0;
+    const review = report.decisionFlow?.decisionBuckets?.reviewBeforeAction?.length ?? 0;
+    hint.textContent = `Done — ${immediate} immediate action${immediate !== 1 ? 's' : ''}, ${review} review item${review !== 1 ? 's' : ''}`;
 
   } catch (err) {
     hint.textContent = `Error: ${err.message}`;

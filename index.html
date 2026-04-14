@@ -17,6 +17,64 @@
 
   <main class="app-main">
 
+    <section class="context-section">
+      <h2>Business Context (Improves Decision Quality)</h2>
+      <form id="business-context-form" class="context-grid">
+        <label class="context-field">
+          <span>Target CPL (CAD)</span>
+          <input type="number" id="target-cpl" min="0" step="1" placeholder="e.g. 90" />
+        </label>
+
+        <label class="context-field">
+          <span>Primary Service Area</span>
+          <input type="text" id="service-area" placeholder="e.g. Vancouver + nearby cities" />
+        </label>
+
+        <label class="context-field">
+          <span>Excluded Services</span>
+          <input type="text" id="excluded-services" placeholder="e.g. commercial install, gates" />
+        </label>
+
+        <label class="context-field">
+          <span>Preferred Lead Type</span>
+          <input type="text" id="preferred-lead-type" placeholder="e.g. emergency phone calls" />
+        </label>
+
+        <label class="context-field">
+          <span>Average Deal Value (CAD)</span>
+          <input type="number" id="average-deal-value" min="0" step="1" placeholder="optional" />
+        </label>
+
+        <label class="context-field">
+          <span>Is Conversion Tracking Trusted?</span>
+          <select id="tracking-trusted">
+            <option value="">Not set</option>
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        </label>
+
+        <label class="context-field">
+          <span>Offline Conversions Imported?</span>
+          <select id="offline-conversions-imported">
+            <option value="">Not set</option>
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        </label>
+
+        <label class="context-field context-field--wide">
+          <span>What counts as a good lead? (optional note)</span>
+          <textarea id="good-lead-note" rows="2" placeholder="e.g. residential spring replacement calls from homeowners"></textarea>
+        </label>
+
+        <div class="context-actions">
+          <button class="btn-save-context" type="submit">Save Business Context</button>
+          <span id="business-context-status" class="context-status">Use this form to improve recommendation quality.</span>
+        </div>
+      </form>
+    </section>
+
     <!-- Upload Section -->
     <section class="upload-section">
       <h2>Upload Reports</h2>
@@ -118,7 +176,50 @@
       <!-- Summary Bar -->
       <div class="report-summary" id="report-summary"></div>
 
-      <!-- Four finding panels -->
+      <div class="account-status" id="account-status"></div>
+
+      <div class="decision-order" id="decision-order"></div>
+
+      <div class="decision-grid">
+        <div class="report-card decisions-now">
+          <h3>Do This Now</h3>
+          <div class="report-items" id="items-immediate-actions"></div>
+        </div>
+
+        <div class="report-card decisions-review">
+          <h3>Review Before Acting</h3>
+          <div class="report-items" id="items-review-actions"></div>
+        </div>
+
+        <div class="report-card decisions-secondary">
+          <h3>Secondary Actions</h3>
+          <div class="report-items" id="items-secondary-actions"></div>
+        </div>
+
+        <div class="report-card decisions-hold">
+          <h3>Do Not Change Yet</h3>
+          <div class="report-items" id="items-hold-actions"></div>
+        </div>
+
+        <div class="report-card decisions-scale">
+          <h3>Scale Later (After Prerequisites)</h3>
+          <div class="report-items" id="items-scale-actions"></div>
+        </div>
+      </div>
+
+      <div class="coverage-grid">
+        <div class="report-card coverage-card">
+          <h3>Report Coverage</h3>
+          <div class="report-items" id="items-report-coverage"></div>
+        </div>
+
+        <div class="report-card limitations-card">
+          <h3>Known, Likely, and Unknown</h3>
+          <div class="report-items" id="items-limitations"></div>
+        </div>
+      </div>
+
+      <!-- Legacy category panels kept as supporting evidence -->
       <div class="report-grid">
 
         <div class="report-card waste">

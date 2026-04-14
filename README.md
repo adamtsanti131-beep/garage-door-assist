@@ -1,88 +1,192 @@
-# Garage Door PPC Assistant
+# Garage Door PPC Decision Assistant
 
-Google Ads CSV analysis tool focused on Garage Door lead generation accounts.
+Practical Google Ads decision-support tool for Garage Door lead-gen accounts.
 
-The app accepts multiple Google Ads report CSVs, normalizes and validates each file, runs a rules engine, and returns a structured report with:
+You upload Google Ads CSV reports, and the assistant tells you:
 
-- Summary
-- Waste
-- Opportunities
-- Control Risks
-- Measurement Risks
-- Top Actions
-- Local analysis history (browser localStorage)
+- what to do now,
+- what to review before acting,
+- what not to change yet,
+- what can be scaled later,
+- and how confident the system is.
 
-## What The App Does
+The product is designed for non-expert operators, not just PPC specialists.
 
-- Upload one or more Google Ads CSV exports by report slot.
-- Parse and normalize column names into a canonical internal schema.
-- Validate required and preferred fields per report type.
-- Run decision-oriented rules to produce actionable findings.
-- Show a report in the UI and store recent analyses locally.
+## Who This Is For
 
-## Required And Optional Report Types
+- Owner-operators and managers running local Garage Door PPC campaigns.
+- Teams that need safe, practical guidance from CSV exports.
+- Users who want a decision order, not a flat findings list.
 
-You can upload any subset, but analysis quality improves with coverage.
+## What The Tool Does
 
-- `Campaign` (strongly recommended for account-level totals)
-- `Ad Group`
-- `Search Terms`
-- `Keywords`
-- `Ads` (optional, currently used for measurement coverage context)
-- `Devices` (optional, used for opportunity signals)
-- `Location` (optional, used for opportunity signals)
+1. Accepts up to 7 Google Ads CSV report types in fixed upload slots.
+2. Normalizes and validates each report against a canonical schema.
+3. Runs rule analysis for waste, opportunities, control risks, and measurement risks.
+4. Builds a decision layer above findings with confidence and prerequisites.
+5. Renders a decision-first report in this order:
+   - Step 1: Verify tracking trust
+   - Step 2: Stop waste now
+   - Step 3: Tighten control
+   - Step 4: Improve ads/relevance/quality
+   - Step 5: Scale winners carefully
 
-## Expected CSV Flow
+## The 7 Report Files (And Why They Matter)
 
-1. Frontend upload cards collect files by fixed slot key (`campaign`, `adGroup`, `searchTerm`, `keyword`, `ad`, `device`, `location`).
-2. Frontend posts `multipart/form-data` to `POST /analyze`.
-3. Backend routes each file to the matching parser.
-4. Parser pipeline:
-	 - CSV parse
-	 - Field normalization (canonical schema)
-	 - Validation
-5. Rules engine runs across normalized datasets.
-6. Report builder assembles final sections and summary metrics.
-7. Frontend renders report and writes history locally.
+The upload slots are fixed in the UI. Upload order does not matter.
 
-## Canonical Data Truth Rules
+- Campaign: totals, winner/loser campaigns, impression share, budget/rank constraints
+- Ad Group: group-level waste and structure issues
+- Search Terms: negative keyword opportunities and intent quality
+- Keywords: match type control, quality score, CTR/CPC/CPA efficiency
+- Ads: ad-level quality signals (copy/relevance hints)
+- Devices: device-specific waste/winner signals
+- Location: geo-specific waste/winner signals
 
-To prevent double counting across overlapping report levels:
+### Most Important Files
 
-- Account totals use one source only, in priority order:
-	- `campaigns`
-	- `adGroups`
-	- `keywords`
-	- `searchTerms`
-	- `ads`
-	- `devices`
-	- `locations`
-- Wasted-spend percentage uses one non-overlapping source only (prefers search terms/keywords for waste diagnostics).
-- Best performer uses one source only (prefers granular entities first).
+If you can only upload a subset, prioritize:
 
-This avoids inflating spend or conversions by summing campaign + ad group + keyword totals together.
+1. Campaign
+2. Search Terms
+3. Keywords
+4. Ad Group
 
-## Analysis Architecture (High Level)
+Ads, Devices, and Location are still useful and improve confidence/detail.
 
-- `src/parser/`
-	- `csvParser.js`: CSV parsing
-	- `normalizer.js`: canonical field mapping + typed metrics
-	- `validator.js`: required/preferred field checks
-	- `reportRouter.js`: report-type routing and mismatch warnings
+## Upload Behavior
 
-- `src/analysis/`
-	- `rulesEngine.js`: orchestrates all rule groups and deduplicates findings
-	- `dataSources.js`: canonical source selection for totals/waste/best-performer
-	- `reportBuilder.js`: assembles report payload
-	- `rules/`: waste, opportunities, control risks, measurement risks
+- Upload order: does not matter.
+- Slot mapping: does matter (each file must go in the correct slot).
+- If a file appears to be uploaded in the wrong slot, the app warns you.
+- If required columns are missing for a given file, that file is blocked from analysis.
 
-- `src/ui/`
-	- `uploader.js`: upload state and per-file status
-	- `reportRenderer.js`: section rendering
-	- `historyPanel.js`: history interactions
+## Business Context (Recommended)
 
-- `src/storage/history.js`
-	- localStorage persistence (latest 10 reports)
+The UI includes a lightweight business settings form.
+These settings are saved locally in your browser and used in decision logic.
+
+Supported settings:
+
+- target CPL
+- service area
+- excluded services
+- preferred lead type
+- average deal value
+- whether tracking is trusted
+- whether offline conversions are imported
+- optional note for what counts as a good lead
+
+If context is missing, some recommendations are marked review-first instead of immediate action.
+
+How to use this form well:
+
+1. Fill at least target CPL, service area, tracking trust, and offline conversion status.
+2. Add excluded services so negative-keyword guidance can be more specific.
+3. Add preferred lead type / good lead note so you remember conversion count is not lead quality.
+4. Save the form before clicking Analyze.
+
+## Confidence Levels
+
+Every decision has one of:
+
+- High confidence
+- Medium confidence
+- Low confidence
+
+Confidence is based on:
+
+- available data volume
+- presence/absence of relevant report types
+- tracking trust state
+- direct evidence vs inferred conclusion
+- missing business context
+- safety of immediate execution
+
+## Confirmed vs Likely vs Unknown
+
+The report explicitly separates:
+
+- Confirmed from CSV data
+- Likely but inferred
+- Unknown from CSV alone
+
+Examples of unknown/partial without external systems:
+
+- lead quality
+- close rate quality
+- call quality
+- full landing page quality context
+- CRM accuracy
+- offline conversion completeness (unless confirmed)
+
+## Safe Usage Flow For Non-Experts
+
+When you run an analysis:
+
+1. Start with Account Status and Step 1.
+2. If tracking trust is untrusted, fix measurement first.
+3. Apply Do This Now actions (highest safety/priority).
+4. Handle Review Before Acting items with caution.
+5. Respect Do Not Change Yet guardrails.
+6. Only move to Scale Later once earlier blockers are resolved.
+
+## Decision Buckets Explained
+
+- Do This Now:
+   Actions currently classified as safe_to_do_now.
+   Usually small, high-impact, and low-regret changes.
+
+- Review Before Acting:
+   Actions classified as review_before_acting.
+   You should verify intent, fit, or context before saving changes.
+
+- Secondary Actions:
+   Useful actions that are not urgent and not blocked.
+
+- Do Not Change Yet:
+   Actions blocked by weak evidence, tracking trust issues, or missing business context.
+
+- Scale Later:
+   Growth actions shown only after foundational issues are handled.
+
+## What Is Usually Safe To Do Directly
+
+- Add obvious negative keywords from clearly irrelevant search terms.
+- Apply moderate bid reductions (not full exclusions) on repeatedly wasteful segments.
+- Fix measurement setup issues when flagged.
+
+## What Should Usually Be Reviewed First
+
+- Broad keyword pauses when Search Terms evidence is incomplete.
+- Location exclusions without confirmed service-area fit.
+- Scaling moves when target CPL is missing or value tracking is incomplete.
+- Any action with medium/low confidence or inferred evidence.
+
+## Hard Guardrails
+
+- Do not raise budgets yet when tracking trust is weak.
+- Do not pause broad keywords before reviewing search terms.
+- Do not exclude locations before confirming service-area fit.
+- Do not treat conversion count alone as lead quality.
+- Do not trust CPA conclusions fully when conversion trust is weak.
+
+## Missing Files And Missing Context
+
+- Missing reports do not always stop analysis, but they reduce confidence.
+- Missing high-impact reports reduce reliability of strong recommendations.
+- Missing business settings can block some actions from being immediate.
+
+Both are shown clearly in the UI.
+
+## Re-Run Cadence After Changes
+
+- After urgent fixes (tracking/waste): re-run in 3-7 days.
+- After ad copy tests: re-run in about 7 days.
+- After bid or budget scaling tests: re-run in 5-7 days.
+- If spend is high, run more frequently to reduce risk.
+
+Always try to re-upload the same 7 report slots after changes so before/after comparison stays reliable.
 
 ## Local Development
 
@@ -102,10 +206,10 @@ npm install
 npm run dev
 ```
 
-This starts:
+Starts:
 
-- Vite frontend: `http://localhost:5173`
-- Express backend: `http://localhost:3001`
+- Frontend (Vite): http://localhost:5173
+- Backend (Express): http://localhost:3001
 
 ### Build
 
@@ -113,27 +217,23 @@ This starts:
 npm run build
 ```
 
-### Production-Style Server Start
+### Start Server (Production-style)
 
 ```bash
 npm run start
 ```
 
-Notes:
-
-- `server.js` serves static `dist` only when it exists.
-- In development, frontend is served by Vite and API calls are proxied to Express.
-
-## Important Assumptions And Limitations
+## Key Assumptions And Limitations
 
 - Input files are standard Google Ads CSV exports.
-- Validation blocks a report when required columns are missing.
-- Optional datasets (`ads`, `devices`, `location`) enhance diagnostics but are not mandatory.
-- Findings are heuristic rules, not ML predictions.
-- History is local to the current browser/device (no shared backend storage).
+- Findings and decisions are rule-based guidance, not predictive models.
+- Local history and business settings are browser-local only (no database).
+- The app does not directly access CRM, call recordings, or revenue systems.
+- Lead quality, close rate, and sales quality still require manual/CRM validation.
 
-## Internal Consistency Notes
+## Technical Notes
 
-- Single active frontend entry: `index.html` -> `src/main.js`.
-- Canonical metric naming uses `conversionRate` (no legacy variant usage).
-- Findings are deduplicated by category + signal + normalized subject/action.
+- One active frontend entry path: index.html -> src/main.js.
+- Canonical normalized metric naming uses conversionRate.
+- Totals/waste/best-performer use explicit non-overlapping source hierarchy to avoid double counting.
+- Decision output includes structured action objects with priority, confidence, prerequisites, and safety flags.

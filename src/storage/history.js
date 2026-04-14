@@ -56,13 +56,11 @@ export function clearHistory() {
 
 /** Build a one-line text summary for the history list. */
 function buildSummary(report) {
-  const waste    = report.waste?.length            || 0;
-  const opps     = report.opportunities?.length    || 0;
-  const control  = report.controlRisks?.length     || 0;
-  const measure  = report.measurementRisks?.length || 0;
-  const total    = waste + opps + control + measure;
+  const immediate = report.decisionFlow?.decisionBuckets?.immediateActions?.length || 0;
+  const review    = report.decisionFlow?.decisionBuckets?.reviewBeforeAction?.length || 0;
+  const hold      = report.decisionFlow?.decisionBuckets?.doNotTouchYet?.length || 0;
   const spend    = report.summary?.totalSpend != null
     ? ` · CA$${report.summary.totalSpend.toFixed(0)} spend`
     : '';
-  return `${total} finding${total !== 1 ? 's' : ''}${spend}`;
+  return `${immediate} now · ${review} review · ${hold} hold${spend}`;
 }
