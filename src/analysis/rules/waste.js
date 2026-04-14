@@ -1,21 +1,19 @@
 /**
  * waste.js
- * Rules that detect budget being spent with no meaningful return.
+ * Rules that detect budget being spent with no meaningful return (zero leads).
+ * Focus: lead generation efficiency, not profitability.
+ * Language: Hebrew (user-facing), practical and direct.
  */
 
 import { THRESHOLDS as T } from '../thresholds.js';
 
-/**
- * @param {Object} data — { campaign[], adGroup[], searchTerm[], keyword[], ... }
- * @returns {Finding[]}
- */
 export function wasteRules(data) {
   const findings = [];
   const { searchTerms = [], keywords = [], campaigns = [], adGroups = [] } = data;
 
-  findings.push(...highSpendNoConversions([...searchTerms, ...keywords]));
+  findings.push(...zeroLeadsHighSpend([...searchTerms, ...keywords]));
   findings.push(...overallWastedSpendPct([...campaigns, ...adGroups, ...searchTerms, ...keywords]));
-  findings.push(...expensiveKeywordsNoReturn(keywords));
+  findings.push(...expensiveKeywordsNoLeads(keywords));
   findings.push(...nonConvertingAdGroups(adGroups));
 
   return findings;
@@ -24,26 +22,37 @@ export function wasteRules(data) {
 // ── Individual rules ──────────────────────────────────────────────────────────
 
 /**
- * Terms or keywords with notable spend and zero conversions.
+ * Search terms or keywords with meaningful spend or clicks but zero leads.
+ * Waste flagging logic:
+ * - cost >= 75 CAD, OR
+ * - clicks >= 15, OR
+ * - (cost >= 50 AND clicks >= 15)
  */
-function highSpendNoConversions(rows) {
+function zeroLeadsHighSpend(rows) {
   const findings = [];
   for (const r of rows) {
     if (!hasValue(r.cost) || !hasValue(r.clicks)) continue;
-    if (r.cost < T.minSpendToFlag || r.clicks < 3) continue;
-    if (r.conversions !== 0 && r.conversions !== null) continue;
+    if (r.conversions !== 0 && r.conversions !== null) continue; // only zero leads
 
-    const label = r.searchTerm ?? r.keyword ?? 'Unknown';
-    const severity = r.cost >= T.minSpendToFlag * 3 ? 'high' : 'medium';
+    // Check waste threshold
+    const meetsWasteThreshold =
+      r.cost >= T.minSpendForWaste ||
+      r.clicks >= T.minClicksForWaste ||
+      (r.cost >= T.minSpendWithClicksGate && r.clicks >= T.minClicksForWaste);
+
+    if (!meetsWasteThreshold) continue;
+
+    const label = r.searchTerm ?? r.keyword ?? 'לא ידוע';
+    const severity = r.cost >= T.minSpendForWaste ? 'high' : 'medium';
 
     findings.push({
       category: 'waste',
       severity,
-      what:   `"${label}" spent CA$${fmt(r.cost)} with zero conversions (${r.clicks} clicks).`,
-      why:    `Every dollar spent here produced no leads. At CA$${fmt(r.cost)} this is money that could go to converting terms.`,
+      what: `"${label}" — הוצאה CA$${fmt(r.cost)} ללא לידים (${r.clicks} קליקים).`,
+      why: `הוצאה וקליקים מספיקים כדי לדעת שזה בזבוז. שאילתה זו לא מביאה לנו לידים שיכולים להפוך ללקוחות.`,
       action: r.searchTerm
-        ? `Add "${label}" as a negative keyword. If part of it is relevant, add the relevant fragment as an exact match keyword.`
-        : `Pause this keyword. Review matched search terms first to check if any were relevant.`,
+        ? `הוסף את "${label}" כמילה שלילית. אם חלק מהביטוי רלוונטי — הוסף רק את החלק הזה כמילה מדוקדקת.`
+        : `בדוק את דוח מילות החיפוש כדי לראות אם היו שאילתות רלוונטיות. הוסף שאילתות שלא רלוונטיות כמילים שליליות.`,
       data: r,
     });
   }
@@ -51,10 +60,10 @@ function highSpendNoConversions(rows) {
 }
 
 /**
- * What percentage of total spend has zero conversions?
+ * What percentage of total spend has zero leads?
  */
 function overallWastedSpendPct(rows) {
-  const totalSpend  = sumNN(rows, 'cost');
+  const totalSpend = sumNN(rows, 'cost');
   if (!totalSpend || totalSpend === 0) return [];
 
   const wastedSpend = rows
@@ -67,10 +76,10 @@ function overallWastedSpendPct(rows) {
     return [{
       category: 'waste',
       severity: 'high',
-      what:   `${pct100(pct)}% of analyzed spend (CA$${fmt(wastedSpend)}) returned zero conversions.`,
-      why:    `Over a third of your budget is producing no leads. This is the highest-priority issue in the account.`,
-      action: `Run a full search terms audit. Add all irrelevant queries as negatives immediately. Review broad match keywords.`,
-      data:   { wastedSpend, totalSpend },
+      what: `${pct100(pct)}% מהתקציב (CA$${fmt(wastedSpend)}) לא הביא לידים.`,
+      why: `זה חלק משמעותי מהתקציב שלך בלי תוצאה. חלק גדול מזה צריך מתקן כן.`,
+      action: `בדוק את דוח מילות החיפוש. הוסף כל שאילתה לא רלוונטית כמילה שלילית. בדוק מילות broad match.`,
+      data: { wastedSpend, totalSpend },
     }];
   }
 
@@ -78,10 +87,10 @@ function overallWastedSpendPct(rows) {
     return [{
       category: 'waste',
       severity: 'medium',
-      what:   `${pct100(pct)}% of analyzed spend (CA$${fmt(wastedSpend)}) returned zero conversions.`,
-      why:    `A significant portion of budget is not converting. Left unchecked this grows over time.`,
-      action: `Review your Search Terms report and add negatives for irrelevant queries. Check broad match keywords for off-topic matching.`,
-      data:   { wastedSpend, totalSpend },
+      what: `${pct100(pct)}% מהתקציב (CA$${fmt(wastedSpend)}) לא הביא לידים.`,
+      why: `חלק משמעותי מהתקציב הולך לשאילתות שלא מתורגמות ללידים. זה כדאי לתקן כדי להשפר.`,
+      action: `בדוק את דוח מילות החיפוש. הוסף שאילתות שלא רלוונטיות כמילים שליליות. בחן אפשרויות כיוונון ל-broad match.`,
+      data: { wastedSpend, totalSpend },
     }];
   }
 
@@ -89,51 +98,52 @@ function overallWastedSpendPct(rows) {
 }
 
 /**
- * Keywords with 10+ clicks and spend > threshold but still no conversions.
+ * Keywords with significant clicks and spend but zero leads.
  */
-function expensiveKeywordsNoReturn(keywords) {
+function expensiveKeywordsNoLeads(keywords) {
   const findings = [];
   for (const kw of keywords) {
     if (!hasValue(kw.cost) || !hasValue(kw.clicks)) continue;
-    if (kw.cost < T.minSpendToFlag || kw.clicks < T.minClicksToJudge) continue;
     if (kw.conversions !== 0 && kw.conversions !== null) continue;
+    if (kw.clicks < T.minClicksForConfidentJudgment) continue; // need 15+ clicks for strong judgment
 
     findings.push({
       category: 'waste',
       severity: 'medium',
-      what:   `Keyword "${kw.keyword ?? 'Unknown'}" [${kw.matchType ?? '?'}] — ${kw.clicks} clicks, CA$${fmt(kw.cost)} spent, 0 conversions.`,
-      why:    `With ${kw.clicks} clicks and no leads this keyword has proven it is not converting under current settings. Avg CPC was CA$${fmt(kw.avgCpc)}.`,
-      action: `Pause or reduce bid. If the match type is broad or phrase, try switching to exact match to reduce irrelevant matching.`,
-      data:   kw,
+      what: `"${kw.keyword ?? 'לא ידוע'}" [${kw.matchType ?? '?'}] — ${kw.clicks} קליקים, CA$${fmt(kw.cost)}, ללא לידים.`,
+      why: `אחרי ${kw.clicks} קליקים, הנתונים ברורים — המילה הזו לא מביאה לידים. בעיה עשויה להיות בתנועה, בתוכן המודעה או בעמוד הנחיתה.`,
+      action: `הפחת את ההצעה ב-20%. בדוק אם הניסוח של המודעה ודף הנחיתה מתאימים למילה. אם לא השתפר אחרי שבוע — הסר את המילה.`,
+      data: kw,
     });
   }
   return findings;
 }
 
 /**
- * Ad groups spending significantly with zero conversions.
+ * Ad groups spending significantly with zero leads.
  */
 function nonConvertingAdGroups(adGroups) {
   const findings = [];
   for (const ag of adGroups) {
-    if (!hasValue(ag.cost) || ag.cost < T.minSpendToFlag * 2) continue;
+    if (!hasValue(ag.cost)) continue;
+    if (ag.cost < T.minSpendForWaste * 2) continue; // need meaningful spend (2x threshold)
     if (ag.conversions !== 0 && ag.conversions !== null) continue;
 
     findings.push({
       category: 'waste',
       severity: 'medium',
-      what:   `Ad group "${ag.adGroup ?? 'Unknown'}" (campaign: ${ag.campaign ?? '?'}) spent CA$${fmt(ag.cost)} with no conversions.`,
-      why:    `The entire ad group has no recorded conversions. Either the keywords, ads, or landing page in this group are not matching buyer intent.`,
-      action: `Review the keywords and ads inside this ad group. Check the landing page experience. Consider pausing low-quality keywords first.`,
-      data:   ag,
+      what: `קבוצת מודעות "${ag.adGroup ?? 'לא ידוע'}" (קמפיין: ${ag.campaign ?? '?'}) — CA$${fmt(ag.cost)} ללא לידים.`,
+      why: `כל הקבוצה הזו לא מביאה לידים. הבעיה עשויה להיות במילות המפתח, בתוכן המודעה או בעמוד הנחיתה.`,
+      action: `בדוק את המילות המפתח בקבוצה. בדוק את הניסוח והעמוד. אם זה לא משתפר בתוך שבועיים — שקול לעצור את הקבוצה.`,
+      data: ag,
     });
   }
   return findings;
 }
 
-// ── Shared helpers ────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-function hasValue(v)     { return v !== null && v !== undefined; }
-function fmt(n)          { return n != null ? n.toFixed(2) : '—'; }
-function pct100(n)       { return (n * 100).toFixed(0); }
-function sumNN(rows, k)  { return rows.reduce((a, r) => a + (r[k] ?? 0), 0); }
+function hasValue(v) { return v !== null && v !== undefined; }
+function fmt(n) { return n != null ? n.toFixed(2) : '—'; }
+function pct100(n) { return (n * 100).toFixed(0); }
+function sumNN(rows, k) { return rows.reduce((a, r) => a + (r[k] ?? 0), 0); }

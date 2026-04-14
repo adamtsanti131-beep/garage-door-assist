@@ -1,7 +1,8 @@
 /**
  * measurementRisks.js
- * Rules that detect data quality and conversion tracking issues.
- * These don't mean money is wasted — they mean the data can't be trusted.
+ * Rules that detect data quality and tracking issues.
+ * These don't mean wasted spend, but rather: the data can't be trusted for decisions.
+ * Language: Hebrew, practical and direct.
  */
 
 import { THRESHOLDS as T } from '../thresholds.js';
@@ -11,10 +12,10 @@ export function measurementRiskRules(data) {
   const { searchTerms = [], keywords = [], campaigns = [], adGroups = [] } = data;
   const allRows = [...campaigns, ...adGroups, ...searchTerms, ...keywords];
 
-  findings.push(...manyClicksNoConversions([...searchTerms, ...keywords]));
-  findings.push(...conversionExceedsClicks(allRows));
-  findings.push(...zeroConversionsWholeAccount(allRows));
-  findings.push(...missingConversionData(campaigns));
+  findings.push(...manyClicksNoLeads([...searchTerms, ...keywords]));
+  findings.push(...leadsExceedClicks(allRows));
+  findings.push(...zeroLeadsWholeAccount(allRows));
+  findings.push(...missingLeadData(campaigns));
 
   return findings;
 }
@@ -22,22 +23,21 @@ export function measurementRiskRules(data) {
 // ── Rules ─────────────────────────────────────────────────────────────────────
 
 /**
- * Terms or keywords with many clicks but zero conversions — possible tracking gap.
- * Different from waste rules: here the concern is measurement, not just poor performance.
+ * Search terms or keywords with many clicks but zero leads — suggests tracking gap.
  */
-function manyClicksNoConversions(rows) {
+function manyClicksNoLeads(rows) {
   const findings = [];
   for (const r of rows) {
-    if (!hasValue(r.clicks) || r.clicks < T.highClicksNoConvLimit) continue;
+    if (!hasValue(r.clicks) || r.clicks < T.minClicksNoLeadsForTracking) continue;
     if (r.conversions !== 0 && r.conversions !== null) continue;
 
-    const label = r.searchTerm ?? r.keyword ?? 'Unknown';
+    const label = r.searchTerm ?? r.keyword ?? 'לא ידוע';
     findings.push({
       category: 'measurementRisk',
       severity: 'medium',
-      what:   `"${label}" received ${r.clicks} clicks with zero conversions recorded.`,
-      why:    `${r.clicks} clicks with no conversions is unusual for a high-intent service like garage door repair. This may indicate a tracking gap rather than poor performance.`,
-      action: `Test the conversion path: call the phone number on the landing page, submit the contact form. Verify conversions fire correctly in Google Tag Manager or Google Ads.`,
+      what: `"${label}" — ${r.clicks} קליקים ואפס לידים.`,
+      why: `${r.clicks} קליקים בלי לידים זה משונה לעסק שירות. יכול שיש בעיית מעקב או רמת תנועה נמוכה.`,
+      action: `בדוק את מערכת המעקב: התקשורות קורות? הטופס שולח לידים? בדוק Google Tag Manager או Google Ads. אם הכל בסדר — בעיית כיוונון/איכות.`,
       data: r,
     });
   }
@@ -45,21 +45,21 @@ function manyClicksNoConversions(rows) {
 }
 
 /**
- * More conversions than clicks recorded — almost always a tracking misconfiguration.
+ * More leads than clicks recorded — almost always a tracking or config error.
  */
-function conversionExceedsClicks(rows) {
+function leadsExceedClicks(rows) {
   const findings = [];
   for (const r of rows) {
     if (!hasValue(r.clicks) || !hasValue(r.conversions)) continue;
     if (r.clicks <= 0 || r.conversions <= r.clicks) continue;
 
-    const label = r.campaign ?? r.adGroup ?? r.keyword ?? r.searchTerm ?? 'Unknown';
+    const label = r.campaign ?? r.adGroup ?? r.keyword ?? r.searchTerm ?? 'לא ידוע';
     findings.push({
       category: 'measurementRisk',
       severity: 'high',
-      what:   `"${label}" shows ${r.conversions} conversions from only ${r.clicks} clicks — more conversions than clicks.`,
-      why:    `This is mathematically impossible for standard conversion tracking. It almost always means conversions are being double-counted or the wrong conversion action is selected.`,
-      action: `Audit your conversion actions in Google Ads. Check for duplicate conversion tags or incorrectly configured cross-device attribution. Fix before trusting any CPA data.`,
+      what: `"${label}" — ${r.conversions} לידים מ-${r.clicks} קליקים בלבד. זה לא אפשרי.`,
+      why: `לא יכול להיות יותר לידים מקליקים. זה בדרך כלל אומר ספירה כפולה של לידים או בחירת קונברסיה השגויה.`,
+      action: `בדוק Google Ads > כלים > קונברסיות. בדוק לטגים כפולים או שגויים. תקן לפני שמקבל החלטות על בסיס נתונים אלה.`,
       data: r,
     });
   }
@@ -67,34 +67,33 @@ function conversionExceedsClicks(rows) {
 }
 
 /**
- * Entire account shows zero conversions — most likely a tracking setup issue.
+ * Entire account shows zero leads — most likely a tracking setup issue.
  */
-function zeroConversionsWholeAccount(rows) {
+function zeroLeadsWholeAccount(rows) {
   if (!rows.length) return [];
 
   const rowsWithSpend = rows.filter(r => hasValue(r.cost) && r.cost > 10);
   if (!rowsWithSpend.length) return [];
 
-  const totalConv = rowsWithSpend.reduce((a, r) => a + (r.conversions ?? 0), 0);
-  if (totalConv > 0) return [];
+  const totalConvs = rowsWithSpend.reduce((a, r) => a + (r.conversions ?? 0), 0);
+  if (totalConvs > 0) return [];
 
   const totalSpend = rowsWithSpend.reduce((a, r) => a + (r.cost ?? 0), 0);
 
   return [{
     category: 'measurementRisk',
     severity: 'high',
-    what:   `Zero conversions recorded across all uploaded data. Total analyzed spend: CA$${fmt(totalSpend)}.`,
-    why:    `It is highly unlikely a garage door business in Vancouver receives zero calls or form fills from CA$${fmt(totalSpend)} in ad spend. This strongly suggests conversion tracking is not set up or is broken.`,
-    action: `Check Google Ads → Tools → Conversions. Verify at least one conversion action is active and tracking correctly. Test by submitting a form or calling the tracking number.`,
-    data: { totalSpend, totalConv },
+    what: `אפס לידים מכל הנתונים שהעלאת. כל ההוצאה: CA$${fmt(totalSpend)}.`,
+    why: `בעיה חמורה. לא סביר שעסק שירותים מקומי מקבל אפס פניות או לידים מתוך הוצאה כזו. בעיה במעקב.`,
+    action: `בדוק Google Ads > כלים > קונברסיות. האם יש קונברסיה אחת הפעלה? בדוק שהמעקב כללי ופעיל. בדוק ב-Google Tag Manager.`,
+    data: { totalSpend, totalConvs },
   }];
 }
 
 /**
- * Campaigns where conversion data is entirely absent (null) vs. recorded as zero.
- * Null means the column wasn't in the export — different problem from 0 conversions.
+ * Campaign report has no leads column — limits analysis severely.
  */
-function missingConversionData(campaigns) {
+function missingLeadData(campaigns) {
   if (!campaigns.length) return [];
 
   const missingAll = campaigns.every(c => c.conversions === null);
@@ -103,9 +102,9 @@ function missingConversionData(campaigns) {
   return [{
     category: 'measurementRisk',
     severity: 'medium',
-    what:   `The Campaign report does not include a Conversions column.`,
-    why:    `Without conversion data the analysis cannot identify waste or calculate CPA. This limits the usefulness of every other finding.`,
-    action: `Re-export the Campaign report from Google Ads and include the "Conversions" and "Cost / conv." columns. Check your column settings before downloading.`,
+    what: `דוח קמפיינים חסר עמודת לידים.`,
+    why: `בלי נתוני לידים לא יכול לזהות בזבוז או לחשב עלות לליד. זה מגביל הרבה מסקנות.`,
+    action: `בדוק את הדוח ב-Google Ads. ודא שכללת עמודות "קונברסיות" ו"עלות לקונברסיה". העלה דוח משודרג.`,
     data: {},
   }];
 }
@@ -113,4 +112,4 @@ function missingConversionData(campaigns) {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function hasValue(v) { return v !== null && v !== undefined; }
-function fmt(n)      { return n != null ? n.toFixed(2) : '—'; }
+function fmt(n) { return n != null ? n.toFixed(2) : '—'; }

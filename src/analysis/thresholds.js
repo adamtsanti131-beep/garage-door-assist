@@ -1,42 +1,50 @@
 /**
  * thresholds.js
- * Configurable thresholds for the rules engine.
- * Tuned for a garage door repair/installation account in Vancouver, BC.
- * Monthly spend: CAD 5,000–7,000 | Main conversions: calls + forms
+ * Configurable thresholds for the rules engine — lead-generation focus.
+ * Tuned for garage door repair/installation account in Vancouver, BC.
+ * Metrics: CPL (Cost Per Lead), not profitability or revenue.
+ * Leads = Google Ads conversions (calls, form submissions) only.
  */
 
 export const THRESHOLDS = {
 
-  // ── Minimum spend/clicks before flagging anything ─────────────────────────
-  // Avoids noisy alerts on terms that just started
-  minSpendToFlag:        25,    // CAD — don't flag waste below this
-  minClicksToJudge:       8,    // clicks — minimum before evaluating a keyword
-  minImpressionsForCtr:  50,    // impressions — minimum before flagging low CTR
+  // ── CPL ZONES (עלות לליד) — in CAD ────────────────────────────────────────
+  cplExcellent:            55,   // <= 55  — strong leader, protect budget
+  cplGood:                 75,   // 56–75 — good performer, maintain
+  cplBorderline:           95,   // 76–95 — borderline, watch closely
+  cplExpensive:           120,   // 96–120 — expensive, reduce or test
+  cplPoor:                150,   // 121–150 — poor, flag for review
+  cplSevere:              150,   // > 150 — severe, immediate attention
 
-  // ── CPA benchmarks (CAD) ──────────────────────────────────────────────────
-  cpaExcellent:           80,   // below this → strong winner, scale up
-  cpaAcceptable:         150,   // below this → acceptable, monitor
-  cpaPoor:               220,   // above this → flag for review or pause
+  // ── WASTE DETECTION — zero leads ──────────────────────────────────────────
+  // Flag if: cost >= minSpendForWaste
+  //       OR clicks >= minClicksForWaste
+  //       OR (cost >= minSpendWithClicksGate AND clicks >= minClicksForWaste)
+  minSpendForWaste:        75,   // CAD
+  minClicksForWaste:       15,   // clicks
+  minSpendWithClicksGate:  50,   // CAD (when combined with clicks gate)
 
-  // ── Waste detection ───────────────────────────────────────────────────────
-  wastedSpendWarnPct:    0.20,  // 20% of total spend with 0 conversions → warning
-  wastedSpendCritPct:    0.35,  // 35% → high severity
+  // ── DATA SUFFICIENCY ──────────────────────────────────────────────────────
+  minClicksForJudgment:           5,   // basic judgment threshold
+  minClicksForConfidentJudgment:  15,  // strong judgment (pause, cut bid)
+  minImpressionsForCtr:           50,  // CTR judgment gate
+  minImpressionsForQS:            50,  // Quality Score judgment gate
 
-  // ── Winners ───────────────────────────────────────────────────────────────
-  minConversionsWinner:   2,    // at least 2 conversions to be called a winner
-  strongConvRatePct:      5.0,  // conv. rate above this → scaling opportunity
+  // ── LEADS & SCALING ───────────────────────────────────────────────────────
+  minLeadsForScaling:             2,   // need 2+ leads to recommend scaling
+  minLeadsForWinner:              2,   // need 2+ leads to call "strong performer"
+  strongConvRatePct:              5.0, // 5%+ lead rate = high-intent signal
 
-  // ── CTR ───────────────────────────────────────────────────────────────────
-  lowCtrPct:              2.0,  // CTR below this on non-brand terms → relevance issue
+  // ── QUALITY SIGNALS ───────────────────────────────────────────────────────
+  lowQualityScore:                4,   // QS < 4 = flag (only if impressions >= 50)
+  lowCtrPct:                      1.5, // CTR < 1.5% = flag (only if impressions >= 50)
+  lowImprShareWarn:               0.40, // IS < 40% on converting campaigns
+  highLostIsBudgetWarn:           0.30, // > 30% lost to budget limit
 
-  // ── Measurement risks ─────────────────────────────────────────────────────
-  highClicksNoConvLimit:  20,   // clicks without any conversion → possible tracking gap
-  convExceedsClicksRatio: 1.0,  // conversions/clicks above 1.0 → tracking misconfiguration
+  // ── MEASUREMENT RISKS ─────────────────────────────────────────────────────
+  minClicksNoLeadsForTracking:    25,  // 25+ clicks, 0 leads = possible tracking concern
 
-  // ── Impression share thresholds ───────────────────────────────────────────
-  lowImprShareWarn:      0.40,  // IS below 40% on a converting campaign → missing volume
-  highLostIsBudgetWarn:  0.20,  // lost IS (budget) above 20% → budget is limiting wins
-
-  // ── Quality Score ─────────────────────────────────────────────────────────
-  lowQualityScore:        4,    // QS below this → structural issue, costs are inflated
+  // ── ACCOUNT-LEVEL WASTE ───────────────────────────────────────────────────
+  wastedSpendWarnPct:             0.15, // 15% of total spend with 0 leads = warning
+  wastedSpendCritPct:             0.25, // 25% of total spend with 0 leads = critical
 };
