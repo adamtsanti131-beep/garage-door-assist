@@ -10,11 +10,15 @@
 import express from 'express';
 import multer  from 'multer';
 import cors    from 'cors';
+import path    from 'path';
+import { fileURLToPath } from 'url';
 
 import { REPORT_TYPES }  from './src/parser/schemas.js';
 import { routeReport }   from './src/parser/reportRouter.js';
 import { runRules }      from './src/analysis/rulesEngine.js';
 import { buildReport }   from './src/analysis/reportBuilder.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app    = express();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -90,9 +94,23 @@ app.post('/analyze', upload.fields(UPLOAD_FIELDS), (req, res) => {
   }
 });
 
+// ── Static files (production build) ──────────────────────────────────────────
+// In production Render builds the Vite app first, then Express serves it.
+
+const distDir = path.join(__dirname, 'dist');
+app.use(express.static(distDir));
+
 // ── GET /health ───────────────────────────────────────────────────────────────
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
+
+// ── SPA fallback ─────────────────────────────────────────────────────────────
+// Any request that isn't /analyze or /health falls through to index.html
+// so that browser refreshes on sub-routes don't 404.
+
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(distDir, 'index.html'));
+});
 
 // ── Global error handler ──────────────────────────────────────────────────────
 // Catches anything that slips past the route try/catch (e.g. multer errors)
