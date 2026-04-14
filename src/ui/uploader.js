@@ -1,57 +1,45 @@
 /**
  * uploader.js
- * Manages the three CSV upload cards.
- * Calls back with the current file selection whenever any card changes.
+ * Manages the 7 CSV upload cards — one per report type.
+ * Each card has a fixed slot type that maps to a REPORT_TYPES value.
  */
 
-const CARDS = [
-  {
-    key:         'searchTerms',
-    fileInputId: 'file-search-terms',
-    statusId:    'status-search-terms',
-    cardId:      'upload-search-terms',
-  },
-  {
-    key:         'keywords',
-    fileInputId: 'file-keywords',
-    statusId:    'status-keywords',
-    cardId:      'upload-keywords',
-  },
-  {
-    key:         'campaigns',
-    fileInputId: 'file-campaigns',
-    statusId:    'status-campaigns',
-    cardId:      'upload-campaigns',
-  },
+// Slot definitions — id must match HTML element IDs (file-{id}, status-{id}, upload-{id})
+const SLOTS = [
+  { key: 'campaign',   label: 'Campaign'     },
+  { key: 'adGroup',    label: 'Ad Group'     },
+  { key: 'searchTerm', label: 'Search Terms' },
+  { key: 'keyword',    label: 'Keywords'     },
+  { key: 'ad',         label: 'Ads'          },
+  { key: 'device',     label: 'Devices'      },
+  { key: 'location',   label: 'Location'     },
 ];
 
 /**
- * Initialize upload card event listeners.
- * @param {Function} onFilesChange - Called with { searchTerms, keywords, campaigns }
- *   each time any file selection changes. Values are File objects or null.
+ * Initialize all upload cards.
+ * @param {Function} onFilesChange — called with current files map whenever anything changes
  */
 export function initUploader(onFilesChange) {
-  const files = { searchTerms: null, keywords: null, campaigns: null };
+  const files = Object.fromEntries(SLOTS.map(s => [s.key, null]));
 
-  for (const card of CARDS) {
-    const input  = document.getElementById(card.fileInputId);
-    const status = document.getElementById(card.statusId);
-    const cardEl = document.getElementById(card.cardId);
-
+  for (const slot of SLOTS) {
+    const input  = document.getElementById(`file-${slot.key}`);
+    const status = document.getElementById(`status-${slot.key}`);
+    const card   = document.getElementById(`upload-${slot.key}`);
     if (!input) continue;
 
     input.addEventListener('change', () => {
-      const file = input.files[0] || null;
+      const file = input.files[0] ?? null;
 
       if (!file) {
-        files[card.key] = null;
-        setStatus(status, cardEl, 'No file selected', '');
+        files[slot.key] = null;
+        setStatus(status, card, 'No file selected', '');
       } else if (!file.name.toLowerCase().endsWith('.csv')) {
-        files[card.key] = null;
-        setStatus(status, cardEl, `Not a CSV file: "${file.name}"`, 'error');
+        files[slot.key] = null;
+        setStatus(status, card, `Not a CSV: "${file.name}"`, 'error');
       } else {
-        files[card.key] = file;
-        setStatus(status, cardEl, `✓ ${file.name}`, 'success');
+        files[slot.key] = file;
+        setStatus(status, card, `✓ ${file.name}`, 'success');
       }
 
       onFilesChange({ ...files });
@@ -59,11 +47,24 @@ export function initUploader(onFilesChange) {
   }
 }
 
+/**
+ * Show a validation warning under a specific upload card after analysis.
+ * @param {string}   key      — slot key (e.g. 'campaign')
+ * @param {string[]} warnings — warning messages to display
+ */
+export function showUploadWarnings(key, warnings) {
+  const status = document.getElementById(`status-${key}`);
+  if (!status || !warnings.length) return;
+  const existing = status.textContent;
+  status.textContent = `${existing} — ⚠️ ${warnings[0]}`;
+  status.title = warnings.join('\n');
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function setStatus(statusEl, cardEl, message, state) {
   statusEl.textContent = message;
-  statusEl.className = 'file-status' + (state ? ' ' + state : '');
+  statusEl.className   = 'file-status' + (state ? ' ' + state : '');
   cardEl.classList.toggle('has-file',  state === 'success');
   cardEl.classList.toggle('has-error', state === 'error');
 }

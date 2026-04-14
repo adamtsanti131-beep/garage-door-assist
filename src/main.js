@@ -1,67 +1,55 @@
 /**
  * main.js
- * Entry point — wires together the uploader, report renderer, and history.
- * Analysis is now done server-side via POST /analyze.
+ * Entry point — wires together uploader, renderer, and history.
+ * Analysis is done server-side via POST /analyze.
  */
 
-import { initUploader }                          from './ui/uploader.js';
+import { initUploader, showUploadWarnings } from './ui/uploader.js';
 import { initHistoryPanel, refreshHistoryPanel } from './ui/historyPanel.js';
-import { renderReport }                          from './ui/reportRenderer.js';
-import { saveToHistory }                         from './storage/history.js';
+import { renderReport }  from './ui/reportRenderer.js';
+import { saveToHistory } from './storage/history.js';
 
-// Current file selection — updated by the uploader whenever a card changes
-let currentFiles = { searchTerms: null, keywords: null, campaigns: null };
+let currentFiles = {};
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
   initUploader(onFilesChange);
   initHistoryPanel(renderReport);
-  setupAnalyzeButton();
+  document.getElementById('btn-analyze')?.addEventListener('click', runAnalysis);
 });
 
-// ── File change handler ───────────────────────────────────────────────────────
+// ── File change ───────────────────────────────────────────────────────────────
 
 function onFilesChange(files) {
   currentFiles = files;
-
   const hasAny = Object.values(files).some(f => f !== null);
-  const btn  = document.getElementById('btn-analyze');
-  const hint = document.getElementById('analyze-hint');
-
-  btn.disabled     = !hasAny;
-  hint.textContent = hasAny ? 'Ready to analyze' : 'Upload at least one CSV to analyze';
+  document.getElementById('btn-analyze').disabled = !hasAny;
+  document.getElementById('analyze-hint').textContent = hasAny
+    ? 'Ready to analyze'
+    : 'Upload at least one CSV to analyze';
 }
 
-// ── Analyze button ────────────────────────────────────────────────────────────
-
-function setupAnalyzeButton() {
-  document.getElementById('btn-analyze')?.addEventListener('click', runAnalysis);
-}
+// ── Analysis ──────────────────────────────────────────────────────────────────
 
 async function runAnalysis() {
   const btn  = document.getElementById('btn-analyze');
   const hint = document.getElementById('analyze-hint');
 
-  btn.disabled     = true;
+  btn.disabled = true;
   btn.classList.add('loading');
   btn.textContent  = 'Analyzing...';
   hint.textContent = 'Uploading files...';
 
   try {
-    // Build FormData — only include files that were actually selected
     const formData = new FormData();
-    if (currentFiles.searchTerms) formData.append('searchTerms', currentFiles.searchTerms);
-    if (currentFiles.keywords)    formData.append('keywords',    currentFiles.keywords);
-    if (currentFiles.campaigns)   formData.append('campaigns',   currentFiles.campaigns);
+    for (const [key, file] of Object.entries(currentFiles)) {
+      if (file) formData.append(key, file);
+    }
 
     hint.textContent = 'Running analysis...';
 
-    // Send to Express backend (Vite proxies /analyze → localhost:3001)
-    const response = await fetch('/analyze', {
-      method: 'POST',
-      body: formData,
-    });
+    const response = await fetch('/analyze', { method: 'POST', body: formData });
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({ error: 'Server error' }));
@@ -70,18 +58,26 @@ async function runAnalysis() {
 
     const report = await response.json();
 
+    // Show per-file validation warnings under each upload card
+    if (report.validationResults) {
+      for (const [key, result] of Object.entries(report.validationResults)) {
+        if (result.warnings?.length) showUploadWarnings(key, result.warnings);
+      }
+    }
+
     saveToHistory(report);
     renderReport(report);
     refreshHistoryPanel(renderReport);
 
-    const total = (report.criticalIssues?.length || 0)
-                + (report.improvements?.length   || 0)
-                + (report.whatsWorking?.length    || 0);
+    const total = (report.waste?.length ?? 0)
+                + (report.opportunities?.length ?? 0)
+                + (report.controlRisks?.length ?? 0)
+                + (report.measurementRisks?.length ?? 0);
     hint.textContent = `Done — ${total} finding${total !== 1 ? 's' : ''}`;
 
   } catch (err) {
     hint.textContent = `Error: ${err.message}`;
-    console.error('[PPC Assistant] Analysis failed:', err);
+    console.error('[PPC Assistant]', err);
   } finally {
     btn.disabled    = false;
     btn.classList.remove('loading');

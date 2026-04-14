@@ -1,31 +1,73 @@
 /**
  * reportBuilder.js
- * Assembles the final report object from rules engine findings.
- * Also derives the "Top 3 Actions" summary from the highest-priority findings.
+ * Assembles the final report from rules engine findings.
+ * Adds a summary section with account-level metrics.
  */
 
 /**
- * Build a complete report object.
- * @param {Object[]} findings  - Output of rulesEngine.runRules()
- * @param {{ searchTerms, keywords, campaigns }} data - Parsed data sets
- * @returns {Object} Report object
+ * @param {Finding[]} findings  — from rulesEngine.runRules()
+ * @param {DataSets}  data      — normalized data sets
+ * @returns {Report}
  */
 export function buildReport(findings, data) {
-  const criticalIssues = findings.filter(f => f.type === 'critical');
-  const improvements   = findings.filter(f => f.type === 'improvement');
-  const whatsWorking   = findings.filter(f => f.type === 'working');
+  const allRows = [
+    ...(data.campaigns   ?? []),
+    ...(data.adGroups    ?? []),
+    ...(data.searchTerms ?? []),
+    ...(data.keywords    ?? []),
+  ];
 
   return {
-    timestamp: new Date().toISOString(),
-    meta: {
-      searchTermCount: data.searchTerms?.length || 0,
-      keywordCount:    data.keywords?.length    || 0,
-      campaignCount:   data.campaigns?.length   || 0,
-    },
-    criticalIssues,
-    improvements,
-    whatsWorking,
-    topActions: deriveTopActions(criticalIssues, improvements, whatsWorking),
+    timestamp:        new Date().toISOString(),
+    summary:          buildSummary(findings, allRows, data.campaigns ?? []),
+    waste:            findings.filter(f => f.category === 'waste'),
+    opportunities:    findings.filter(f => f.category === 'opportunity'),
+    controlRisks:     findings.filter(f => f.category === 'controlRisk'),
+    measurementRisks: findings.filter(f => f.category === 'measurementRisk'),
+    topActions:       deriveTopActions(findings),
+  };
+}
+
+// ── Summary ───────────────────────────────────────────────────────────────────
+
+function buildSummary(findings, allRows, campaigns) {
+  // Prefer campaign-level totals; fall back to all rows
+  const source = campaigns.length > 0 ? campaigns : allRows;
+
+  const totalSpend       = sumNN(source, 'cost');
+  const totalConversions = sumNN(source, 'conversions');
+  const avgCpa           = totalConversions > 0 ? totalSpend / totalConversions : null;
+
+  const highCount = findings.filter(f => f.severity === 'high').length;
+  const bestPerformer = findBestPerformer([...allRows]);
+
+  return {
+    totalSpend:       totalSpend   > 0   ? totalSpend       : null,
+    totalConversions: totalConversions > 0 ? totalConversions : null,
+    avgCpa,
+    highSeverityCount: highCount,
+    bestPerformer,
+  };
+}
+
+/**
+ * Find the single best-performing row (lowest CPA with at least 2 conversions).
+ */
+function findBestPerformer(rows) {
+  const candidates = rows.filter(r =>
+    hasValue(r.conversions) && r.conversions >= 2 &&
+    hasValue(r.cost) && r.cost > 0
+  );
+  if (!candidates.length) return null;
+
+  candidates.sort((a, b) => (a.cost / a.conversions) - (b.cost / b.conversions));
+  const best = candidates[0];
+  const label = best.searchTerm ?? best.keyword ?? best.campaign ?? best.adGroup ?? 'Unknown';
+  return {
+    label,
+    cpa:         best.cost / best.conversions,
+    conversions: best.conversions,
+    cost:        best.cost,
   };
 }
 
@@ -33,93 +75,43 @@ export function buildReport(findings, data) {
 
 /**
  * Pick the 3 most important actions from findings.
- * Logic: one from critical, one from improvements, one from working.
- * Fill with sensible generic defaults if a category is empty.
+ * Priority: high severity first, then by category order.
  */
-function deriveTopActions(critical, improvements, working) {
-  const actions = [];
+function deriveTopActions(findings) {
+  const catPriority = { measurementRisk: 0, waste: 1, controlRisk: 2, opportunity: 3 };
+  const sevPriority = { high: 0, medium: 1, low: 2 };
 
-  if (critical.length > 0) {
-    actions.push({
-      priority: 1,
-      action: toActionText(critical[0]),
-      reason: critical[0].title,
-    });
-  }
+  const sorted = [...findings].sort((a, b) => {
+    const s = sevPriority[a.severity] - sevPriority[b.severity];
+    if (s !== 0) return s;
+    return (catPriority[a.category] ?? 9) - (catPriority[b.category] ?? 9);
+  });
 
-  if (improvements.length > 0) {
-    actions.push({
-      priority: 2,
-      action: toActionText(improvements[0]),
-      reason: improvements[0].title,
-    });
-  }
+  const top = sorted.slice(0, 3);
 
-  if (working.length > 0) {
-    actions.push({
-      priority: 3,
-      action: toActionText(working[0]),
-      reason: working[0].title,
-    });
-  }
-
-  // Fill remaining slots with practical defaults
+  // Fill with defaults if fewer than 3 findings
   const defaults = [
-    {
-      priority: 1,
-      action: 'Review your Search Terms report and add irrelevant queries as negative keywords.',
-      reason: 'Regular negative keyword hygiene reduces wasted spend.',
-    },
-    {
-      priority: 2,
-      action: 'Check keyword Quality Scores — anything below 5 is costing you more per click.',
-      reason: 'Low Quality Scores raise CPC and reduce ad rank.',
-    },
-    {
-      priority: 3,
-      action: 'Confirm your best-performing campaigns are not hitting budget caps mid-day.',
-      reason: 'Budget limits on converting campaigns cap your lead volume.',
-    },
+    { action: 'Review your Search Terms report and add irrelevant queries as negative keywords.',      reason: 'Negative keyword hygiene is the highest-ROI maintenance task in a local PPC account.' },
+    { action: 'Check that conversion tracking is firing correctly for calls and form submissions.',    reason: 'Without accurate conversion data, optimisation decisions are based on incomplete information.' },
+    { action: 'Ensure your best-converting campaigns are not hitting their daily budget cap early.',   reason: 'Budget limits on converting campaigns directly cap lead volume.' },
   ];
 
+  const actions = top.map((f, i) => ({
+    priority: i + 1,
+    action:   f.action,
+    reason:   f.what,
+    severity: f.severity,
+  }));
+
   while (actions.length < 3) {
-    actions.push(defaults[actions.length]);
+    const d = defaults[actions.length];
+    actions.push({ priority: actions.length + 1, action: d.action, reason: d.reason, severity: 'low' });
   }
 
-  return actions.slice(0, 3);
+  return actions;
 }
 
-/**
- * Convert a finding into a short imperative action phrase.
- */
-function toActionText(finding) {
-  const t = finding.title.toLowerCase();
-  const term = extractQuotedTerm(finding.title);
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-  if (t.includes('zero conversion') || t.includes('no conversion')) {
-    return `Pause and add as negative keyword: "${term}"`;
-  }
-  if (t.includes('/conversion') || t.includes('cpa')) {
-    return `Reduce bid or pause: "${term}" — cost per conversion is too high`;
-  }
-  if (t.includes('outperform') || t.includes('strong')) {
-    return `Protect budget for: "${term}" — it is your best performer`;
-  }
-  if (t.includes('conv. rate') || t.includes('scaling')) {
-    return `Increase bids to capture more volume: "${term}"`;
-  }
-  if (t.includes('ctr')) {
-    return `Rewrite ad copy to better match intent for: "${term}"`;
-  }
-  if (t.includes('campaign')) {
-    return `Review campaign "${term}" — check ad copy, landing page, and targeting`;
-  }
-
-  return finding.title;
-}
-
-/** Pull the first quoted string out of a title, or return the full title. */
-function extractQuotedTerm(title) {
-  const match = title.match(/"([^"]+)"/);
-  return match ? match[1] : title;
-}
+function hasValue(v)    { return v !== null && v !== undefined; }
+function sumNN(rows, k) { return rows.reduce((a, r) => a + (r[k] ?? 0), 0); }

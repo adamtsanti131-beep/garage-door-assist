@@ -226,6 +226,123 @@ h2 {
 }
 
 /* ===========================
+   Report Summary Bar
+=========================== */
+.report-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.summary-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 100px;
+}
+
+.summary-stat--wide {
+  flex: 1;
+  min-width: 200px;
+}
+
+.summary-stat--alert .summary-value {
+  color: #dc2626;
+}
+
+.summary-label {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.summary-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* ===========================
+   Report item — rich format
+=========================== */
+.report-item-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.report-item-badge {
+  flex-shrink: 0;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  margin-top: 2px;
+}
+
+.report-item-badge--high   { background: #fecaca; color: #991b1b; }
+.report-item-badge--medium { background: #fef08a; color: #78350f; }
+.report-item-badge--low    { background: #e0e7ff; color: #3730a3; }
+
+.report-item-what {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.report-item-why {
+  font-size: 0.8125rem;
+  opacity: 0.85;
+  margin-bottom: 6px;
+  line-height: 1.45;
+}
+
+.report-item-action {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+/* ===========================
+   New report card colours
+=========================== */
+.report-card.waste {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+.report-card.waste h3 { color: #dc2626; }
+
+.report-card.opportunities {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #14532d;
+}
+.report-card.opportunities h3 { color: #16a34a; }
+
+.report-card.control-risks {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+.report-card.control-risks h3 { color: #d97706; }
+
+.report-card.measurement-risks {
+  background: #faf5ff;
+  border-color: #d8b4fe;
+  color: #581c87;
+}
+.report-card.measurement-risks h3 { color: #7c3aed; }
+
+/* ===========================
    Report Section
 =========================== */
 .report-header {

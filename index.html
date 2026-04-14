@@ -22,71 +22,123 @@
       <h2>Upload Reports</h2>
       <div class="upload-grid">
 
-        <div class="upload-card" id="upload-search-terms">
-          <div class="upload-icon">📋</div>
-          <h3>Search Terms Report</h3>
-          <p>What people actually searched for</p>
-          <label class="file-label">
-            <input type="file" accept=".csv" id="file-search-terms" />
-            <span class="file-btn">Choose CSV</span>
-          </label>
-          <div class="file-status" id="status-search-terms">No file selected</div>
-        </div>
-
-        <div class="upload-card" id="upload-keywords">
-          <div class="upload-icon">🔑</div>
-          <h3>Search Keywords Report</h3>
-          <p>Your keyword performance data</p>
-          <label class="file-label">
-            <input type="file" accept=".csv" id="file-keywords" />
-            <span class="file-btn">Choose CSV</span>
-          </label>
-          <div class="file-status" id="status-keywords">No file selected</div>
-        </div>
-
-        <div class="upload-card" id="upload-campaigns">
+        <div class="upload-card" id="upload-campaign">
           <div class="upload-icon">📊</div>
           <h3>Campaign Report</h3>
           <p>Overall campaign performance</p>
           <label class="file-label">
-            <input type="file" accept=".csv" id="file-campaigns" />
+            <input type="file" accept=".csv" id="file-campaign" />
             <span class="file-btn">Choose CSV</span>
           </label>
-          <div class="file-status" id="status-campaigns">No file selected</div>
+          <div class="file-status" id="status-campaign">No file selected</div>
+        </div>
+
+        <div class="upload-card" id="upload-adGroup">
+          <div class="upload-icon">🗂️</div>
+          <h3>Ad Group Report</h3>
+          <p>Performance by ad group</p>
+          <label class="file-label">
+            <input type="file" accept=".csv" id="file-adGroup" />
+            <span class="file-btn">Choose CSV</span>
+          </label>
+          <div class="file-status" id="status-adGroup">No file selected</div>
+        </div>
+
+        <div class="upload-card" id="upload-searchTerm">
+          <div class="upload-icon">📋</div>
+          <h3>Search Terms Report</h3>
+          <p>What people actually searched for</p>
+          <label class="file-label">
+            <input type="file" accept=".csv" id="file-searchTerm" />
+            <span class="file-btn">Choose CSV</span>
+          </label>
+          <div class="file-status" id="status-searchTerm">No file selected</div>
+        </div>
+
+        <div class="upload-card" id="upload-keyword">
+          <div class="upload-icon">🔑</div>
+          <h3>Keywords Report</h3>
+          <p>Keyword-level performance</p>
+          <label class="file-label">
+            <input type="file" accept=".csv" id="file-keyword" />
+            <span class="file-btn">Choose CSV</span>
+          </label>
+          <div class="file-status" id="status-keyword">No file selected</div>
+        </div>
+
+        <div class="upload-card" id="upload-ad">
+          <div class="upload-icon">📝</div>
+          <h3>Ads Report</h3>
+          <p>Individual ad performance</p>
+          <label class="file-label">
+            <input type="file" accept=".csv" id="file-ad" />
+            <span class="file-btn">Choose CSV</span>
+          </label>
+          <div class="file-status" id="status-ad">No file selected</div>
+        </div>
+
+        <div class="upload-card" id="upload-device">
+          <div class="upload-icon">📱</div>
+          <h3>Devices Report</h3>
+          <p>Performance by device type</p>
+          <label class="file-label">
+            <input type="file" accept=".csv" id="file-device" />
+            <span class="file-btn">Choose CSV</span>
+          </label>
+          <div class="file-status" id="status-device">No file selected</div>
+        </div>
+
+        <div class="upload-card" id="upload-location">
+          <div class="upload-icon">📍</div>
+          <h3>Location Report</h3>
+          <p>Performance by user location</p>
+          <label class="file-label">
+            <input type="file" accept=".csv" id="file-location" />
+            <span class="file-btn">Choose CSV</span>
+          </label>
+          <div class="file-status" id="status-location">No file selected</div>
         </div>
 
       </div>
 
       <div class="analyze-bar">
-        <button id="btn-analyze" class="btn-analyze" disabled>
-          Analyze Reports
-        </button>
+        <button id="btn-analyze" class="btn-analyze" disabled>Analyze Reports</button>
         <span class="analyze-hint" id="analyze-hint">Upload at least one CSV to analyze</span>
       </div>
     </section>
 
     <!-- Report Section (hidden until first analysis) -->
     <section class="report-section" id="report-section" style="display:none">
+
       <div class="report-header">
         <h2>Analysis Report</h2>
         <span class="report-date" id="report-date"></span>
       </div>
 
+      <!-- Summary Bar -->
+      <div class="report-summary" id="report-summary"></div>
+
+      <!-- Four finding panels -->
       <div class="report-grid">
 
-        <div class="report-card critical">
-          <h3>🚨 Critical Issues — Fix Today</h3>
-          <div class="report-items" id="items-critical"></div>
+        <div class="report-card waste">
+          <h3>🗑️ Waste — Stop Spending Here</h3>
+          <div class="report-items" id="items-waste"></div>
         </div>
 
-        <div class="report-card improvements">
-          <h3>⚠️ Improvements — This Week</h3>
-          <div class="report-items" id="items-improvements"></div>
+        <div class="report-card opportunities">
+          <h3>🚀 Opportunities — Scale These</h3>
+          <div class="report-items" id="items-opportunities"></div>
         </div>
 
-        <div class="report-card working">
-          <h3>✅ What's Working — Keep Doing</h3>
-          <div class="report-items" id="items-working"></div>
+        <div class="report-card control-risks">
+          <h3>⚠️ Control Risks — Fix This Week</h3>
+          <div class="report-items" id="items-control-risks"></div>
+        </div>
+
+        <div class="report-card measurement-risks">
+          <h3>📡 Measurement Risks — Check Your Data</h3>
+          <div class="report-items" id="items-measurement-risks"></div>
         </div>
 
         <div class="report-card actions">
