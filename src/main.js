@@ -1,16 +1,13 @@
 /**
  * main.js
- * Entry point — wires together every module.
+ * Entry point — wires together the uploader, report renderer, and history.
+ * Analysis is now done server-side via POST /analyze.
  */
 
-import { initUploader }                       from './ui/uploader.js';
+import { initUploader }                          from './ui/uploader.js';
 import { initHistoryPanel, refreshHistoryPanel } from './ui/historyPanel.js';
-import { renderReport }                       from './ui/reportRenderer.js';
-import { parseCSV }                           from './parser/csvParser.js';
-import { normalizeRows }                      from './parser/fieldNormalizer.js';
-import { runRules }                           from './analysis/rulesEngine.js';
-import { buildReport }                        from './analysis/reportBuilder.js';
-import { saveToHistory }                      from './storage/history.js';
+import { renderReport }                          from './ui/reportRenderer.js';
+import { saveToHistory }                         from './storage/history.js';
 
 // Current file selection — updated by the uploader whenever a card changes
 let currentFiles = { searchTerms: null, keywords: null, campaigns: null };
@@ -19,7 +16,7 @@ let currentFiles = { searchTerms: null, keywords: null, campaigns: null };
 
 document.addEventListener('DOMContentLoaded', () => {
   initUploader(onFilesChange);
-  initHistoryPanel(renderReport); // clicking history entries re-renders the report
+  initHistoryPanel(renderReport);
   setupAnalyzeButton();
 });
 
@@ -32,8 +29,8 @@ function onFilesChange(files) {
   const btn  = document.getElementById('btn-analyze');
   const hint = document.getElementById('analyze-hint');
 
-  btn.disabled      = !hasAny;
-  hint.textContent  = hasAny ? 'Ready to analyze' : 'Upload at least one CSV to analyze';
+  btn.disabled     = !hasAny;
+  hint.textContent = hasAny ? 'Ready to analyze' : 'Upload at least one CSV to analyze';
 }
 
 // ── Analyze button ────────────────────────────────────────────────────────────
@@ -46,25 +43,42 @@ async function runAnalysis() {
   const btn  = document.getElementById('btn-analyze');
   const hint = document.getElementById('analyze-hint');
 
-  // Loading state
   btn.disabled     = true;
   btn.classList.add('loading');
   btn.textContent  = 'Analyzing...';
-  hint.textContent = 'Reading files...';
+  hint.textContent = 'Uploading files...';
 
   try {
-    const data = await readAndParseFiles(currentFiles);
+    // Build FormData — only include files that were actually selected
+    const formData = new FormData();
+    if (currentFiles.searchTerms) formData.append('searchTerms', currentFiles.searchTerms);
+    if (currentFiles.keywords)    formData.append('keywords',    currentFiles.keywords);
+    if (currentFiles.campaigns)   formData.append('campaigns',   currentFiles.campaigns);
 
     hint.textContent = 'Running analysis...';
-    const findings = runRules(data);
-    const report   = buildReport(findings, data);
+
+    // Send to Express backend (Vite proxies /analyze → localhost:3001)
+    const response = await fetch('/analyze', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: 'Server error' }));
+      throw new Error(err.error || `Server returned ${response.status}`);
+    }
+
+    const report = await response.json();
 
     saveToHistory(report);
     renderReport(report);
     refreshHistoryPanel(renderReport);
 
-    const total = findings.length;
+    const total = (report.criticalIssues?.length || 0)
+                + (report.improvements?.length   || 0)
+                + (report.whatsWorking?.length    || 0);
     hint.textContent = `Done — ${total} finding${total !== 1 ? 's' : ''}`;
+
   } catch (err) {
     hint.textContent = `Error: ${err.message}`;
     console.error('[PPC Assistant] Analysis failed:', err);
@@ -73,30 +87,4 @@ async function runAnalysis() {
     btn.classList.remove('loading');
     btn.textContent = 'Analyze Reports';
   }
-}
-
-// ── File reading + parsing ────────────────────────────────────────────────────
-
-async function readAndParseFiles(files) {
-  const [stRaw, kwRaw, campRaw] = await Promise.all([
-    files.searchTerms ? readFile(files.searchTerms) : null,
-    files.keywords    ? readFile(files.keywords)    : null,
-    files.campaigns   ? readFile(files.campaigns)   : null,
-  ]);
-
-  return {
-    searchTerms: stRaw   ? normalizeRows(parseCSV(stRaw).rows)   : [],
-    keywords:    kwRaw   ? normalizeRows(parseCSV(kwRaw).rows)   : [],
-    campaigns:   campRaw ? normalizeRows(parseCSV(campRaw).rows) : [],
-  };
-}
-
-/** Read a File object as UTF-8 text. */
-function readFile(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload  = e => resolve(e.target.result);
-    reader.onerror = () => reject(new Error(`Failed to read "${file.name}"`));
-    reader.readAsText(file, 'UTF-8');
-  });
 }
