@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Garage Door PPC Assistant</title>
+  <link rel="stylesheet" href="/styles/main.css" />
+</head>
+<body>
+
+  <header class="app-header">
+    <div class="header-inner">
+      <h1>Garage Door PPC Assistant</h1>
+      <p class="header-sub">Vancouver, BC — Upload your Google Ads reports to get actionable insights</p>
+    </div>
+  </header>
+
+  <main class="app-main">
+
+    <!-- Upload Section -->
+    <section class="upload-section">
+      <h2>Upload Reports</h2>
+      <div class="upload-grid">
+
+        <div class="upload-card" id="upload-search-terms">
+          <div class="upload-icon">📋</div>
+          <h3>Search Terms Report</h3>
+          <p>What people actually searched for</p>
+          <label class="file-label">
+            <input type="file" accept=".csv" id="file-search-terms" />
+            <span class="file-btn">Choose CSV</span>
+          </label>
+          <div class="file-status" id="status-search-terms">No file selected</div>
+        </div>
+
+        <div class="upload-card" id="upload-keywords">
+          <div class="upload-icon">🔑</div>
+          <h3>Search Keywords Report</h3>
+          <p>Your keyword performance data</p>
+          <label class="file-label">
+            <input type="file" accept=".csv" id="file-keywords" />
+            <span class="file-btn">Choose CSV</span>
+          </label>
+          <div class="file-status" id="status-keywords">No file selected</div>
+        </div>
+
+        <div class="upload-card" id="upload-campaigns">
+          <div class="upload-icon">📊</div>
+          <h3>Campaign Report</h3>
+          <p>Overall campaign performance</p>
+          <label class="file-label">
+            <input type="file" accept=".csv" id="file-campaigns" />
+            <span class="file-btn">Choose CSV</span>
+          </label>
+          <div class="file-status" id="status-campaigns">No file selected</div>
+        </div>
+
+      </div>
+
+      <div class="analyze-bar">
+        <button id="btn-analyze" class="btn-analyze" disabled>
+          Analyze Reports
+        </button>
+        <span class="analyze-hint" id="analyze-hint">Upload at least one CSV to analyze</span>
+      </div>
+    </section>
+
+    <!-- Report Section (hidden until first analysis) -->
+    <section class="report-section" id="report-section" style="display:none">
+      <div class="report-header">
+        <h2>Analysis Report</h2>
+        <span class="report-date" id="report-date"></span>
+      </div>
+
+      <div class="report-grid">
+
+        <div class="report-card critical">
+          <h3>🚨 Critical Issues — Fix Today</h3>
+          <div class="report-items" id="items-critical"></div>
+        </div>
+
+        <div class="report-card improvements">
+          <h3>⚠️ Improvements — This Week</h3>
+          <div class="report-items" id="items-improvements"></div>
+        </div>
+
+        <div class="report-card working">
+          <h3>✅ What's Working — Keep Doing</h3>
+          <div class="report-items" id="items-working"></div>
+        </div>
+
+        <div class="report-card actions">
+          <h3>🎯 Top 3 Actions to Take Today</h3>
+          <div class="report-items" id="items-actions"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- History Section -->
+    <section class="history-section" id="history-section">
+      <div class="history-header">
+        <h2>Analysis History</h2>
+        <button id="btn-clear-history" class="btn-clear">Clear History</button>
+      </div>
+      <div class="history-list" id="history-list">
+        <p class="history-empty">No previous analyses yet.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GD PPC Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            overflow-x: hidden;
+        }
+        .app {
+            display: flex;
+            height: 100vh;
+        }
+        .sidebar {
+            width: 280px;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: white;
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            color: #ff6b35;
+            text-align: center;
+        }
+        .logo span {
+            color: #007bff;
+        }
+        .history-list {
+            list-style: none;
+        }
+        .history-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+        .history-item:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateX(5px);
+        }
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+        }
+        .header {
+            background: white;
+            padding: 20px 30px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .header h1 {
+            color: #007bff;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .demo-banner {
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            color: white;
+            padding: 8px 20px;
+            font-size: 14px;
+            text-align: center;
+            font-weight: 500;
+        }
+        .demo-banner a {
+            color: white;
+            text-decoration: underline;
+        }
+        .settings-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #6c757d;
+            transition: color 0.3s ease;
+        }
+        .settings-btn:hover {
+            color: #007bff;
+        }
+        .welcome-screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            text-align: center;
+        }
+        .start-btn {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+            border: none;
+            padding: 20px 40px;
+            font-size: 24px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 8px 25px rgba(0,123,255,0.3);
+            transition: all 0.3s ease;
+            margin-top: 30px;
+        }
+        .start-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 35px rgba(0,123,255,0.4);
+        }
+        .welcome-screen h2 {
+            color: #007bff;
+            font-size: 36px;
+            margin-bottom: 20px;
+        }
+        .welcome-screen p {
+            font-size: 18px;
+            color: #6c757d;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        .modal.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 700px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+        .modal.show .modal-content {
+            transform: scale(1);
+        }
+        .modal h3 {
+            color: #007bff;
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+        .modal textarea {
+            width: 100%;
+            height: 300px;
+            padding: 20px;
+            border: 2px solid #dee2e6;
+            border-radius: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+            margin-bottom: 20px;
+        }
+        .modal textarea:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+        }
+        .modal .analyze-btn {
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+        .modal .analyze-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255,107,53,0.3);
+        }
+        .close-modal {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #6c757d;
+        }
+        .report-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+        }
+        .report-section {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-left: 5px solid;
+        }
+        .report-section.critical {
+            border-left-color: #dc3545;
+        }
+        .report-section.improvements {
+            border-left-color: #ffc107;
+        }
+        .report-section.working {
+            border-left-color: #28a745;
+        }
+        .report-section.actions {
+            border-left-color: #007bff;
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+        }
+        .report-section h3 {
+            margin-bottom: 15px;
+            font-size: 22px;
+            display: flex;
+            align-items: center;
+        }
+        .report-section ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .report-section li {
+            margin-bottom: 10px;
+            line-height: 1.6;
+        }
+        .chat-input-section {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            display: none;
+        }
+        .chat-input-section.show {
+            display: block;
+        }
+        .chat-input {
+            display: flex;
+            gap: 10px;
+        }
+        .chat-input textarea {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            resize: vertical;
+            font-family: inherit;
+        }
+        .chat-input button {
+            padding: 12px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .chat-input button:hover {
+            background: #0056b3;
+        }
+        .new-analysis-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(40,167,69,0.3);
+            font-size: 24px;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+        .new-analysis-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(40,167,69,0.4);
+        }
+        .message {
+            margin-bottom: 30px;
+            animation: slideIn 0.5s ease-out;
+        }
+        .message.user {
+            text-align: right;
+        }
+        .message-card {
+            max-width: 80%;
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border: 1px solid #e9ecef;
+        }
+        .message.user .message-card {
+            margin-left: auto;
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+        }
+        .message.assistant .message-card {
+            margin-right: auto;
+        }
+        .message.assistant .message-card h3 {
+            color: #007bff;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        .message.assistant .message-card p {
+            margin-bottom: 12px;
+            line-height: 1.6;
+        }
+        .message.assistant .message-card ul {
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+        .message.assistant .message-card li {
+            margin-bottom: 8px;
+        }
+        .top-actions {
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 12px;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        .top-actions h4 {
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .top-actions ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .top-actions li {
+            margin-bottom: 5px;
+        }
+        .typing-indicator {
+            display: none;
+            padding: 20px;
+            color: #6c757d;
+            font-style: italic;
+        }
+        .typing-indicator.show {
+            display: block;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: fixed;
+                top: 0;
+                left: -100%;
+                transition: left 0.3s ease;
+                z-index: 1001;
+            }
+            .sidebar.open {
+                left: 0;
+            }
+            .main {
+                width: 100%;
+            }
+            .header h1 {
+                font-size: 24px;
+            }
+            .quick-buttons {
+                padding: 15px 20px;
+            }
+            .quick-btn {
+                flex: 1;
+                min-width: 120px;
+            }
+            .message-card {
+                max-width: 95%;
+            }
+        }
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #6c757d;
+        }
+        @media (max-width: 768px) {
+            .mobile-menu-btn {
+                display: block;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <div class="sidebar" id="sidebar">
+            <div class="logo">GD <span>PPC</span> Assistant</div>
+            <ul class="history-list" id="history-list">
+                <!-- Chat history items will be added here -->
+            </ul>
+        </div>
+        <div class="main">
+            <div class="header">
+                <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+                <h1>Garage Door PPC Analysis</h1>
+                <button class="settings-btn" onclick="toggleSettings()">⚙️</button>
+            </div>
+            <div class="demo-banner" id="demo-banner" style="display: none;">
+                Demo mode - add API key in settings for AI-powered insights
+            </div>
+            
+            <div class="welcome-screen" id="welcome-screen">
+                <h2>🚀 Ready to Optimize Your PPC?</h2>
+                <p>Get a comprehensive analysis of your Google Ads campaigns with actionable insights tailored for your Vancouver garage door business.</p>
+                <button class="start-btn" onclick="startAnalysis()">Start Analysis</button>
+            </div>
+            
+            <div class="report-container" id="report-container" style="display: none;">
+                <!-- Analysis report will be shown here -->
+            </div>
+            
+            <div class="chat-input-section" id="chat-input-section">
+                <div class="chat-input">
+                    <textarea id="followup-input" placeholder="Ask a follow-up question about the analysis..." rows="2"></textarea>
+                    <button onclick="sendFollowup()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for CSV input -->
+    <div class="modal" id="csv-modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal()">×</button>
+            <h3>📊 Paste Your Google Ads Data</h3>
+            <p>Copy and paste your Google Ads report data (CSV format or raw data) below:</p>
+            <textarea id="csv-input" placeholder="Paste your campaign data here..."></textarea>
+            <button class="analyze-btn" onclick="runAnalysis()">🔍 Analyze Now</button>
+        </div>
+    </div>
+
+    <!-- Settings Panel -->
+    <div class="settings-panel" id="settings-panel">
+        <button class="close-settings" onclick="toggleSettings()">×</button>
+        <h3>Settings</h3>
+        <label for="api-key">Anthropic API Key</label>
+        <input type="password" id="api-key" placeholder="Enter your API key" oninput="checkApiKey()">
+    </div>
+
+    <!-- Floating New Analysis Button -->
+    <button class="new-analysis-btn" id="new-analysis-btn" onclick="newAnalysis()" style="display: none;">➕</button>
+
+    <script>
+        const API_URL = 'https://api.anthropic.com/v1/messages';
+        const MODEL = 'claude-3-5-sonnet-20241022';
+        const MAX_TOKENS = 4000;
+
+        let conversationHistory = [];
+        let chatHistories = JSON.parse(localStorage.getItem('gdPpcHistories')) || [];
+        let currentHistoryIndex = -1;
+        let analysisData = '';
+
+        const systemPrompt = `You are a senior PPC expert with 10+ years of experience specializing in home services businesses in Canada. You have deep knowledge of the Vancouver market, seasonal trends, and local CPC benchmarks.
+
+BUSINESS CONTEXT:
+- Business: Garage door repair, installation, and 24/7 emergency service in Vancouver, BC, Canada
+- Monthly ad spend: $5,000-$7,000 CAD
+- Goal: Improve ROAS, reduce wasted spend
+- Conversion tracking: Already set up in Google Ads
+- Competitors: Local Vancouver garage door companies
+
+When analyzing Google Ads data, provide a comprehensive report in EXACTLY this format:
+
+🔴 CRITICAL ISSUES (fix today)
+[List 3-5 most urgent problems that need immediate attention]
+
+🟡 IMPROVEMENTS (this week)
+[List actionable improvements to implement this week]
+
+🟢 WHAT'S WORKING (keep doing)
+[List what's performing well and should be maintained or scaled]
+
+🎯 TOP 3 ACTIONS TO TAKE TODAY
+1. [Most important action]
+2. [Second most important action]
+3. [Third most important action]
+
+Be specific with numbers, keywords, and exact steps. Focus on Vancouver garage door market specifics.`;
+
+        // DOM elements
+        const sidebar = document.getElementById('sidebar');
+        const settingsPanel = document.getElementById('settings-panel');
+        const csvModal = document.getElementById('csv-modal');
+        const welcomeScreen = document.getElementById('welcome-screen');
+        const reportContainer = document.getElementById('report-container');
+        const chatInputSection = document.getElementById('chat-input-section');
+        const newAnalysisBtn = document.getElementById('new-analysis-btn');
+        const historyList = document.getElementById('history-list');
+        const followupInput = document.getElementById('followup-input');
+
+        // Initialize
+        loadHistories();
+        checkApiKey();
+
+        function checkApiKey() {
+            const apiKey = document.getElementById('api-key').value.trim();
+            const demoBanner = document.getElementById('demo-banner');
+            if (!apiKey) {
+                demoBanner.style.display = 'block';
+            } else {
+                demoBanner.style.display = 'none';
+            }
+        }
+
+        function toggleSidebar() {
+            sidebar.classList.toggle('open');
+        }
+
+        function toggleSettings() {
+            settingsPanel.classList.toggle('open');
+            checkApiKey();
+        }
+
+        function startAnalysis() {
+            csvModal.classList.add('show');
+        }
+
+        function closeModal() {
+            csvModal.classList.remove('show');
+        }
+
+        async function runAnalysis() {
+            const csvData = document.getElementById('csv-input').value.trim();
+            if (!csvData) {
+                alert('Please paste your Google Ads data first.');
+                return;
+            }
+
+            const apiKey = document.getElementById('api-key').value.trim();
+            analysisData = csvData;
+            closeModal();
+            welcomeScreen.style.display = 'none';
+            reportContainer.style.display = 'block';
+            chatInputSection.classList.add('show');
+            newAnalysisBtn.style.display = 'block';
+
+            // Show loading
+            reportContainer.innerHTML = '<div style="text-align: center; padding: 50px;"><h3>🔍 Analyzing your Google Ads data...</h3><p>This may take a moment.</p></div>';
+
+            if (apiKey) {
+                // Use Claude API
+                try {
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-api-key': apiKey,
+                            'anthropic-version': '2023-06-01'
+                        },
+                        body: JSON.stringify({
+                            model: MODEL,
+                            max_tokens: MAX_TOKENS,
+                            system: systemPrompt,
+                            messages: [{ role: 'user', content: `Analyze this Google Ads campaign data for my Vancouver garage door business:\n\n${csvData}` }]
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`API request failed: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    const analysisReport = data.content[0].text;
+
+                    // Display formatted report
+                    if (typeof window.displayReport === 'function') {
+                        window.displayReport(analysisReport);
+                    } else {
+                        reportContainer.innerHTML = `<div style="text-align:center; padding:40px; color:#dc3545;">Report renderer not available.</div>`;
+                    }
+
+                    // Save to history
+                    conversationHistory = [
+                        { role: 'user', content: `Analysis request: ${csvData.substring(0, 100)}...` },
+                        { role: 'assistant', content: analysisReport }
+                    ];
+                    saveCurrentHistory();
+
+                } catch (error) {
+                    console.error('Error:', error);
+                    reportContainer.innerHTML = `<div style="text-align: center; padding: 50px; color: #dc3545;"><h3>Error</h3><p>${error.message}</p><p>Please check your API key and try again.</p></div>`;
+                }
+            } else {
+                // Run local demo analysis
+                try {
+                    const analysisReport = runLocalAnalysis(csvData);
+                    if (typeof window.displayReport === 'function') {
+                        window.displayReport(analysisReport);
+                    } else {
+                        reportContainer.innerHTML = `<div style="text-align:center; padding:40px; color:#dc3545;">Report renderer not available.</div>`;
+                    }
+
+                    // Save to history
+                    conversationHistory = [
+                        { role: 'user', content: `Demo analysis request: ${csvData.substring(0, 100)}...` },
+                        { role: 'assistant', content: analysisReport }
+                    ];
+                    saveCurrentHistory();
+
+                } catch (error) {
+                    console.error('Error:', error);
+                    reportContainer.innerHTML = `<div style="text-align: center; padding: 50px; color: #dc3545;"><h3>Error</h3><p>${error.message}</p><p>Please check your data format and try again.</p></div>`;
+                }
+            }
+        }
+
+        function runLocalAnalysis(csvData) {
+            // Parse CSV data
+            const parsedData = parseCSV(csvData);
+            if (!parsedData || parsedData.length === 0) {
+                throw new Error('Unable to parse CSV data. Please check the format.');
+            }
+
+            // Detect report type
+            const reportType = detectReportType(parsedData[0]);
+
+            // Analyze data based on type
+            let analysis = {};
+            switch(reportType) {
+                case 'keywords':
+                    analysis = analyzeKeywordsReport(parsedData);
+                    break;
+                case 'campaigns':
+                    analysis = analyzeCampaignsReport(parsedData);
+                    break;
+                case 'search_terms':
+                    analysis = analyzeSearchTermsReport(parsedData);
+                    break;
+                default:
+                    analysis = analyzeGeneralReport(parsedData);
+            }
+
+            // Generate report
+            return generateReport(analysis);
+        }
+
+        function parseCSV(csvText) {
+            const lines = csvText.trim().split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            if (lines.length < 2) return null;
+
+            const delimiter = lines[0].includes('\t') ? '\t' : ',';
+            const headers = lines[0].split(delimiter).map(h => h.trim().toLowerCase());
+            const data = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const values = splitCSVLine(lines[i], delimiter);
+                if (values.length === headers.length) {
+                    const row = {};
+                    headers.forEach((header, index) => {
+                        row[header] = values[index];
+                    });
+                    data.push(row);
+                }
+            }
+
+            return data;
+        }
+
+        function splitCSVLine(line, delimiter) {
+            if (delimiter === '\t') {
+                return line.split('\t').map(v => v.trim());
+            }
+
+            const values = [];
+            let current = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                    continue;
+                }
+                if (char === delimiter && !inQuotes) {
+                    values.push(current.trim());
+                    current = '';
+                    continue;
+                }
+                current += char;
+            }
+            values.push(current.trim());
+            return values;
+        }
+
+        function detectReportType(firstRow) {
+            const headers = Object.keys(firstRow);
+            
+            if (headers.includes('keyword') || headers.includes('keyword text')) {
+                return 'keywords';
+            } else if (headers.includes('campaign') && headers.includes('campaign status')) {
+                return 'campaigns';
+            } else if (headers.includes('search term')) {
+                return 'search_terms';
+            }
+            
+            return 'general';
+        }
+
+        function analyzeKeywordsReport(data) {
+            const analysis = {
+                criticalIssues: [],
+                improvements: [],
+                working: [],
+                topActions: []
+            };
+
+            let totalSpend = 0;
+            let totalConversions = 0;
+            const keywordStats = [];
+
+            data.forEach(row => {
+                const keyword = row.keyword || row['keyword text'] || 'Unknown';
+                const impressions = parseFloat(row.impressions) || 0;
+                const clicks = parseFloat(row.clicks) || 0;
+                const cost = parseFloat(row.cost?.replace('$', '').replace(',', '')) || 0;
+                const conversions = parseFloat(row.conversions) || 0;
+                const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
+                const cpc = clicks > 0 ? cost / clicks : 0;
+                const roas = cost > 0 ? (conversions * 100) / cost : 0; // Assuming $100 avg conversion value
+
+                totalSpend += cost;
+                totalConversions += conversions;
+
+                keywordStats.push({
+                    keyword,
+                    impressions,
+                    clicks,
+                    cost,
+                    conversions,
+                    ctr,
+                    cpc,
+                    roas
+                });
+
+                // Critical issues
+                if (ctr < 2) {
+                    analysis.criticalIssues.push(`${keyword}: CTR ${ctr.toFixed(1)}% (below 2%)`);
+                }
+                if (cpc > 12) {
+                    analysis.criticalIssues.push(`${keyword}: CPC $${cpc.toFixed(2)} (above $12)`);
+                }
+                if (conversions === 0 && cost > 50) {
+                    analysis.criticalIssues.push(`${keyword}: $0 conversions but $${cost.toFixed(2)} spent`);
+                }
+                if (roas < 200 && cost > 10) {
+                    analysis.criticalIssues.push(`${keyword}: ROAS ${roas.toFixed(0)}% (below 200%)`);
+                }
+            });
+
+            // Improvements
+            keywordStats.forEach(stat => {
+                if (stat.ctr > 3 && stat.impressions < 1000) {
+                    analysis.improvements.push(`${stat.keyword}: Good CTR (${stat.ctr.toFixed(1)}%) but low impressions (${stat.impressions}) - increase budget`);
+                }
+            });
+
+            analysis.improvements.push('Add negative keywords: "free", "cheap", "DIY", "instructions"');
+            analysis.improvements.push('Test new keywords: "emergency garage door vancouver", "24/7 garage door service"');
+
+            // What's working
+            const topByConversions = keywordStats.sort((a, b) => b.conversions - a.conversions).slice(0, 3);
+            topByConversions.forEach(stat => {
+                if (stat.conversions > 0) {
+                    analysis.working.push(`${stat.keyword}: ${stat.conversions} conversions, ROAS ${stat.roas.toFixed(0)}%`);
+                }
+            });
+
+            const highRoas = keywordStats.filter(stat => stat.roas > 400);
+            highRoas.forEach(stat => {
+                analysis.working.push(`${stat.keyword}: ROAS ${stat.roas.toFixed(0)}% - scale this keyword`);
+            });
+
+            // Top actions
+            if (analysis.criticalIssues.length > 0) {
+                analysis.topActions.push(`Pause ${analysis.criticalIssues.length} underperforming keywords immediately`);
+            }
+            analysis.topActions.push('Increase budget for top-performing keywords by 50%');
+            analysis.topActions.push('Add negative keywords to reduce wasted spend');
+
+            return analysis;
+        }
+
+        function analyzeCampaignsReport(data) {
+            // Similar analysis for campaigns
+            const analysis = {
+                criticalIssues: [],
+                improvements: [],
+                working: [],
+                topActions: []
+            };
+
+            data.forEach(row => {
+                const campaign = row.campaign || 'Unknown';
+                const cost = parseFloat(row.cost?.replace('$', '').replace(',', '')) || 0;
+                const conversions = parseFloat(row.conversions) || 0;
+                const roas = cost > 0 ? (conversions * 100) / cost : 0;
+
+                if (roas < 200 && cost > 100) {
+                    analysis.criticalIssues.push(`${campaign}: ROAS ${roas.toFixed(0)}% (below 200%)`);
+                }
+            });
+
+            analysis.improvements.push('Review campaign targeting and audience settings');
+            analysis.working.push('Identify and scale best-performing campaigns');
+            analysis.topActions.push('Pause campaigns with ROAS below 200%');
+            analysis.topActions.push('Optimize bidding strategies for better ROAS');
+            analysis.topActions.push('Review ad copy performance by campaign');
+
+            return analysis;
+        }
+
+        function analyzeSearchTermsReport(data) {
+            const analysis = {
+                criticalIssues: [],
+                improvements: [],
+                working: [],
+                topActions: []
+            };
+
+            data.forEach(row => {
+                const searchTerm = row['search term'] || 'Unknown';
+                const cost = parseFloat(row.cost?.replace('$', '').replace(',', '')) || 0;
+                const conversions = parseFloat(row.conversions) || 0;
+
+                if (conversions === 0 && cost > 20) {
+                    analysis.criticalIssues.push(`"${searchTerm}": $0 conversions but $${cost.toFixed(2)} spent`);
+                }
+            });
+
+            analysis.improvements.push('Add high-spend, zero-conversion search terms as negative keywords');
+            analysis.working.push('Review search terms driving conversions for new keyword ideas');
+            analysis.topActions.push('Add negative keywords for non-converting search terms');
+            analysis.topActions.push('Create new ad groups for high-converting search terms');
+            analysis.topActions.push('Optimize bids based on search term performance');
+
+            return analysis;
+        }
+
+        function analyzeGeneralReport(data) {
+            // Fallback analysis
+            return {
+                criticalIssues: ['Unable to detect specific report type - please use Keywords, Campaigns, or Search Terms report'],
+                improvements: ['Upload a specific Google Ads report for detailed analysis'],
+                working: ['General data parsing successful'],
+                topActions: ['Upload Keywords report for detailed keyword analysis', 'Upload Campaigns report for campaign performance', 'Upload Search Terms report for search query insights']
+            };
+        }
+
+        function generateReport(analysis) {
+            return `🔴 CRITICAL ISSUES (fix today)
+${analysis.criticalIssues.map(issue => `- ${issue}`).join('\n')}
+
+🟡 IMPROVEMENTS (this week)
+${analysis.improvements.map(imp => `- ${imp}`).join('\n')}
+
+🟢 WHAT'S WORKING (keep doing)
+${analysis.working.map(work => `- ${work}`).join('\n')}
+
+🎯 TOP 3 ACTIONS TO TAKE TODAY
+${analysis.topActions.map((action, index) => `${index + 1}. ${action}`).join('\n')}`;
+        }
+
+        window.displayReport = function(report) {
+            const lines = report.split('\n');
+            let html = '';
+            let section = null;
+            let items = [];
+
+            const flushSection = () => {
+                if (!section) return;
+                const content = items.map(item => {
+                    if (item.trim().startsWith('-')) {
+                        return `<li>${item.replace(/^-\s*/, '')}</li>`;
+                    }
+                    if (/^\d+\./.test(item.trim())) {
+                        return `<li>${item.trim()}</li>`;
+                    }
+                    return `<p>${item.trim()}</p>`;
+                }).join('');
+
+                if (section === 'critical') {
+                    html += `<div class="report-section critical"><h3>🔴 Critical Issues (fix today)</h3><ul>${content}</ul></div>`;
+                } else if (section === 'improvements') {
+                    html += `<div class="report-section improvements"><h3>🟡 Improvements (this week)</h3><ul>${content}</ul></div>`;
+                } else if (section === 'working') {
+                    html += `<div class="report-section working"><h3>🟢 What's working (keep doing)</h3><ul>${content}</ul></div>`;
+                } else if (section === 'actions') {
+                    html += `<div class="report-section actions"><h3>🎯 Top 3 actions to take today</h3><ol>${content}</ol></div>`;
+                }
+                items = [];
+            };
+
+            lines.forEach(line => {
+                const trimmed = line.trim();
+                if (!trimmed) return;
+                if (trimmed.startsWith('🔴 CRITICAL ISSUES')) {
+                    flushSection();
+                    section = 'critical';
+                    return;
+                }
+                if (trimmed.startsWith('🟡 IMPROVEMENTS')) {
+                    flushSection();
+                    section = 'improvements';
+                    return;
+                }
+                if (trimmed.startsWith('🟢 WHAT\'S WORKING')) {
+                    flushSection();
+                    section = 'working';
+                    return;
+                }
+                if (trimmed.startsWith('🎯 TOP 3 ACTIONS')) {
+                    flushSection();
+                    section = 'actions';
+                    return;
+                }
+                if (section) {
+                    items.push(trimmed);
+                }
+            });
+            flushSection();
+
+            reportContainer.innerHTML = html || `<div style="text-align:center; padding:40px; color:#6c757d;">No report content could be displayed. Please check the data format.</div>`;
+        }
+
+        async function sendMessage(userMessage) {
+            const apiKey = document.getElementById('api-key').value.trim();
+            if (!apiKey) {
+                alert('Please enter your Anthropic API key in settings.');
+                toggleSettings();
+                return;
+            }
+
+            // Add user message
+            addMessage('user', userMessage);
+            conversationHistory.push({ role: 'user', content: userMessage });
+
+            // Show typing indicator
+            typingIndicator.classList.add('show');
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': apiKey,
+                        'anthropic-version': '2023-06-01'
+                    },
+                    body: JSON.stringify({
+                        model: MODEL,
+                        max_tokens: MAX_TOKENS,
+                        system: systemPrompt,
+                        messages: conversationHistory
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API request failed: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const assistantMessage = data.content[0].text;
+
+                // Add assistant message
+                addMessage('assistant', assistantMessage);
+                conversationHistory.push({ role: 'assistant', content: assistantMessage });
+
+                // Save history
+                saveCurrentHistory();
+
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage('assistant', `Error: ${error.message}. Please check your API key.`);
+            } finally {
+                typingIndicator.classList.remove('show');
+            }
+        }
+
+        function addMessage(role, content) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+
+            if (role === 'assistant') {
+                // Format assistant response
+                const formattedContent = formatAssistantResponse(content);
+                messageDiv.innerHTML = `<div class="message-card">${formattedContent}</div>`;
+            } else {
+                messageDiv.innerHTML = `<div class="message-card">${content.replace(/\n/g, '<br>')}</div>`;
+            }
+
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function formatAssistantResponse(content) {
+            // Split content into sections
+            const sections = content.split('\n\n');
+            let formatted = '';
+
+            sections.forEach(section => {
+                if (section.includes('Top 3 actions')) {
+                    formatted += `<div class="top-actions">${section.replace(/\*\*/g, '').replace(/\n/g, '<br>')}</div>`;
+                } else if (section.startsWith('**') && section.includes('**')) {
+                    const header = section.match(/\*\*(.*?)\*\*/)[1];
+                    const body = section.replace(/\*\*.*?\*\*/, '').trim();
+                    formatted += `<h3>${header}</h3><p>${body.replace(/\n/g, '<br>')}</p>`;
+                } else if (section.includes(':')) {
+                    formatted += `<p><strong>${section.split(':')[0]}:</strong> ${section.split(':').slice(1).join(':')}</p>`;
+                } else {
+                    formatted += `<p>${section.replace(/\n/g, '<br>')}</p>`;
+                }
+            });
+
+            return formatted;
+        }
+
+        function saveCurrentHistory() {
+            if (conversationHistory.length > 0) {
+                const historyTitle = new Date().toLocaleString() + ' - ' + conversationHistory[0].content.substring(0, 50) + '...';
+                const historyData = {
+                    title: historyTitle,
+                    messages: [...conversationHistory],
+                    timestamp: Date.now()
+                };
+
+                if (currentHistoryIndex >= 0) {
+                    chatHistories[currentHistoryIndex] = historyData;
+                } else {
+                    chatHistories.unshift(historyData);
+                    currentHistoryIndex = 0;
+                }
+
+                // Keep only last 20 histories
+                chatHistories = chatHistories.slice(0, 20);
+                localStorage.setItem('gdPpcHistories', JSON.stringify(chatHistories));
+                loadHistories();
+            }
+        }
+
+        function loadHistories() {
+            historyList.innerHTML = '';
+            chatHistories.forEach((history, index) => {
+                const li = document.createElement('li');
+                li.className = 'history-item';
+                li.textContent = history.title;
+                li.onclick = () => loadHistory(index);
+                historyList.appendChild(li);
+            });
+        }
+
+        function loadHistory(index) {
+            currentHistoryIndex = index;
+            conversationHistory = [...chatHistories[index].messages];
+            chatContainer.innerHTML = '';
+            conversationHistory.forEach(msg => addMessage(msg.role, msg.content));
+        }
+
+        // Allow sending with Ctrl+Enter
+        csvInput.addEventListener('keydown', function(event) {
+            if (event.ctrlKey && event.key === 'Enter') {
+                event.preventDefault();
+                quickAction('analyze');
+            }
+        });
+    </script>
+</body>
+</html>

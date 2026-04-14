@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(powershell.exe -Command \"node --version; npm --version\")"
+    ]
+  }
+}
