@@ -1,1117 +1,440 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GD PPC Assistant</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: #f8f9fa;
-            color: #333;
-            overflow-x: hidden;
-        }
-        .app {
-            display: flex;
-            height: 100vh;
-        }
-        .sidebar {
-            width: 280px;
-            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-            color: white;
-            padding: 20px;
-            overflow-y: auto;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-        }
-        .logo {
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 30px;
-            color: #ff6b35;
-            text-align: center;
-        }
-        .logo span {
-            color: #007bff;
-        }
-        .history-list {
-            list-style: none;
-        }
-        .history-item {
-            padding: 12px;
-            margin-bottom: 8px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 14px;
-        }
-        .history-item:hover {
-            background: rgba(255,255,255,0.2);
-            transform: translateX(5px);
-        }
-        .main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background: white;
-        }
-        .header {
-            background: white;
-            padding: 20px 30px;
-            border-bottom: 1px solid #e9ecef;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        .header h1 {
-            color: #007bff;
-            font-size: 28px;
-            font-weight: 600;
-        }
-        .demo-banner {
-            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
-            color: white;
-            padding: 8px 20px;
-            font-size: 14px;
-            text-align: center;
-            font-weight: 500;
-        }
-        .demo-banner a {
-            color: white;
-            text-decoration: underline;
-        }
-        .settings-btn {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: #6c757d;
-            transition: color 0.3s ease;
-        }
-        .settings-btn:hover {
-            color: #007bff;
-        }
-        .welcome-screen {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 40px;
-            text-align: center;
-        }
-        .start-btn {
-            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-            color: white;
-            border: none;
-            padding: 20px 40px;
-            font-size: 24px;
-            font-weight: bold;
-            border-radius: 50px;
-            cursor: pointer;
-            box-shadow: 0 8px 25px rgba(0,123,255,0.3);
-            transition: all 0.3s ease;
-            margin-top: 30px;
-        }
-        .start-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 12px 35px rgba(0,123,255,0.4);
-        }
-        .welcome-screen h2 {
-            color: #007bff;
-            font-size: 36px;
-            margin-bottom: 20px;
-        }
-        .welcome-screen p {
-            font-size: 18px;
-            color: #6c757d;
-            max-width: 600px;
-            line-height: 1.6;
-        }
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
-        }
-        .modal.show {
-            opacity: 1;
-            visibility: visible;
-        }
-        .modal-content {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            max-width: 700px;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            transform: scale(0.9);
-            transition: transform 0.3s ease;
-        }
-        .modal.show .modal-content {
-            transform: scale(1);
-        }
-        .modal h3 {
-            color: #007bff;
-            margin-bottom: 20px;
-            font-size: 28px;
-        }
-        .modal textarea {
-            width: 100%;
-            height: 300px;
-            padding: 20px;
-            border: 2px solid #dee2e6;
-            border-radius: 12px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            resize: vertical;
-            margin-bottom: 20px;
-        }
-        .modal textarea:focus {
-            outline: none;
-            border-color: #007bff;
-            box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
-        }
-        .modal .analyze-btn {
-            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            font-size: 18px;
-            font-weight: bold;
-            border-radius: 25px;
-            cursor: pointer;
-            width: 100%;
-            transition: all 0.3s ease;
-        }
-        .modal .analyze-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(255,107,53,0.3);
-        }
-        .close-modal {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: #6c757d;
-        }
-        .report-container {
-            flex: 1;
-            overflow-y: auto;
-            padding: 30px;
-        }
-        .report-section {
-            background: white;
-            border-radius: 16px;
-            padding: 25px;
-            margin-bottom: 25px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            border-left: 5px solid;
-        }
-        .report-section.critical {
-            border-left-color: #dc3545;
-        }
-        .report-section.improvements {
-            border-left-color: #ffc107;
-        }
-        .report-section.working {
-            border-left-color: #28a745;
-        }
-        .report-section.actions {
-            border-left-color: #007bff;
-            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-            color: white;
-        }
-        .report-section h3 {
-            margin-bottom: 15px;
-            font-size: 22px;
-            display: flex;
-            align-items: center;
-        }
-        .report-section ul {
-            margin: 0;
-            padding-left: 20px;
-        }
-        .report-section li {
-            margin-bottom: 10px;
-            line-height: 1.6;
-        }
-        .chat-input-section {
-            padding: 20px 30px;
-            background: #f8f9fa;
-            border-top: 1px solid #e9ecef;
-            display: none;
-        }
-        .chat-input-section.show {
-            display: block;
-        }
-        .chat-input {
-            display: flex;
-            gap: 10px;
-        }
-        .chat-input textarea {
-            flex: 1;
-            padding: 12px;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            resize: vertical;
-            font-family: inherit;
-        }
-        .chat-input button {
-            padding: 12px 20px;
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 500;
-        }
-        .chat-input button:hover {
-            background: #0056b3;
-        }
-        .new-analysis-btn {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-            color: white;
-            border: none;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(40,167,69,0.3);
-            font-size: 24px;
-            transition: all 0.3s ease;
-            z-index: 1000;
-        }
-        .new-analysis-btn:hover {
-            transform: scale(1.1);
-            box-shadow: 0 6px 20px rgba(40,167,69,0.4);
-        }
-        .message {
-            margin-bottom: 30px;
-            animation: slideIn 0.5s ease-out;
-        }
-        .message.user {
-            text-align: right;
-        }
-        .message-card {
-            max-width: 80%;
-            background: white;
-            border-radius: 16px;
-            padding: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            border: 1px solid #e9ecef;
-        }
-        .message.user .message-card {
-            margin-left: auto;
-            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
-            color: white;
-        }
-        .message.assistant .message-card {
-            margin-right: auto;
-        }
-        .message.assistant .message-card h3 {
-            color: #007bff;
-            margin-bottom: 15px;
-            font-size: 18px;
-        }
-        .message.assistant .message-card p {
-            margin-bottom: 12px;
-            line-height: 1.6;
-        }
-        .message.assistant .message-card ul {
-            margin-left: 20px;
-            margin-bottom: 15px;
-        }
-        .message.assistant .message-card li {
-            margin-bottom: 8px;
-        }
-        .top-actions {
-            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
-            color: white;
-            padding: 15px;
-            border-radius: 12px;
-            margin-top: 20px;
-            font-weight: bold;
-        }
-        .top-actions h4 {
-            margin-bottom: 10px;
-            font-size: 16px;
-        }
-        .top-actions ul {
-            margin: 0;
-            padding-left: 20px;
-        }
-        .top-actions li {
-            margin-bottom: 5px;
-        }
-        .typing-indicator {
-            display: none;
-            padding: 20px;
-            color: #6c757d;
-            font-style: italic;
-        }
-        .typing-indicator.show {
-            display: block;
-        }
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        @media (max-width: 768px) {
-            .sidebar {
-                width: 100%;
-                height: auto;
-                position: fixed;
-                top: 0;
-                left: -100%;
-                transition: left 0.3s ease;
-                z-index: 1001;
-            }
-            .sidebar.open {
-                left: 0;
-            }
-            .main {
-                width: 100%;
-            }
-            .header h1 {
-                font-size: 24px;
-            }
-            .quick-buttons {
-                padding: 15px 20px;
-            }
-            .quick-btn {
-                flex: 1;
-                min-width: 120px;
-            }
-            .message-card {
-                max-width: 95%;
-            }
-        }
-        .mobile-menu-btn {
-            display: none;
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: #6c757d;
-        }
-        @media (max-width: 768px) {
-            .mobile-menu-btn {
-                display: block;
-            }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Garage Door PPC Assistant</title>
+  <style>
+    :root {
+      --color-bg: #f1f5f9;
+      --color-surface: #ffffff;
+      --color-header-bg: #1e293b;
+      --color-text: #0f172a;
+      --color-text-muted: #64748b;
+      --color-border: #e2e8f0;
+      --radius: 8px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--color-bg);
+      color: var(--color-text);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    .app-header { background: var(--color-header-bg); color: #f8fafc; padding: 20px 24px; }
+    .header-inner { max-width: 1100px; margin: 0 auto; }
+    .app-header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; }
+    .header-sub { font-size: 0.875rem; color: #94a3b8; margin-top: 4px; }
+
+    .app-main {
+      max-width: 1100px; margin: 0 auto; padding: 32px 24px;
+      display: flex; flex-direction: column; gap: 32px;
+    }
+
+    .upload-section, .report-section, .history-section {
+      background: var(--color-surface); border-radius: var(--radius);
+      padding: 24px; box-shadow: var(--shadow);
+    }
+
+    h2 { font-size: 1.125rem; font-weight: 600; margin-bottom: 16px; }
+
+    .upload-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px; margin-bottom: 20px;
+    }
+
+    .upload-card {
+      border: 2px dashed var(--color-border); border-radius: var(--radius);
+      padding: 20px 16px; text-align: center; transition: border-color 0.2s, background 0.2s;
+    }
+    .upload-card.has-file  { border-color: #86efac; background: #f0fdf4; }
+    .upload-card.has-error { border-color: #fca5a5; background: #fef2f2; }
+    .upload-icon { font-size: 2rem; margin-bottom: 8px; }
+    .upload-card h3 { font-size: 0.9375rem; font-weight: 600; margin-bottom: 4px; }
+    .upload-card p  { font-size: 0.8125rem; color: var(--color-text-muted); margin-bottom: 12px; }
+
+    .file-label input[type="file"] { display: none; }
+    .file-btn {
+      display: inline-block; background: var(--color-header-bg); color: #fff;
+      padding: 8px 16px; border-radius: 6px; font-size: 0.8125rem;
+      font-weight: 500; cursor: pointer; transition: background 0.2s;
+    }
+    .file-btn:hover { background: #334155; }
+    .file-status { margin-top: 8px; font-size: 0.75rem; color: var(--color-text-muted); }
+    .file-status.success { color: #16a34a; font-weight: 500; }
+    .file-status.error   { color: #dc2626; }
+
+    .analyze-bar { display: flex; align-items: center; gap: 16px; padding-top: 8px; }
+    .btn-analyze {
+      background: #2563eb; color: #fff; border: none; padding: 12px 28px;
+      border-radius: var(--radius); font-size: 0.9375rem; font-weight: 600;
+      cursor: pointer; transition: background 0.2s, opacity 0.2s;
+    }
+    .btn-analyze:hover:not(:disabled) { background: #1d4ed8; }
+    .btn-analyze:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-analyze.loading  { background: #64748b; cursor: wait; }
+    .analyze-hint { font-size: 0.8125rem; color: var(--color-text-muted); }
+
+    .report-header {
+      display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px;
+    }
+    .report-date { font-size: 0.8125rem; color: var(--color-text-muted); }
+    .report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+
+    .report-card { border-radius: var(--radius); padding: 16px; border: 1px solid; }
+    .report-card h3 { font-size: 0.9375rem; font-weight: 600; margin-bottom: 12px; }
+    .report-card.critical     { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
+    .report-card.critical h3  { color: #dc2626; }
+    .report-card.improvements { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+    .report-card.improvements h3 { color: #d97706; }
+    .report-card.working      { background: #f0fdf4; border-color: #86efac; color: #14532d; }
+    .report-card.working h3   { color: #16a34a; }
+    .report-card.actions      { background: #eff6ff; border-color: #93c5fd; color: #1e3a8a; }
+    .report-card.actions h3   { color: #2563eb; }
+
+    .report-items { display: flex; flex-direction: column; gap: 8px; }
+    .report-item {
+      font-size: 0.875rem; padding: 8px 10px;
+      background: rgba(255,255,255,0.6); border-radius: 6px; line-height: 1.45;
+    }
+    .report-item strong { display: block; font-weight: 600; margin-bottom: 2px; }
+    .report-item .item-detail { font-size: 0.8rem; opacity: 0.8; }
+    .report-empty { font-size: 0.875rem; opacity: 0.6; font-style: italic; }
+
+    .history-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .history-header h2 { margin-bottom: 0; }
+    .btn-clear {
+      background: none; border: 1px solid var(--color-border); color: var(--color-text-muted);
+      padding: 6px 12px; border-radius: 6px; font-size: 0.8125rem; cursor: pointer;
+    }
+    .btn-clear:hover { border-color: #fca5a5; color: #dc2626; }
+    .history-list { display: flex; flex-direction: column; gap: 8px; }
+    .history-empty { font-size: 0.875rem; color: var(--color-text-muted); }
+    .history-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 12px; background: var(--color-bg); border-radius: 6px;
+      border: 1px solid var(--color-border); cursor: pointer; transition: border-color 0.15s;
+    }
+    .history-item:hover { border-color: #93c5fd; }
+    .history-item-left { display: flex; flex-direction: column; gap: 2px; }
+    .history-item-date { font-size: 0.8125rem; font-weight: 500; }
+    .history-item-summary { font-size: 0.75rem; color: var(--color-text-muted); }
+    .history-item-arrow { font-size: 0.875rem; color: var(--color-text-muted); }
+
+    @media (max-width: 640px) {
+      .app-main { padding: 16px; gap: 20px; }
+      .upload-grid, .report-grid { grid-template-columns: 1fr; }
+      .analyze-bar { flex-direction: column; align-items: flex-start; gap: 8px; }
+    }
+  </style>
 </head>
 <body>
-    <div class="app">
-        <div class="sidebar" id="sidebar">
-            <div class="logo">GD <span>PPC</span> Assistant</div>
-            <ul class="history-list" id="history-list">
-                <!-- Chat history items will be added here -->
-            </ul>
-        </div>
-        <div class="main">
-            <div class="header">
-                <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
-                <h1>Garage Door PPC Analysis</h1>
-                <button class="settings-btn" onclick="toggleSettings()">⚙️</button>
-            </div>
-            <div class="demo-banner" id="demo-banner" style="display: none;">
-                Demo mode - add API key in settings for AI-powered insights
-            </div>
-            
-            <div class="welcome-screen" id="welcome-screen">
-                <h2>🚀 Ready to Optimize Your PPC?</h2>
-                <p>Get a comprehensive analysis of your Google Ads campaigns with actionable insights tailored for your Vancouver garage door business.</p>
-                <button class="start-btn" onclick="startAnalysis()">Start Analysis</button>
-            </div>
-            
-            <div class="report-container" id="report-container" style="display: none;">
-                <!-- Analysis report will be shown here -->
-            </div>
-            
-            <div class="chat-input-section" id="chat-input-section">
-                <div class="chat-input">
-                    <textarea id="followup-input" placeholder="Ask a follow-up question about the analysis..." rows="2"></textarea>
-                    <button onclick="sendFollowup()">Send</button>
-                </div>
-            </div>
-        </div>
+
+  <header class="app-header">
+    <div class="header-inner">
+      <h1>Garage Door PPC Assistant</h1>
+      <p class="header-sub">Vancouver, BC — Upload your Google Ads reports to get actionable insights</p>
     </div>
+  </header>
 
-    <!-- Modal for CSV input -->
-    <div class="modal" id="csv-modal">
-        <div class="modal-content">
-            <button class="close-modal" onclick="closeModal()">×</button>
-            <h3>📊 Paste Your Google Ads Data</h3>
-            <p>Copy and paste your Google Ads report data (CSV format or raw data) below:</p>
-            <textarea id="csv-input" placeholder="Paste your campaign data here..."></textarea>
-            <button class="analyze-btn" onclick="runAnalysis()">🔍 Analyze Now</button>
+  <main class="app-main">
+
+    <section class="upload-section">
+      <h2>Upload Reports</h2>
+      <div class="upload-grid">
+        <div class="upload-card" id="upload-search-terms">
+          <div class="upload-icon">📋</div>
+          <h3>Search Terms Report</h3>
+          <p>What people actually searched for</p>
+          <label class="file-label">
+            <input type="file" accept=".csv" id="file-search-terms" />
+            <span class="file-btn">Choose CSV</span>
+          </label>
+          <div class="file-status" id="status-search-terms">No file selected</div>
         </div>
-    </div>
+        <div class="upload-card" id="upload-keywords">
+          <div class="upload-icon">🔑</div>
+          <h3>Search Keywords Report</h3>
+          <p>Your keyword performance data</p>
+          <label class="file-label">
+            <input type="file" accept=".csv" id="file-keywords" />
+            <span class="file-btn">Choose CSV</span>
+          </label>
+          <div class="file-status" id="status-keywords">No file selected</div>
+        </div>
+        <div class="upload-card" id="upload-campaigns">
+          <div class="upload-icon">📊</div>
+          <h3>Campaign Report</h3>
+          <p>Overall campaign performance</p>
+          <label class="file-label">
+            <input type="file" accept=".csv" id="file-campaigns" />
+            <span class="file-btn">Choose CSV</span>
+          </label>
+          <div class="file-status" id="status-campaigns">No file selected</div>
+        </div>
+      </div>
+      <div class="analyze-bar">
+        <button id="btn-analyze" class="btn-analyze" disabled>Analyze Reports</button>
+        <span class="analyze-hint" id="analyze-hint">Upload at least one CSV to analyze</span>
+      </div>
+    </section>
+
+    <section class="report-section" id="report-section" style="display:none">
+      <div class="report-header">
+        <h2>Analysis Report</h2>
+        <span class="report-date" id="report-date"></span>
+      </div>
+      <div class="report-grid">
+        <div class="report-card critical">
+          <h3>🚨 Critical Issues — Fix Today</h3>
+          <div class="report-items" id="items-critical"></div>
+        </div>
+        <div class="report-card improvements">
+          <h3>⚠️ Improvements — This Week</h3>
+          <div class="report-items" id="items-improvements"></div>
+        </div>
+        <div class="report-card working">
+          <h3>✅ What's Working — Keep Doing</h3>
+          <div class="report-items" id="items-working"></div>
+        </div>
+        <div class="report-card actions">
+          <h3>🎯 Top 3 Actions to Take Today</h3>
+          <div class="report-items" id="items-actions"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="history-section">
+      <div class="history-header">
+        <h2>Analysis History</h2>
+        <button id="btn-clear-history" class="btn-clear">Clear History</button>
+      </div>
+      <div class="history-list" id="history-list">
+        <p class="history-empty">No previous analyses yet.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // ── CSV Parser ────────────────────────────────────────────────────────────
+    function parseCSV(csvText) {
+      const lines = csvText.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(l=>l.trim()!=='');
+      if (!lines.length) throw new Error('The CSV file appears to be empty.');
+      const hi = findHeaderRow(lines);
+      const headers = parseCSVLine(lines[hi]).map(h=>h.trim());
+      const rows = [];
+      for (let i = hi+1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line || /^["']?Total/i.test(line) || line.startsWith('--')) continue;
+        const vals = parseCSVLine(line);
+        const row = {};
+        headers.forEach((h,idx) => { row[h] = vals[idx] !== undefined ? vals[idx].trim() : ''; });
+        rows.push(row);
+      }
+      if (!rows.length) throw new Error('No data rows found after the header.');
+      return { headers, rows };
+    }
+
+    function findHeaderRow(lines) {
+      const sig = ['clicks','impressions','campaign','keyword','search term','cost','ctr','conversions'];
+      for (let i=0; i<Math.min(lines.length,5); i++) {
+        if (sig.filter(s=>lines[i].toLowerCase().includes(s)).length >= 2) return i;
+      }
+      return 0;
+    }
+
+    function parseCSVLine(line) {
+      const res=[]; let cur='', inQ=false;
+      for (let i=0; i<line.length; i++) {
+        const c=line[i];
+        if (c==='"') { if (inQ&&line[i+1]==='"'){cur+='"';i++;} else inQ=!inQ; }
+        else if (c===','&&!inQ){res.push(cur);cur='';}
+        else cur+=c;
+      }
+      res.push(cur); return res;
+    }
+
+    // ── Field Normalizer ──────────────────────────────────────────────────────
+    const FIELD_MAP = [
+      {patterns:['search term','search query'],key:'searchTerm'},
+      {patterns:['keyword text','keyword'],key:'keyword'},
+      {patterns:['campaign'],key:'campaign'},
+      {patterns:['ad group'],key:'adGroup'},
+      {patterns:['match type'],key:'matchType'},
+      {patterns:['cost / conv.','cost/conv','cost per conv','cost per conversion'],key:'costPerConversion'},
+      {patterns:['clicks'],key:'clicks'},
+      {patterns:['impressions','impr.'],key:'impressions'},
+      {patterns:['ctr'],key:'ctr'},
+      {patterns:['avg. cpc','avg cpc','average cpc'],key:'avgCpc'},
+      {patterns:['cost'],key:'cost'},
+      {patterns:['conv. rate','conv rate','conversion rate'],key:'convRate'},
+      {patterns:['conversions'],key:'conversions'},
+      {patterns:['quality score','qual. score'],key:'qualityScore'},
+    ];
+
+    function normalizeRows(rows){return rows.map(r=>{const o={};for(const[k,v]of Object.entries(r)){const key=resolveKey(k);o[key||k]=key?parseMetric(v):v;}return o;});}
+    function resolveKey(k){const l=k.toLowerCase().trim();for(const{patterns,key}of FIELD_MAP)if(patterns.some(p=>l.includes(p)))return key;return null;}
+    function parseMetric(raw){if(raw==='--'||raw===''||raw==null)return 0;let c=String(raw).replace(/[CA$£€,\s]/g,'');if(c.endsWith('%'))return parseFloat(c)||0;const n=parseFloat(c);return isNaN(n)?raw:n;}
+
+    // ── Rules Engine ──────────────────────────────────────────────────────────
+    const T={highSpendMin:30,wastedWarn:0.20,wastedCrit:0.35,cpaGood:80,cpaBad:200,minClicks:10,minImpr:50,lowCtr:1.5,goodConvRate:5.0};
+
+    function runRules(data){
+      const{searchTerms=[],keywords=[],campaigns=[]}=data;
+      const all=[...searchTerms,...keywords,...campaigns];
+      const ctx=buildCtx(all,campaigns);
+      const f=[
+        ...r1(searchTerms,keywords),...r2(all,ctx),...r3(keywords),...r4(keywords),
+        ...r5(searchTerms,keywords),...r6(keywords),...r7(searchTerms,keywords),...r8(campaigns,ctx),
+      ];
+      const ord={critical:0,improvement:1,working:2};
+      f.sort((a,b)=>{const d=ord[a.type]-ord[b.type];return d!==0?d:a.severity-b.severity;});
+      return f;
+    }
+
+    function buildCtx(all,campaigns){
+      const src=campaigns.length>0?campaigns:all;
+      const spend=src.reduce((a,r)=>a+(parseFloat(r.cost)||0),0);
+      const conv=src.reduce((a,r)=>a+(parseFloat(r.conversions)||0),0);
+      return{totalSpend:spend,totalConv:conv,avgCpa:conv>0?spend/conv:0};
+    }
+
+    function r1(st,kw){const f=[];for(const r of[...st,...kw]){if(r.cost<T.highSpendMin||r.conversions!==0||r.clicks<3)continue;const l=r.searchTerm||r.keyword||'Unknown';const c=r.cost>=T.highSpendMin*2;f.push({type:c?'critical':'improvement',severity:c?1:2,title:`"${l}" — CA$${r.cost.toFixed(2)} spent, zero conversions`,detail:`${r.clicks} click(s), ${r.impressions} impressions. Add as negative keyword.`});}return f;}
+    function r2(all,ctx){if(!ctx.totalSpend)return[];const w=all.filter(r=>r.conversions===0&&r.cost>5).reduce((a,r)=>a+r.cost,0);const p=w/ctx.totalSpend;if(p>=T.wastedCrit)return[{type:'critical',severity:1,title:`${(p*100).toFixed(0)}% of total spend generated zero conversions`,detail:`CA$${w.toFixed(2)} of CA$${ctx.totalSpend.toFixed(2)} total spend has no return. Add negative keywords urgently.`}];if(p>=T.wastedWarn)return[{type:'improvement',severity:2,title:`${(p*100).toFixed(0)}% of spend with zero conversions`,detail:`CA$${w.toFixed(2)} spent on non-converting terms. Review your negative keyword list.`}];return[];}
+    function r3(kw){const f=[];for(const k of kw){if(k.cost<=20||k.conversions!==0||k.clicks<T.minClicks)continue;f.push({type:'improvement',severity:2,title:`Keyword "${k.keyword||'Unknown'}" — CA$${k.cost.toFixed(2)} spent, no conversions`,detail:`${k.clicks} clicks at avg CA$${(k.avgCpc||0).toFixed(2)}/click. Pause or tighten match type.`});}return f;}
+    function r4(kw){const f=[];for(const k of kw){if(k.conversions<=0||k.cost<=0)continue;const cpa=k.cost/k.conversions;if(cpa<T.cpaBad)continue;f.push({type:'improvement',severity:2,title:`Keyword "${k.keyword||'Unknown'}" — CA$${cpa.toFixed(0)}/conversion`,detail:`${k.conversions} conversion(s) at high cost. Reduce bid or tighten match type.`});}return f;}
+    function r5(st,kw){const f=[];for(const r of[...st,...kw]){if(r.conversions<2||r.cost<=0)continue;const cpa=r.cost/r.conversions;if(cpa>T.cpaGood)continue;const l=r.searchTerm||r.keyword||'Unknown';f.push({type:'working',severity:1,title:`"${l}" — ${r.conversions} conversions at CA$${cpa.toFixed(0)}/conv`,detail:`Strong performer. Protect budget and consider adding as exact match keyword.`});}return f;}
+    function r6(kw){const f=[];for(const k of kw){if(k.impressions<T.minImpr||k.ctr>=T.lowCtr||k.conversions>0)continue;f.push({type:'improvement',severity:3,title:`Keyword "${k.keyword||'Unknown'}" — low CTR at ${k.ctr.toFixed(2)}%`,detail:`${k.impressions} impressions but poor click rate. Ad copy may not match search intent.`});}return f;}
+    function r7(st,kw){const f=[];for(const r of[...st,...kw]){if(r.conversions<1||r.cost>=50||r.convRate<T.goodConvRate)continue;const l=r.searchTerm||r.keyword||'Unknown';f.push({type:'working',severity:2,title:`"${l}" — ${r.convRate.toFixed(1)}% conversion rate with low spend`,detail:`Only CA$${r.cost.toFixed(2)} spent but converting well. Raise bids to capture more volume.`});}return f;}
+    function r8(camps,ctx){if(camps.length<2)return[];const f=[];for(const c of camps){if(c.cost<20)continue;const cpa=c.conversions>0?c.cost/c.conversions:null;const n=c.campaign||'Unknown campaign';if(cpa===null&&c.cost>=T.highSpendMin)f.push({type:'critical',severity:1,title:`Campaign "${n}" — CA$${c.cost.toFixed(2)} spend, zero conversions`,detail:`Entire campaign is not converting. Review ad copy, landing page, and targeting.`});else if(cpa!==null&&ctx.avgCpa>0&&cpa<=ctx.avgCpa*0.7)f.push({type:'working',severity:1,title:`Campaign "${n}" — outperforming average CPA`,detail:`CA$${cpa.toFixed(0)}/conv vs avg CA$${ctx.avgCpa.toFixed(0)}/conv. Protect budget here first.`});else if(cpa!==null&&ctx.avgCpa>0&&cpa>=ctx.avgCpa*1.5)f.push({type:'improvement',severity:2,title:`Campaign "${n}" — CPA is 50%+ above average`,detail:`CA$${cpa.toFixed(0)}/conv vs avg CA$${ctx.avgCpa.toFixed(0)}/conv. Review keywords and bids.`});}return f;}
+
+    // ── Report Builder ────────────────────────────────────────────────────────
+    function buildReport(findings,data){
+      const crit=findings.filter(f=>f.type==='critical');
+      const impr=findings.filter(f=>f.type==='improvement');
+      const work=findings.filter(f=>f.type==='working');
+      return{timestamp:new Date().toISOString(),meta:{searchTermCount:data.searchTerms?.length||0,keywordCount:data.keywords?.length||0,campaignCount:data.campaigns?.length||0},criticalIssues:crit,improvements:impr,whatsWorking:work,topActions:topActions(crit,impr,work)};
+    }
+
+    function topActions(crit,impr,work){
+      const acts=[];
+      if(crit.length)  acts.push({priority:1,action:toAction(crit[0]),reason:crit[0].title});
+      if(impr.length)  acts.push({priority:2,action:toAction(impr[0]),reason:impr[0].title});
+      if(work.length)  acts.push({priority:3,action:toAction(work[0]),reason:work[0].title});
+      const defs=[
+        {priority:1,action:'Review your Search Terms report and add irrelevant queries as negative keywords.',reason:'Regular negative keyword hygiene reduces wasted spend.'},
+        {priority:2,action:'Check keyword Quality Scores — anything below 5 is costing you more per click.',reason:'Low Quality Scores raise CPC and reduce ad rank.'},
+        {priority:3,action:'Confirm your best-performing campaigns are not hitting budget caps mid-day.',reason:'Budget limits on converting campaigns cap your lead volume.'},
+      ];
+      while(acts.length<3)acts.push(defs[acts.length]);
+      return acts.slice(0,3);
+    }
+
+    function toAction(f){
+      const t=f.title.toLowerCase(),term=(f.title.match(/"([^"]+)"/))||['',f.title];const q=term[1];
+      if(t.includes('zero conversion')||t.includes('no conversion'))return`Pause and add as negative keyword: "${q}"`;
+      if(t.includes('/conversion'))return`Reduce bid or pause: "${q}" — cost per conversion is too high`;
+      if(t.includes('outperform')||t.includes('strong'))return`Protect budget for: "${q}" — it is your best performer`;
+      if(t.includes('conv. rate')||t.includes('scaling'))return`Increase bids to capture more volume: "${q}"`;
+      if(t.includes('ctr'))return`Rewrite ad copy to better match intent for: "${q}"`;
+      if(t.includes('campaign'))return`Review campaign "${q}" — check ad copy, landing page, targeting`;
+      return f.title;
+    }
+
+    // ── History ───────────────────────────────────────────────────────────────
+    const SKEY='ppc_analysis_history';
+    function saveHistory(r){const h=loadHistory();const c=r.criticalIssues?.length||0,i=r.improvements?.length||0,w=r.whatsWorking?.length||0;h.unshift({id:Date.now(),timestamp:r.timestamp,summary:`${c} critical · ${i} improvements · ${w} wins`,report:r});try{localStorage.setItem(SKEY,JSON.stringify(h.slice(0,10)));}catch(e){}}
+    function loadHistory(){try{const r=localStorage.getItem(SKEY);return r?JSON.parse(r):[]}catch{return[];}}
+    function clearHistoryData(){localStorage.removeItem(SKEY);}
+
+    // ── Renderer ──────────────────────────────────────────────────────────────
+    function renderReport(report){
+      document.getElementById('report-section').style.display='';
+      document.getElementById('report-date').textContent=new Date(report.timestamp).toLocaleString('en-CA',{dateStyle:'medium',timeStyle:'short'});
+      renderItems('items-critical',report.criticalIssues,'No critical issues found — good work!');
+      renderItems('items-improvements',report.improvements,'No improvements flagged.');
+      renderItems('items-working',report.whatsWorking,'Not enough data to identify top performers yet.');
+      renderActions('items-actions',report.topActions);
+      document.getElementById('report-section').scrollIntoView({behavior:'smooth',block:'start'});
+    }
+
+    function renderItems(id,items,empty){
+      const el=document.getElementById(id);el.innerHTML='';
+      if(!items||!items.length){el.innerHTML=`<p class="report-empty">${empty}</p>`;return;}
+      for(const item of items){const d=document.createElement('div');d.className='report-item';d.innerHTML=`<strong>${esc(item.title)}</strong><span class="item-detail">${esc(item.detail)}</span>`;el.appendChild(d);}
+    }
+
+    function renderActions(id,acts){
+      const el=document.getElementById(id);el.innerHTML='';
+      if(!acts||!acts.length){el.innerHTML=`<p class="report-empty">No actions generated.</p>`;return;}
+      acts.forEach((a,i)=>{const d=document.createElement('div');d.className='report-item';d.innerHTML=`<strong>${i+1}. ${esc(a.action)}</strong><span class="item-detail">Why: ${esc(a.reason)}</span>`;el.appendChild(d);});
+    }
+
+    function renderHistoryList(){
+      const el=document.getElementById('history-list');const h=loadHistory();el.innerHTML='';
+      if(!h.length){el.innerHTML='<p class="history-empty">No previous analyses yet.</p>';return;}
+      for(const e of h){const d=document.createElement('div');d.className='history-item';d.setAttribute('role','button');d.setAttribute('tabindex','0');
+        const ds=new Date(e.timestamp).toLocaleString('en-CA',{dateStyle:'medium',timeStyle:'short'});
+        d.innerHTML=`<div class="history-item-left"><span class="history-item-date">${esc(ds)}</span><span class="history-item-summary">${esc(e.summary)}</span></div><span class="history-item-arrow">→</span>`;
+        d.addEventListener('click',()=>renderReport(e.report));d.addEventListener('keydown',ev=>{if(ev.key==='Enter'||ev.key===' ')renderReport(e.report);});
+        el.appendChild(d);}
+    }
+
+    function esc(s){if(typeof s!=='string')return String(s??'');return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+    // ── Uploader & Main ───────────────────────────────────────────────────────
+    const files={searchTerms:null,keywords:null,campaigns:null};
+
+    function setCard(key,fileId,statusId,cardId){
+      const inp=document.getElementById(fileId),st=document.getElementById(statusId),card=document.getElementById(cardId);
+      inp.addEventListener('change',()=>{
+        const f=inp.files[0]||null;
+        if(!f){files[key]=null;st.textContent='No file selected';st.className='file-status';card.classList.remove('has-file','has-error');}
+        else if(!f.name.toLowerCase().endsWith('.csv')){files[key]=null;st.textContent=`Not a CSV: "${f.name}"`;st.className='file-status error';card.classList.remove('has-file');card.classList.add('has-error');}
+        else{files[key]=f;st.textContent=`✓ ${f.name}`;st.className='file-status success';card.classList.add('has-file');card.classList.remove('has-error');}
+        updateBtn();
+      });
+    }
+
+    function updateBtn(){
+      const has=Object.values(files).some(f=>f!==null);
+      document.getElementById('btn-analyze').disabled=!has;
+      document.getElementById('analyze-hint').textContent=has?'Ready to analyze':'Upload at least one CSV to analyze';
+    }
+
+    function readFile(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=()=>rej(new Error(`Failed to read "${f.name}"`));r.readAsText(f,'UTF-8');});}
+
+    document.addEventListener('DOMContentLoaded',()=>{
+      setCard('searchTerms','file-search-terms','status-search-terms','upload-search-terms');
+      setCard('keywords',   'file-keywords',    'status-keywords',    'upload-keywords');
+      setCard('campaigns',  'file-campaigns',   'status-campaigns',   'upload-campaigns');
+      renderHistoryList();
+
+      document.getElementById('btn-analyze').addEventListener('click',async()=>{
+        const btn=document.getElementById('btn-analyze'),hint=document.getElementById('analyze-hint');
+        btn.disabled=true;btn.classList.add('loading');btn.textContent='Analyzing...';hint.textContent='Reading files...';
+        try{
+          const[stR,kwR,cR]=await Promise.all([files.searchTerms?readFile(files.searchTerms):null,files.keywords?readFile(files.keywords):null,files.campaigns?readFile(files.campaigns):null]);
+          const data={searchTerms:stR?normalizeRows(parseCSV(stR).rows):[],keywords:kwR?normalizeRows(parseCSV(kwR).rows):[],campaigns:cR?normalizeRows(parseCSV(cR).rows):[]};
+          hint.textContent='Running analysis...';
+          const findings=runRules(data);const report=buildReport(findings,data);
+          saveHistory(report);renderReport(report);renderHistoryList();
+          hint.textContent=`Done — ${findings.length} finding${findings.length!==1?'s':''}`;
+        }catch(err){hint.textContent=`Error: ${err.message}`;console.error(err);}
+        finally{btn.disabled=false;btn.classList.remove('loading');btn.textContent='Analyze Reports';}
+      });
+
+      document.getElementById('btn-clear-history').addEventListener('click',()=>{
+        if(confirm('Clear all analysis history?')){clearHistoryData();renderHistoryList();}
+      });
+    });
+  </script>
 
-    <!-- Settings Panel -->
-    <div class="settings-panel" id="settings-panel">
-        <button class="close-settings" onclick="toggleSettings()">×</button>
-        <h3>Settings</h3>
-        <label for="api-key">Anthropic API Key</label>
-        <input type="password" id="api-key" placeholder="Enter your API key" oninput="checkApiKey()">
-    </div>
-
-    <!-- Floating New Analysis Button -->
-    <button class="new-analysis-btn" id="new-analysis-btn" onclick="newAnalysis()" style="display: none;">➕</button>
-
-    <script>
-        const API_URL = 'https://api.anthropic.com/v1/messages';
-        const MODEL = 'claude-3-5-sonnet-20241022';
-        const MAX_TOKENS = 4000;
-
-        let conversationHistory = [];
-        let chatHistories = JSON.parse(localStorage.getItem('gdPpcHistories')) || [];
-        let currentHistoryIndex = -1;
-        let analysisData = '';
-
-        const systemPrompt = `You are a senior PPC expert with 10+ years of experience specializing in home services businesses in Canada. You have deep knowledge of the Vancouver market, seasonal trends, and local CPC benchmarks.
-
-BUSINESS CONTEXT:
-- Business: Garage door repair, installation, and 24/7 emergency service in Vancouver, BC, Canada
-- Monthly ad spend: $5,000-$7,000 CAD
-- Goal: Improve ROAS, reduce wasted spend
-- Conversion tracking: Already set up in Google Ads
-- Competitors: Local Vancouver garage door companies
-
-When analyzing Google Ads data, provide a comprehensive report in EXACTLY this format:
-
-🔴 CRITICAL ISSUES (fix today)
-[List 3-5 most urgent problems that need immediate attention]
-
-🟡 IMPROVEMENTS (this week)
-[List actionable improvements to implement this week]
-
-🟢 WHAT'S WORKING (keep doing)
-[List what's performing well and should be maintained or scaled]
-
-🎯 TOP 3 ACTIONS TO TAKE TODAY
-1. [Most important action]
-2. [Second most important action]
-3. [Third most important action]
-
-Be specific with numbers, keywords, and exact steps. Focus on Vancouver garage door market specifics.`;
-
-        // DOM elements
-        const sidebar = document.getElementById('sidebar');
-        const settingsPanel = document.getElementById('settings-panel');
-        const csvModal = document.getElementById('csv-modal');
-        const welcomeScreen = document.getElementById('welcome-screen');
-        const reportContainer = document.getElementById('report-container');
-        const chatInputSection = document.getElementById('chat-input-section');
-        const newAnalysisBtn = document.getElementById('new-analysis-btn');
-        const historyList = document.getElementById('history-list');
-        const followupInput = document.getElementById('followup-input');
-
-        // Initialize
-        loadHistories();
-        checkApiKey();
-
-        function checkApiKey() {
-            const apiKey = document.getElementById('api-key').value.trim();
-            const demoBanner = document.getElementById('demo-banner');
-            if (!apiKey) {
-                demoBanner.style.display = 'block';
-            } else {
-                demoBanner.style.display = 'none';
-            }
-        }
-
-        function toggleSidebar() {
-            sidebar.classList.toggle('open');
-        }
-
-        function toggleSettings() {
-            settingsPanel.classList.toggle('open');
-            checkApiKey();
-        }
-
-        function startAnalysis() {
-            csvModal.classList.add('show');
-        }
-
-        function closeModal() {
-            csvModal.classList.remove('show');
-        }
-
-        async function runAnalysis() {
-            const csvData = document.getElementById('csv-input').value.trim();
-            if (!csvData) {
-                alert('Please paste your Google Ads data first.');
-                return;
-            }
-
-            const apiKey = document.getElementById('api-key').value.trim();
-            analysisData = csvData;
-            closeModal();
-            welcomeScreen.style.display = 'none';
-            reportContainer.style.display = 'block';
-            chatInputSection.classList.add('show');
-            newAnalysisBtn.style.display = 'block';
-
-            // Show loading
-            reportContainer.innerHTML = '<div style="text-align: center; padding: 50px;"><h3>🔍 Analyzing your Google Ads data...</h3><p>This may take a moment.</p></div>';
-
-            if (apiKey) {
-                // Use Claude API
-                try {
-                    const response = await fetch(API_URL, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'x-api-key': apiKey,
-                            'anthropic-version': '2023-06-01'
-                        },
-                        body: JSON.stringify({
-                            model: MODEL,
-                            max_tokens: MAX_TOKENS,
-                            system: systemPrompt,
-                            messages: [{ role: 'user', content: `Analyze this Google Ads campaign data for my Vancouver garage door business:\n\n${csvData}` }]
-                        })
-                    });
-
-                    if (!response.ok) {
-                        throw new Error(`API request failed: ${response.status}`);
-                    }
-
-                    const data = await response.json();
-                    const analysisReport = data.content[0].text;
-
-                    // Display formatted report
-                    if (typeof window.displayReport === 'function') {
-                        window.displayReport(analysisReport);
-                    } else {
-                        reportContainer.innerHTML = `<div style="text-align:center; padding:40px; color:#dc3545;">Report renderer not available.</div>`;
-                    }
-
-                    // Save to history
-                    conversationHistory = [
-                        { role: 'user', content: `Analysis request: ${csvData.substring(0, 100)}...` },
-                        { role: 'assistant', content: analysisReport }
-                    ];
-                    saveCurrentHistory();
-
-                } catch (error) {
-                    console.error('Error:', error);
-                    reportContainer.innerHTML = `<div style="text-align: center; padding: 50px; color: #dc3545;"><h3>Error</h3><p>${error.message}</p><p>Please check your API key and try again.</p></div>`;
-                }
-            } else {
-                // Run local demo analysis
-                try {
-                    const analysisReport = runLocalAnalysis(csvData);
-                    if (typeof window.displayReport === 'function') {
-                        window.displayReport(analysisReport);
-                    } else {
-                        reportContainer.innerHTML = `<div style="text-align:center; padding:40px; color:#dc3545;">Report renderer not available.</div>`;
-                    }
-
-                    // Save to history
-                    conversationHistory = [
-                        { role: 'user', content: `Demo analysis request: ${csvData.substring(0, 100)}...` },
-                        { role: 'assistant', content: analysisReport }
-                    ];
-                    saveCurrentHistory();
-
-                } catch (error) {
-                    console.error('Error:', error);
-                    reportContainer.innerHTML = `<div style="text-align: center; padding: 50px; color: #dc3545;"><h3>Error</h3><p>${error.message}</p><p>Please check your data format and try again.</p></div>`;
-                }
-            }
-        }
-
-        function runLocalAnalysis(csvData) {
-            // Parse CSV data
-            const parsedData = parseCSV(csvData);
-            if (!parsedData || parsedData.length === 0) {
-                throw new Error('Unable to parse CSV data. Please check the format.');
-            }
-
-            // Detect report type
-            const reportType = detectReportType(parsedData[0]);
-
-            // Analyze data based on type
-            let analysis = {};
-            switch(reportType) {
-                case 'keywords':
-                    analysis = analyzeKeywordsReport(parsedData);
-                    break;
-                case 'campaigns':
-                    analysis = analyzeCampaignsReport(parsedData);
-                    break;
-                case 'search_terms':
-                    analysis = analyzeSearchTermsReport(parsedData);
-                    break;
-                default:
-                    analysis = analyzeGeneralReport(parsedData);
-            }
-
-            // Generate report
-            return generateReport(analysis);
-        }
-
-        function parseCSV(csvText) {
-            const lines = csvText.trim().split('\n').map(line => line.trim()).filter(line => line.length > 0);
-            if (lines.length < 2) return null;
-
-            const delimiter = lines[0].includes('\t') ? '\t' : ',';
-            const headers = lines[0].split(delimiter).map(h => h.trim().toLowerCase());
-            const data = [];
-
-            for (let i = 1; i < lines.length; i++) {
-                const values = splitCSVLine(lines[i], delimiter);
-                if (values.length === headers.length) {
-                    const row = {};
-                    headers.forEach((header, index) => {
-                        row[header] = values[index];
-                    });
-                    data.push(row);
-                }
-            }
-
-            return data;
-        }
-
-        function splitCSVLine(line, delimiter) {
-            if (delimiter === '\t') {
-                return line.split('\t').map(v => v.trim());
-            }
-
-            const values = [];
-            let current = '';
-            let inQuotes = false;
-
-            for (let i = 0; i < line.length; i++) {
-                const char = line[i];
-                if (char === '"') {
-                    inQuotes = !inQuotes;
-                    continue;
-                }
-                if (char === delimiter && !inQuotes) {
-                    values.push(current.trim());
-                    current = '';
-                    continue;
-                }
-                current += char;
-            }
-            values.push(current.trim());
-            return values;
-        }
-
-        function detectReportType(firstRow) {
-            const headers = Object.keys(firstRow);
-            
-            if (headers.includes('keyword') || headers.includes('keyword text')) {
-                return 'keywords';
-            } else if (headers.includes('campaign') && headers.includes('campaign status')) {
-                return 'campaigns';
-            } else if (headers.includes('search term')) {
-                return 'search_terms';
-            }
-            
-            return 'general';
-        }
-
-        function analyzeKeywordsReport(data) {
-            const analysis = {
-                criticalIssues: [],
-                improvements: [],
-                working: [],
-                topActions: []
-            };
-
-            let totalSpend = 0;
-            let totalConversions = 0;
-            const keywordStats = [];
-
-            data.forEach(row => {
-                const keyword = row.keyword || row['keyword text'] || 'Unknown';
-                const impressions = parseFloat(row.impressions) || 0;
-                const clicks = parseFloat(row.clicks) || 0;
-                const cost = parseFloat(row.cost?.replace('$', '').replace(',', '')) || 0;
-                const conversions = parseFloat(row.conversions) || 0;
-                const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
-                const cpc = clicks > 0 ? cost / clicks : 0;
-                const roas = cost > 0 ? (conversions * 100) / cost : 0; // Assuming $100 avg conversion value
-
-                totalSpend += cost;
-                totalConversions += conversions;
-
-                keywordStats.push({
-                    keyword,
-                    impressions,
-                    clicks,
-                    cost,
-                    conversions,
-                    ctr,
-                    cpc,
-                    roas
-                });
-
-                // Critical issues
-                if (ctr < 2) {
-                    analysis.criticalIssues.push(`${keyword}: CTR ${ctr.toFixed(1)}% (below 2%)`);
-                }
-                if (cpc > 12) {
-                    analysis.criticalIssues.push(`${keyword}: CPC $${cpc.toFixed(2)} (above $12)`);
-                }
-                if (conversions === 0 && cost > 50) {
-                    analysis.criticalIssues.push(`${keyword}: $0 conversions but $${cost.toFixed(2)} spent`);
-                }
-                if (roas < 200 && cost > 10) {
-                    analysis.criticalIssues.push(`${keyword}: ROAS ${roas.toFixed(0)}% (below 200%)`);
-                }
-            });
-
-            // Improvements
-            keywordStats.forEach(stat => {
-                if (stat.ctr > 3 && stat.impressions < 1000) {
-                    analysis.improvements.push(`${stat.keyword}: Good CTR (${stat.ctr.toFixed(1)}%) but low impressions (${stat.impressions}) - increase budget`);
-                }
-            });
-
-            analysis.improvements.push('Add negative keywords: "free", "cheap", "DIY", "instructions"');
-            analysis.improvements.push('Test new keywords: "emergency garage door vancouver", "24/7 garage door service"');
-
-            // What's working
-            const topByConversions = keywordStats.sort((a, b) => b.conversions - a.conversions).slice(0, 3);
-            topByConversions.forEach(stat => {
-                if (stat.conversions > 0) {
-                    analysis.working.push(`${stat.keyword}: ${stat.conversions} conversions, ROAS ${stat.roas.toFixed(0)}%`);
-                }
-            });
-
-            const highRoas = keywordStats.filter(stat => stat.roas > 400);
-            highRoas.forEach(stat => {
-                analysis.working.push(`${stat.keyword}: ROAS ${stat.roas.toFixed(0)}% - scale this keyword`);
-            });
-
-            // Top actions
-            if (analysis.criticalIssues.length > 0) {
-                analysis.topActions.push(`Pause ${analysis.criticalIssues.length} underperforming keywords immediately`);
-            }
-            analysis.topActions.push('Increase budget for top-performing keywords by 50%');
-            analysis.topActions.push('Add negative keywords to reduce wasted spend');
-
-            return analysis;
-        }
-
-        function analyzeCampaignsReport(data) {
-            // Similar analysis for campaigns
-            const analysis = {
-                criticalIssues: [],
-                improvements: [],
-                working: [],
-                topActions: []
-            };
-
-            data.forEach(row => {
-                const campaign = row.campaign || 'Unknown';
-                const cost = parseFloat(row.cost?.replace('$', '').replace(',', '')) || 0;
-                const conversions = parseFloat(row.conversions) || 0;
-                const roas = cost > 0 ? (conversions * 100) / cost : 0;
-
-                if (roas < 200 && cost > 100) {
-                    analysis.criticalIssues.push(`${campaign}: ROAS ${roas.toFixed(0)}% (below 200%)`);
-                }
-            });
-
-            analysis.improvements.push('Review campaign targeting and audience settings');
-            analysis.working.push('Identify and scale best-performing campaigns');
-            analysis.topActions.push('Pause campaigns with ROAS below 200%');
-            analysis.topActions.push('Optimize bidding strategies for better ROAS');
-            analysis.topActions.push('Review ad copy performance by campaign');
-
-            return analysis;
-        }
-
-        function analyzeSearchTermsReport(data) {
-            const analysis = {
-                criticalIssues: [],
-                improvements: [],
-                working: [],
-                topActions: []
-            };
-
-            data.forEach(row => {
-                const searchTerm = row['search term'] || 'Unknown';
-                const cost = parseFloat(row.cost?.replace('$', '').replace(',', '')) || 0;
-                const conversions = parseFloat(row.conversions) || 0;
-
-                if (conversions === 0 && cost > 20) {
-                    analysis.criticalIssues.push(`"${searchTerm}": $0 conversions but $${cost.toFixed(2)} spent`);
-                }
-            });
-
-            analysis.improvements.push('Add high-spend, zero-conversion search terms as negative keywords');
-            analysis.working.push('Review search terms driving conversions for new keyword ideas');
-            analysis.topActions.push('Add negative keywords for non-converting search terms');
-            analysis.topActions.push('Create new ad groups for high-converting search terms');
-            analysis.topActions.push('Optimize bids based on search term performance');
-
-            return analysis;
-        }
-
-        function analyzeGeneralReport(data) {
-            // Fallback analysis
-            return {
-                criticalIssues: ['Unable to detect specific report type - please use Keywords, Campaigns, or Search Terms report'],
-                improvements: ['Upload a specific Google Ads report for detailed analysis'],
-                working: ['General data parsing successful'],
-                topActions: ['Upload Keywords report for detailed keyword analysis', 'Upload Campaigns report for campaign performance', 'Upload Search Terms report for search query insights']
-            };
-        }
-
-        function generateReport(analysis) {
-            return `🔴 CRITICAL ISSUES (fix today)
-${analysis.criticalIssues.map(issue => `- ${issue}`).join('\n')}
-
-🟡 IMPROVEMENTS (this week)
-${analysis.improvements.map(imp => `- ${imp}`).join('\n')}
-
-🟢 WHAT'S WORKING (keep doing)
-${analysis.working.map(work => `- ${work}`).join('\n')}
-
-🎯 TOP 3 ACTIONS TO TAKE TODAY
-${analysis.topActions.map((action, index) => `${index + 1}. ${action}`).join('\n')}`;
-        }
-
-        window.displayReport = function(report) {
-            const lines = report.split('\n');
-            let html = '';
-            let section = null;
-            let items = [];
-
-            const flushSection = () => {
-                if (!section) return;
-                const content = items.map(item => {
-                    if (item.trim().startsWith('-')) {
-                        return `<li>${item.replace(/^-\s*/, '')}</li>`;
-                    }
-                    if (/^\d+\./.test(item.trim())) {
-                        return `<li>${item.trim()}</li>`;
-                    }
-                    return `<p>${item.trim()}</p>`;
-                }).join('');
-
-                if (section === 'critical') {
-                    html += `<div class="report-section critical"><h3>🔴 Critical Issues (fix today)</h3><ul>${content}</ul></div>`;
-                } else if (section === 'improvements') {
-                    html += `<div class="report-section improvements"><h3>🟡 Improvements (this week)</h3><ul>${content}</ul></div>`;
-                } else if (section === 'working') {
-                    html += `<div class="report-section working"><h3>🟢 What's working (keep doing)</h3><ul>${content}</ul></div>`;
-                } else if (section === 'actions') {
-                    html += `<div class="report-section actions"><h3>🎯 Top 3 actions to take today</h3><ol>${content}</ol></div>`;
-                }
-                items = [];
-            };
-
-            lines.forEach(line => {
-                const trimmed = line.trim();
-                if (!trimmed) return;
-                if (trimmed.startsWith('🔴 CRITICAL ISSUES')) {
-                    flushSection();
-                    section = 'critical';
-                    return;
-                }
-                if (trimmed.startsWith('🟡 IMPROVEMENTS')) {
-                    flushSection();
-                    section = 'improvements';
-                    return;
-                }
-                if (trimmed.startsWith('🟢 WHAT\'S WORKING')) {
-                    flushSection();
-                    section = 'working';
-                    return;
-                }
-                if (trimmed.startsWith('🎯 TOP 3 ACTIONS')) {
-                    flushSection();
-                    section = 'actions';
-                    return;
-                }
-                if (section) {
-                    items.push(trimmed);
-                }
-            });
-            flushSection();
-
-            reportContainer.innerHTML = html || `<div style="text-align:center; padding:40px; color:#6c757d;">No report content could be displayed. Please check the data format.</div>`;
-        }
-
-        async function sendMessage(userMessage) {
-            const apiKey = document.getElementById('api-key').value.trim();
-            if (!apiKey) {
-                alert('Please enter your Anthropic API key in settings.');
-                toggleSettings();
-                return;
-            }
-
-            // Add user message
-            addMessage('user', userMessage);
-            conversationHistory.push({ role: 'user', content: userMessage });
-
-            // Show typing indicator
-            typingIndicator.classList.add('show');
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-
-            try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-api-key': apiKey,
-                        'anthropic-version': '2023-06-01'
-                    },
-                    body: JSON.stringify({
-                        model: MODEL,
-                        max_tokens: MAX_TOKENS,
-                        system: systemPrompt,
-                        messages: conversationHistory
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`API request failed: ${response.status}`);
-                }
-
-                const data = await response.json();
-                const assistantMessage = data.content[0].text;
-
-                // Add assistant message
-                addMessage('assistant', assistantMessage);
-                conversationHistory.push({ role: 'assistant', content: assistantMessage });
-
-                // Save history
-                saveCurrentHistory();
-
-            } catch (error) {
-                console.error('Error:', error);
-                addMessage('assistant', `Error: ${error.message}. Please check your API key.`);
-            } finally {
-                typingIndicator.classList.remove('show');
-            }
-        }
-
-        function addMessage(role, content) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${role}`;
-
-            if (role === 'assistant') {
-                // Format assistant response
-                const formattedContent = formatAssistantResponse(content);
-                messageDiv.innerHTML = `<div class="message-card">${formattedContent}</div>`;
-            } else {
-                messageDiv.innerHTML = `<div class="message-card">${content.replace(/\n/g, '<br>')}</div>`;
-            }
-
-            chatContainer.appendChild(messageDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
-
-        function formatAssistantResponse(content) {
-            // Split content into sections
-            const sections = content.split('\n\n');
-            let formatted = '';
-
-            sections.forEach(section => {
-                if (section.includes('Top 3 actions')) {
-                    formatted += `<div class="top-actions">${section.replace(/\*\*/g, '').replace(/\n/g, '<br>')}</div>`;
-                } else if (section.startsWith('**') && section.includes('**')) {
-                    const header = section.match(/\*\*(.*?)\*\*/)[1];
-                    const body = section.replace(/\*\*.*?\*\*/, '').trim();
-                    formatted += `<h3>${header}</h3><p>${body.replace(/\n/g, '<br>')}</p>`;
-                } else if (section.includes(':')) {
-                    formatted += `<p><strong>${section.split(':')[0]}:</strong> ${section.split(':').slice(1).join(':')}</p>`;
-                } else {
-                    formatted += `<p>${section.replace(/\n/g, '<br>')}</p>`;
-                }
-            });
-
-            return formatted;
-        }
-
-        function saveCurrentHistory() {
-            if (conversationHistory.length > 0) {
-                const historyTitle = new Date().toLocaleString() + ' - ' + conversationHistory[0].content.substring(0, 50) + '...';
-                const historyData = {
-                    title: historyTitle,
-                    messages: [...conversationHistory],
-                    timestamp: Date.now()
-                };
-
-                if (currentHistoryIndex >= 0) {
-                    chatHistories[currentHistoryIndex] = historyData;
-                } else {
-                    chatHistories.unshift(historyData);
-                    currentHistoryIndex = 0;
-                }
-
-                // Keep only last 20 histories
-                chatHistories = chatHistories.slice(0, 20);
-                localStorage.setItem('gdPpcHistories', JSON.stringify(chatHistories));
-                loadHistories();
-            }
-        }
-
-        function loadHistories() {
-            historyList.innerHTML = '';
-            chatHistories.forEach((history, index) => {
-                const li = document.createElement('li');
-                li.className = 'history-item';
-                li.textContent = history.title;
-                li.onclick = () => loadHistory(index);
-                historyList.appendChild(li);
-            });
-        }
-
-        function loadHistory(index) {
-            currentHistoryIndex = index;
-            conversationHistory = [...chatHistories[index].messages];
-            chatContainer.innerHTML = '';
-            conversationHistory.forEach(msg => addMessage(msg.role, msg.content));
-        }
-
-        // Allow sending with Ctrl+Enter
-        csvInput.addEventListener('keydown', function(event) {
-            if (event.ctrlKey && event.key === 'Enter') {
-                event.preventDefault();
-                quickAction('analyze');
-            }
-        });
-    </script>
 </body>
 </html>
