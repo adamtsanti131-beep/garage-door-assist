@@ -56,8 +56,13 @@ export function clearHistory() {
 
 /** Build a one-line text summary for the history list. */
 function buildSummary(report) {
-  const c = report.criticalIssues?.length  || 0;
-  const i = report.improvements?.length    || 0;
-  const w = report.whatsWorking?.length    || 0;
-  return `${c} critical · ${i} improvements · ${w} wins`;
+  const waste    = report.waste?.length            || 0;
+  const opps     = report.opportunities?.length    || 0;
+  const control  = report.controlRisks?.length     || 0;
+  const measure  = report.measurementRisks?.length || 0;
+  const total    = waste + opps + control + measure;
+  const spend    = report.summary?.totalSpend != null
+    ? ` · CA$${report.summary.totalSpend.toFixed(0)} spend`
+    : '';
+  return `${total} finding${total !== 1 ? 's' : ''}${spend}`;
 }

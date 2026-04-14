@@ -39,9 +39,24 @@ async function runAnalysis() {
   btn.disabled = true;
   btn.classList.add('loading');
   btn.textContent  = 'Analyzing...';
-  hint.textContent = 'Uploading files...';
+  hint.textContent = 'Checking server...';
 
   try {
+    // ── Server connectivity check ─────────────────────────────────────────────
+    // Fail fast with a clear message instead of a cryptic upload error
+    try {
+      const health = await fetch('/health');
+      if (!health.ok) throw new Error();
+    } catch {
+      throw new Error(
+        'Analysis server is not running. ' +
+        'Open a terminal in the project folder and run: npm run dev  ' +
+        '(both Vite and the Express server must start)'
+      );
+    }
+
+    hint.textContent = 'Uploading files...';
+
     const formData = new FormData();
     for (const [key, file] of Object.entries(currentFiles)) {
       if (file) formData.append(key, file);
@@ -49,11 +64,28 @@ async function runAnalysis() {
 
     hint.textContent = 'Running analysis...';
 
-    const response = await fetch('/analyze', { method: 'POST', body: formData });
+    let response;
+    try {
+      response = await fetch('/analyze', { method: 'POST', body: formData });
+    } catch {
+      throw new Error('Cannot reach server. Open a terminal in the project folder and run: npm run dev');
+    }
 
     if (!response.ok) {
-      const err = await response.json().catch(() => ({ error: 'Server error' }));
-      throw new Error(err.error || `Server returned ${response.status}`);
+      // Try JSON first; fall back to a status-specific human message
+      const body = await response.text().catch(() => '');
+      let errorMsg;
+      try {
+        const parsed = JSON.parse(body);
+        errorMsg = parsed.error || `Server returned ${response.status}`;
+      } catch {
+        if (response.status === 502 || response.status === 503 || response.status === 504) {
+          errorMsg = 'Cannot reach the analysis server. Make sure "npm run dev" is running and both Vite and the Express server started correctly.';
+        } else {
+          errorMsg = `Server returned ${response.status}. Check the terminal for error details.`;
+        }
+      }
+      throw new Error(errorMsg);
     }
 
     const report = await response.json();

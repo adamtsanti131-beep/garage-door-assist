@@ -55,7 +55,7 @@ function highCpaKeywords(keywords) {
 
     findings.push({
       category: 'controlRisk',
-      severity: cpa >= T.cpoPoor * 1.5 ? 'high' : 'medium',
+      severity: cpa >= T.cpaPoor * 1.5 ? 'high' : 'medium',
       what:   `Keyword "${kw.keyword ?? 'Unknown'}" [${kw.matchType ?? '?'}] is converting at CA$${fmt(cpa)}/conv — above the CA$${T.cpaPoor} poor threshold.`,
       why:    `At this cost per lead the keyword is likely not profitable. If average job value is ~CA$300–500, a CA$${fmt(cpa)} lead cost leaves little margin.`,
       action: `Reduce the bid by 20–30%. If CPA does not improve after 2 weeks, pause and review what searches are triggering this keyword.`,

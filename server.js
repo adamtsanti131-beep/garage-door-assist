@@ -90,9 +90,23 @@ app.post('/analyze', upload.fields(UPLOAD_FIELDS), (req, res) => {
   }
 });
 
+// ── GET /health ───────────────────────────────────────────────────────────────
+
+app.get('/health', (_req, res) => res.json({ ok: true }));
+
+// ── Global error handler ──────────────────────────────────────────────────────
+// Catches anything that slips past the route try/catch (e.g. multer errors)
+
+// eslint-disable-next-line no-unused-vars
+app.use((err, _req, res, _next) => {
+  console.error('[/analyze] Middleware error:', err);
+  res.status(500).json({ error: err.message || 'Unexpected server error' });
+});
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`PPC Assistant server running → http://localhost:${PORT}`);
+  console.log(`Health check: http://localhost:${PORT}/health`);
 });
