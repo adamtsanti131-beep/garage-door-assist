@@ -58,8 +58,43 @@ Ads, Devices, Location עדיין מוסיפים דיוק וביטחון.
 
 - סדר העלאה: לא משנה.
 - התאמה לשדה הנכון: כן משנה.
-- אם קובץ כנראה הועלה לשדה שגוי, תוצג אזהרה.
+- אם קובץ כנראה הועלה לשדה שגוי (ורק כאשר יש ראיה מספק חזקה), תוצג אזהרה.
 - אם חסרות עמודות חובה, אותו דוח יחסם לניתוח.
+
+### תואמות ייצוא Google Ads אמיתי
+
+המערכת בנויה מסביב לצורת הייצוא האמיתית של Google Ads ולא לפורמט תיאורטי.
+
+**הבדלים ידועים בין ייצואים אמיתיים לפורמט אידיאלי:**
+
+| דוח | עמודות שעשויות להיות בייצוא אמיתי | התנהגות המערכת |
+|---|---|---|
+| Campaign | ייצוא Google Ads לא תמיד ייצא `Clicks` ישירות | not required — אם חסר, ניתוח ממשיך עם אזהרה |
+| Ad Group | עמודת `Campaign` לרוב לא מיוצאת | not required — ניתוח ממשיך בהיקף קבוצת מודעות |
+| Search Terms | עמודת `Campaign` לרוב לא מיוצאת | not required — ניתוח ממשיך על בסיס מונח + קבוצה |
+| Keywords | עמודת `Campaign` לרוב לא מיוצאת | not required — ניתוח ממשיך בהיקף מילת מפתח |
+| Ads | `Campaign`/`Ad group` ייתכן שחסרים כשדות ממופים | not required — ניתוח מבוסס CTR/impressions |
+| Devices | עמודת `Campaign` לפעמים מיוצאת, לפעמים לא | not required — ניתוח ממשיך |
+| Location | עמודת `Campaign` לרוב לא מיוצאת | not required — ניתוח ממשיך בהיקף מיקום |
+
+**עמודות חובה אמיתיות (אלה שחסרים בהן יחסמו דוח):**
+
+| דוח | עמודות חובה |
+|---|---|
+| Campaign | campaign, cost, conversions |
+| Ad Group | ad group, cost, conversions |
+| Search Terms | search term, clicks, cost, conversions |
+| Keywords | keyword, clicks, cost, conversions |
+| Ads | impressions, cost, conversions |
+| Devices | device, cost, conversions |
+| Location | location, cost, conversions |
+
+עמודות שחסרות אך אינן חובה מובילות לאזהרה בלבד ("עמודות מומלצות חסרות"), לא לחסימה.
+
+**זיהוי שגיאת סוג (mismatch warning):**
+
+אזהרה על "נראה שהקובץ הועלה לשדה שגוי" מוצגת רק כאשר הזיהוי חזק — כלומר כאשר נמצאת עמודה ייחודית לסוג אחר לחלוטין (כמו `search term` שמעיד חד-משמעית על Search Terms, לא על Campaign).
+אזהרות מטעות על Device כ-"Ad Group" לא יופיעו עוד, משום ש-`device` הוא אות חד-ייחודי.
 
 ### מצבי סטטוס לכל דוח
 

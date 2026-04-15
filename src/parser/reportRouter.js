@@ -48,18 +48,21 @@ export function routeReport(csvText, reportType) {
     );
   }
 
-  // Auto-detect the likely type and warn if it differs from the slot
+  // Auto-detect the likely type and warn only when strongly confident it differs.
+  // We require strength >= 2 (a uniquely identifying field set) to avoid false
+  // positives — e.g. Device reports contain adGroup + campaign columns and would
+  // otherwise trigger a spurious "looks like Ad Group" warning.
   try {
     const { headers } = parseCSV(csvText);
     if (headers.length > 0) {
       const detected = detectReportType(headers);
-      if (detected && detected !== reportType) {
-        const detectedLabel = SCHEMAS[detected]?.label ?? detected;
+      if (detected && detected.type !== reportType && detected.strength >= 2) {
+        const detectedLabel = SCHEMAS[detected.type]?.label ?? detected.type;
         const expectedLabel = SCHEMAS[reportType]?.label ?? reportType;
         result.validation.warnings.unshift(
           `נראה שזה קובץ מסוג "${detectedLabel}", אבל הוא הועלה לשדה "${expectedLabel}". יש לבדוק שהקובץ הועלה למקום הנכון.`
         );
-        result.detectedType = detected;
+        result.detectedType = detected.type;
       }
     }
   } catch {

@@ -36,18 +36,25 @@ export function normalizeRows(rawRows, reportType) {
 
 /**
  * Attempt to detect the report type from column names alone (fallback only).
- * Returns null if detection is ambiguous.
+ * Returns { type, strength } for the best match, or null if ambiguous.
+ * Only signals with strength >= 2 (specific field sets) are considered strong.
  * @param {string[]} columnNames — raw column names from the CSV header
- * @returns {string|null}
+ * @returns {{ type: string, strength: number }|null}
  */
 export function detectReportType(columnNames) {
   const colMap  = buildColumnMap(columnNames);
   const present = new Set(Object.values(colMap));
 
-  for (const { type, fields } of DETECTION_SIGNALS) {
-    if (fields.every(f => present.has(f))) return type;
+  let best = null;
+  for (const signal of DETECTION_SIGNALS) {
+    if (signal.fields.every(f => present.has(f))) {
+      if (!best || (signal.strength ?? 1) > (best.strength ?? 1)) {
+        best = signal;
+      }
+    }
   }
-  return null;
+  if (!best) return null;
+  return { type: best.type, strength: best.strength ?? 1 };
 }
 
 // ── Row normalizer ────────────────────────────────────────────────────────────

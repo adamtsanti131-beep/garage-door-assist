@@ -66,11 +66,13 @@ export function parseCSV(csvText) {
 /**
  * Find the index of the header row.
  * Google Ads exports can have 1-2 metadata lines before the actual headers.
- * We detect the header as the first line containing at least 2 known column signals.
+ * We return the FIRST line that scores >= 2 known column signals.
+ * We intentionally take the first qualifying line (not the max-score one)
+ * because real Google Ads headers always appear before data rows, and data
+ * rows in wide exports (e.g. 60-column Ads reports) can accidentally score high
+ * by containing status/keyword text fields.
  */
 function findHeaderRow(lines) {
-  let bestIndex = -1;
-  let bestScore = -1;
   const scanLimit = Math.min(lines.length, 30);
 
   for (let i = 0; i < scanLimit; i++) {
@@ -78,13 +80,9 @@ function findHeaderRow(lines) {
     if (columns.length < 2) continue;
 
     const score = scoreHeaderCandidate(columns);
-    if (score > bestScore) {
-      bestScore = score;
-      bestIndex = i;
-    }
+    if (score >= 2) return i;
   }
 
-  if (bestScore >= 2) return bestIndex;
   return -1;
 }
 
