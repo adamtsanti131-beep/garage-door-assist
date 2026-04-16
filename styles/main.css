@@ -246,6 +246,16 @@ h2 {
   color: #dc2626;
 }
 
+.file-status.warning {
+  color: #b45309;
+  font-weight: 500;
+}
+
+.upload-card.has-warning {
+  border-color: #fcd34d;
+  background: #fffbeb;
+}
+
 /* ===========================
    Analyze Button
 =========================== */

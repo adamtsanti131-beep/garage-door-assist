@@ -28,7 +28,7 @@ function nonConvertingCampaigns(campaigns) {
   const findings = [];
   for (const camp of campaigns) {
     if (!hasValue(camp.cost) || camp.cost < T.minSpendForWaste * 2) continue;
-    if (camp.conversions !== 0 && camp.conversions !== null) continue;
+    if (camp.conversions == null || camp.conversions > 0) continue; // only explicit zero leads
 
     findings.push({
       category: 'controlRisk',
@@ -124,7 +124,7 @@ function broadMatchWithoutNegatives(keywords) {
     kw.matchType.toLowerCase().includes('broad') &&
     hasValue(kw.cost) &&
     kw.cost > T.minSpendForWaste &&
-    (!hasValue(kw.conversions) || kw.conversions === 0)
+    kw.conversions === 0  // only explicit zero leads; null = unknown, excluded
   );
 
   if (broadKeywords.length >= 3) {

@@ -141,14 +141,6 @@ function renderCategoryFindings(report) {
 
   const categories = [
     {
-      key:     'measurement',
-      icon:    '📡',
-      label:   'מדידה ומעקב',
-      items:   (report.measurementRisks ?? []).filter(isActionableFinding),
-      emptyMsg: measurementEmptyMessage(measurementTrust),
-      showIfEmpty: measurementTrust !== 'trusted',
-    },
-    {
       key:     'waste',
       icon:    '🗑️',
       label:   'בזבוז תקציב',
@@ -163,6 +155,14 @@ function renderCategoryFindings(report) {
       items:   (report.controlRisks ?? []).filter(isActionableFinding),
       emptyMsg: 'לא נמצאו בעיות שליטה מבניות משמעותיות.',
       showIfEmpty: false,
+    },
+    {
+      key:     'measurement',
+      icon:    '📡',
+      label:   'מדידה ומעקב',
+      items:   (report.measurementRisks ?? []).filter(isActionableFinding),
+      emptyMsg: measurementEmptyMessage(measurementTrust),
+      showIfEmpty: measurementTrust !== 'trusted',
     },
     {
       key:     'opportunity',

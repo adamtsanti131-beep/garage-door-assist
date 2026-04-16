@@ -28,14 +28,14 @@ export function measurementRiskRules(data) {
 
 /**
  * Search terms or keywords with many clicks but zero leads.
- * VERY HIGH confidence only: 50+ clicks with zero leads = likely tracking gap.
- * Lower thresholds suppressed (too speculative).
+ * VERY HIGH confidence only: T.minClicksNoLeadsForTracking (50) clicks with zero leads = likely tracking gap.
+ * Lower thresholds suppressed (too speculative for a data-quality finding).
  */
 function manyClicksNoLeads(rows) {
   const findings = [];
   for (const r of rows) {
-    if (!hasValue(r.clicks) || r.clicks < 50) continue; // Much stricter: only 50+ clicks
-    if (r.conversions !== 0 && r.conversions !== null) continue;
+    if (!hasValue(r.clicks) || r.clicks < T.minClicksNoLeadsForTracking) continue;
+    if (r.conversions == null || r.conversions > 0) continue; // only explicit zero leads; null = unknown
 
     const label = r.searchTerm ?? r.keyword ?? 'מונח לא ידוע';
     findings.push({

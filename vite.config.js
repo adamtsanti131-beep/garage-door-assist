@@ -10,4 +10,8 @@ export default defineConfig({
       '/health':  'http://localhost:3001',
     },
   },
+  test: {
+    environment: 'node',
+    include: ['tests/**/*.test.js'],
+  },
 });

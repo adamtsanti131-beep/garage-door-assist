@@ -40,7 +40,7 @@ function zeroLeadsHighSpend(rows) {
   const findings = [];
   for (const r of rows) {
     if (!hasValue(r.cost) || !hasValue(r.clicks)) continue;
-    if (r.conversions !== 0 && r.conversions !== null) continue; // only zero leads
+    if (r.conversions == null || r.conversions > 0) continue; // only explicit zero leads; null = unknown, skip
 
     const label = r.searchTerm ?? r.keyword ?? 'מונח לא ידוע';
 
@@ -135,7 +135,7 @@ function expensiveKeywordsNoLeads(keywords) {
   const findings = [];
   for (const kw of keywords) {
     if (!hasValue(kw.cost) || !hasValue(kw.clicks)) continue;
-    if (kw.conversions !== 0 && kw.conversions !== null) continue;
+    if (kw.conversions == null || kw.conversions > 0) continue; // only explicit zero leads
     if (kw.clicks < T.minClicksForConfidentJudgment) continue; // need 15+ clicks for strong judgment
 
     findings.push({
@@ -160,7 +160,7 @@ function nonConvertingAdGroups(adGroups) {
     if (!hasValue(ag.cost) || !hasValue(ag.clicks)) continue;
     if (ag.cost < T.minSpendForWaste * 2) continue; // need meaningful spend (2x threshold)
     if (ag.clicks < T.minClicksForConfidentJudgment) continue; // need 15+ clicks to judge an ad group
-    if (ag.conversions !== 0 && ag.conversions !== null) continue;
+    if (ag.conversions == null || ag.conversions > 0) continue; // only explicit zero leads
 
     findings.push({
       category: 'waste',

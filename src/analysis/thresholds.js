@@ -46,7 +46,7 @@ export const THRESHOLDS = {
   highLostIsBudgetWarn:           0.30, // > 30% lost to budget limit
 
   // ── MEASUREMENT RISKS ─────────────────────────────────────────────────────
-  minClicksNoLeadsForTracking:    30,  // 30+ clicks, 0 leads = possible tracking concern
+  minClicksNoLeadsForTracking:    50,  // 50+ clicks with 0 leads = high-confidence tracking gap (stricter than waste thresholds)
 
   // ── ACCOUNT-LEVEL WASTE ───────────────────────────────────────────────────
   wastedSpendWarnPct:             0.15, // 15% of total spend with 0 leads = warning

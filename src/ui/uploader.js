@@ -86,7 +86,7 @@ export function showUploadOutcome(key, statusInfo) {
     not_uploaded: { text: 'לא הועלה קובץ', tone: '' },
     uploaded_used: { text: 'הועלה ונעשה בו שימוש', tone: 'success' },
     uploaded_blocked: { text: `הועלה אך נחסם`, tone: 'error' },
-    uploaded_used_with_warnings: { text: 'הועלה ונעשה בו שימוש עם אזהרות', tone: 'success' },
+    uploaded_used_with_warnings: { text: 'הועלה עם אזהרות', tone: 'warning' },
   };
 
   const view = map[statusInfo.status] ?? map.not_uploaded;
@@ -98,8 +98,9 @@ export function showUploadOutcome(key, statusInfo) {
 
   status.textContent = [view.text, ...extras].join(' · ');
   status.className = 'file-status' + (view.tone ? ' ' + view.tone : '');
-  card.classList.toggle('has-file', statusInfo.uploaded && view.tone !== 'error');
-  card.classList.toggle('has-error', view.tone === 'error');
+  card.classList.toggle('has-file',    statusInfo.uploaded && view.tone !== 'error');
+  card.classList.toggle('has-warning', view.tone === 'warning');
+  card.classList.toggle('has-error',   view.tone === 'error');
 
   const noteLines = [];
   // Only show match state if it's meaningful: either match_confirmed or strong_mismatch
