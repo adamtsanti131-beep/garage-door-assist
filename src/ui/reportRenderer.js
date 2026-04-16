@@ -21,9 +21,8 @@ export function renderReport(report) {
   renderTopActionsBar(report.topActions);
   renderAccountStatus(report.decisionFlow?.accountStatus);
   renderCategoryFindings(report);
-  const coverageVisible = renderCoveragePanel(report.decisionFlow?.reportCoverage ?? []);
-  const limitationsVisible = renderLimitations(report.decisionFlow?.knowledgeBoundaries);
-  updateCoveragePanelVisibility(section, coverageVisible, limitationsVisible);
+  renderCoveragePanel(report.decisionFlow?.reportCoverage ?? []);
+  renderLimitations(report.decisionFlow?.knowledgeBoundaries);
 
   wireInteractivity(section);
   section.scrollIntoView({ behavior: 'smooth', block: 'start' });
