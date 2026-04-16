@@ -23,11 +23,18 @@ export function wasteRules(data) {
 // ── Individual rules ──────────────────────────────────────────────────────────
 
 /**
- * Search terms or keywords with meaningful spend or clicks but zero leads.
- * Waste flagging logic:
- * - cost >= 75 CAD, OR
- * - clicks >= 15, OR
- * - (cost >= 50 AND clicks >= 15)
+ * Search terms or keywords with zero leads — three confidence tiers:
+ *
+ * HIGH (act now):
+ *   cost >= CA$75 AND clicks >= 3   ← spend is high enough + enough traffic to judge
+ *   OR clicks >= 15                  ← enough traffic regardless of spend
+ *
+ * MEDIUM (soft caution — watch, not yet act):
+ *   clicks 5–14 AND cost >= CA$20   ← early signal, not conclusive
+ *   OR cost >= CA$50 AND clicks 5–14
+ *
+ * SUPPRESS (too early, no finding):
+ *   clicks < 5
  */
 function zeroLeadsHighSpend(rows) {
   const findings = [];
@@ -35,28 +42,48 @@ function zeroLeadsHighSpend(rows) {
     if (!hasValue(r.cost) || !hasValue(r.clicks)) continue;
     if (r.conversions !== 0 && r.conversions !== null) continue; // only zero leads
 
-    // Check waste threshold
-    const meetsWasteThreshold =
-      r.cost >= T.minSpendForWaste ||
-      r.clicks >= T.minClicksForWaste ||
-      (r.cost >= T.minSpendWithClicksGate && r.clicks >= T.minClicksForWaste);
-
-    if (!meetsWasteThreshold) continue;
-
     const label = r.searchTerm ?? r.keyword ?? 'מונח לא ידוע';
-    const severity = r.cost >= T.minSpendForWaste ? 'high' : 'medium';
 
-    findings.push({
-      category: 'waste',
-      severity,
-      what: `"${label}" הוציא CA$${fmt(r.cost)} עם ${r.clicks} קליקים וללא המרות.`,
-      why: 'נפח הנתונים מספיק גבוה כדי להחשיב זאת כבזבוז אמין ולא כרעש אקראי.',
-      action: r.searchTerm
-        ? `להוסיף את "${label}" כמילת מפתח שלילית, או לשלול רק את החלק הלא רלוונטי אם חלק מהמונח עדיין שימושי.`
-        : 'לבדוק מונחי חיפוש קשורים ולהוסיף שלילות לשאילתות לא רלוונטיות לפני הגדלת תקציב.',
-      data: r,
-      signal: 'zero-leads-term',
-    });
+    // ── Tier HIGH: real waste signal ─────────────────────────────────────────
+    const isHardWaste =
+      (r.cost >= T.minSpendForWaste && r.clicks >= 3) ||
+      r.clicks >= T.minClicksForWaste;
+
+    if (isHardWaste) {
+      const severity = r.cost >= T.minSpendForWaste ? 'high' : 'medium';
+      findings.push({
+        category: 'waste',
+        severity,
+        what: `"${label}" הוציא CA$${fmt(r.cost)} עם ${r.clicks} קליקים ללא שום ליד.`,
+        why: 'בנפח זה (${r.clicks} קליקים), זה לא רעש — זה בזבוז יציב. כל שקל הוא הפסדה.',
+        action: r.searchTerm
+          ? `תוסיף "${label}" כשלילית עכשיו. אם הביטוי משומש חלקית, ייצא מונחים חיפוש והוסף רק את החלק הלא-רלוונטי.`
+          : 'סקור דוח מונחי חיפוש, זהה אילו שאילתות לא רלוונטיות, והוסף לשליליות. זה בעיית שליטה.',
+        data: r,
+        signal: 'zero-leads-term',
+      });
+      continue;
+    }
+
+    // ── Tier MEDIUM: early watch signal ──────────────────────────────────────
+    const isSoftWatch =
+      r.clicks >= T.minClicksForSoftCaution &&
+      (r.cost >= T.minSpendForSoftCaution || r.cost >= T.minSpendWithClicksGate * 0.6);
+
+    if (isSoftWatch) {
+      findings.push({
+        category: 'waste',
+        severity: 'low',
+        what: `"${label}" קיבל ${r.clicks} קליקים ו-CA$${fmt(r.cost)} ללא לידים — עדיין נפח קטן.`,
+        why: `עדיין מעט נתונים לעריכת דין סופי. בעוד ${15 - r.clicks} קליקים נוספים תהיה תמונה ברורה.`,
+        action: r.searchTerm
+          ? 'נטור — אם אין המרה בקליקים הבאים, שקול שלילה או בדיקת דף נחיתה.'
+          : 'נטור את המטרה. אם נפח הקליקים יגיע ל-15 ללא המרה, טפל בתנאים בלבד.',
+        data: r,
+        signal: 'zero-leads-watch',
+      });
+    }
+    // clicks < 5 → suppress silently (too early to judge at all)
   }
   return findings;
 }
@@ -78,9 +105,9 @@ function overallWastedSpendPct(rows, sourceKey) {
     return [{
       category: 'waste',
       severity: 'high',
-      what: `${pct100(pct)}% מההוצאה מתוך ${labelForSource(sourceKey)} יצרו אפס המרות (CA$${fmt(wastedSpend)} מתוך CA$${fmt(totalSpend)}).`,
-      why: 'חלק גדול מהתקציב לא מייצר תוצאה מדידה ולכן פוגע מהותית ביעילות החשבון.',
-      action: 'להריץ ניקוי בזבוז: להדק סוגי התאמה, להוסיף שלילות ממונחי החיפוש, ולהוריד הצעות מחיר בישויות לא ממירות.',
+      what: `${pct100(pct)}% מהתקציב שלך מ-${labelForSource(sourceKey)} הוציא אפס לידים (CA$${fmt(wastedSpend)} מתוך CA$${fmt(totalSpend)}).`,
+      why: 'חלק ענק מהתקציב אובד ללא תוצאה. זו בעיה מבנית, לא נקודתית.',
+      action: 'עצור את כל הקמפיינים עם 0 לידים לשעה. סקור ושנה התאמות ורמת כוונה. לאחר זה, הפעל בהדרגה עם מעקב מקרוב.',
       data: { wastedSpend, totalSpend, source: sourceKey },
       signal: 'wasted-spend-share',
     }];
@@ -89,10 +116,10 @@ function overallWastedSpendPct(rows, sourceKey) {
   if (pct >= T.wastedSpendWarnPct) {
     return [{
       category: 'waste',
-      severity: 'medium',
-      what: `${pct100(pct)}% מההוצאה מתוך ${labelForSource(sourceKey)} יצרו אפס המרות (CA$${fmt(wastedSpend)} מתוך CA$${fmt(totalSpend)}).`,
-      why: 'החשבון מדליף תקציב לאזורים שבשלב זה אינם ממירים.',
-      action: 'לבדוק ישויות שאינן ממירות ולהדק טירגוט לפני הגדלה.',
+      severity: 'high',
+      what: `${pct100(pct)}% מהתקציב שלך מ-${labelForSource(sourceKey)} הוציא אפס לידים (CA$${fmt(wastedSpend)} מתוך CA$${fmt(totalSpend)}).`,
+      why: 'בעיה משמעותית בשליטה על תקציב — החשבון מדליף כסף לישויות שלא ממירות.',
+      action: 'דחיפה מיידית: הוסף שלילות, הצמצם התאמות רחבות, הוריד הצעות בצפויות נמוכות.',
       data: { wastedSpend, totalSpend, source: sourceKey },
       signal: 'wasted-spend-share',
     }];
@@ -113,10 +140,10 @@ function expensiveKeywordsNoLeads(keywords) {
 
     findings.push({
       category: 'waste',
-      severity: 'medium',
-      what: `מילת המפתח "${kw.keyword ?? 'מילת מפתח לא ידועה'}" (${kw.matchType ?? 'סוג התאמה לא ידוע'}) קיבלה ${kw.clicks} קליקים והוצאה של CA$${fmt(kw.cost)} ללא המרות.`,
-      why: 'בנפח קליקים כזה זו מועמדת חזקה לבזבוז.',
-      action: 'להוריד הצעת מחיר ב-20%, לאמת כוונת חיפוש והתאמת דף נחיתה, ואז לעצור אם אין שיפור אחרי מחזור בדיקה.',
+      severity: 'high',
+      what: `מילת מפתח "${kw.keyword ?? 'מילת מפתח לא ידועה'}" (${kw.matchType ?? 'סוג התאמה לא ידוע'}) קיבלה ${kw.clicks} קליקים וCA$${fmt(kw.cost)} בלי לידים.`,
+      why: 'בנפח קליקים זה, זו מועמדת חזקה לבזבוז. זה לא רעש — זה משהו שלא עובד.',
+      action: 'הפסק את מילת המפתח עכשיו או הוריד הצעת מחיר ב-30%-40%. אם אין שיפור תוך 5 ימים, השהה.',
       data: kw,
       signal: 'non-converting-keyword',
     });
@@ -130,16 +157,17 @@ function expensiveKeywordsNoLeads(keywords) {
 function nonConvertingAdGroups(adGroups) {
   const findings = [];
   for (const ag of adGroups) {
-    if (!hasValue(ag.cost)) continue;
+    if (!hasValue(ag.cost) || !hasValue(ag.clicks)) continue;
     if (ag.cost < T.minSpendForWaste * 2) continue; // need meaningful spend (2x threshold)
+    if (ag.clicks < T.minClicksForConfidentJudgment) continue; // need 15+ clicks to judge an ad group
     if (ag.conversions !== 0 && ag.conversions !== null) continue;
 
     findings.push({
       category: 'waste',
-      severity: 'medium',
-      what: `קבוצת המודעות "${ag.adGroup ?? 'קבוצת מודעות לא ידועה'}" בקמפיין "${ag.campaign ?? 'קמפיין לא ידוע'}" הוציאה CA$${fmt(ag.cost)} ללא המרות.`,
-      why: 'נראה שמדובר בבעיה מבנית ברמת קבוצת מודעות, לא במקרה נקודתי של מונח בודד.',
-      action: 'לבצע ביקורת איכות מונחים, רלוונטיות מודעה והתאמת דף נחיתה; לעצור אם ניסיונות התיקון לא מצליחים.',
+      severity: 'high',
+      what: `קבוצת מודעות "${ag.adGroup ?? 'קבוצת מודעות לא ידועה'}" בקמפיין "${ag.campaign ?? 'קמפיין לא ידוע'}" הוציאה CA$${fmt(ag.cost)} ללא לידים.`,
+      why: 'בעיה מבנית בקבוצה זו — מונחים לא רלוונטיים, מודעות חלשות, או דף נחיתה לא תקין. לא חד-פעמי.',
+      action: 'בדוק רשימת מילות המפתח בקבוצה זו. אם הן לא רלוונטיות, מחק את הקבוצה. אם כן, עדכן מודעות או דף נחיתה.',
       data: ag,
       signal: 'non-converting-adgroup',
     });
@@ -150,8 +178,8 @@ function nonConvertingAdGroups(adGroups) {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function hasValue(v) { return v !== null && v !== undefined; }
-function fmt(n) { return n != null ? n.toFixed(2) : '—'; }
-function pct100(n) { return (n * 100).toFixed(0); }
+function fmt(n) { return typeof n === 'number' ? n.toFixed(2) : '—'; }
+function pct100(n) { return typeof n === 'number' ? (n * 100).toFixed(0) : '—'; }
 
 function labelForSource(sourceKey) {
   const labels = {

@@ -59,7 +59,7 @@ function buildSummary(report) {
   const immediate = report.decisionFlow?.decisionBuckets?.immediateActions?.length || 0;
   const review    = report.decisionFlow?.decisionBuckets?.reviewBeforeAction?.length || 0;
   const hold      = report.decisionFlow?.decisionBuckets?.doNotTouchYet?.length || 0;
-  const spend    = report.summary?.totalSpend != null
+  const spend    = typeof report.summary?.totalSpend === 'number'
     ? ` · הוצאה CA$${report.summary.totalSpend.toFixed(0)}`
     : '';
   return `${immediate} עכשיו · ${review} לבדיקה · ${hold} בהמתנה${spend}`;

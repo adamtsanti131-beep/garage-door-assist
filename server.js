@@ -97,6 +97,7 @@ app.post('/analyze', upload.fields(UPLOAD_FIELDS), (req, res) => {
         warnings: result.validation?.warnings ?? [],
         errors: result.validation?.errors ?? [],
         detectedType: result.detectedType ?? null,
+        slotMatch: result.validation?.slotMatch ?? null,
         blockReason: null,
       };
 

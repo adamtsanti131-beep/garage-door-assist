@@ -18,16 +18,17 @@ import { buildDecisionLayer } from './decisionEngine.js';
  * @returns {Report}
  */
 export function buildReport(findings, data, businessContext = {}, reportStatuses = {}) {
-  const summary = buildSummary(findings, data);
-  const decisionLayer = buildDecisionLayer(findings, data, summary, businessContext, reportStatuses);
-  const measurementRisks = deriveMeasurementSection(findings, decisionLayer);
+  const actionableFindings = findings.filter(isActionableFinding);
+  const summary = buildSummary(actionableFindings, data);
+  const decisionLayer = buildDecisionLayer(actionableFindings, data, summary, businessContext, reportStatuses);
+  const measurementRisks = deriveMeasurementSection(actionableFindings, decisionLayer);
 
   return {
     timestamp:        new Date().toISOString(),
     summary,
-    waste:            findings.filter(f => f.category === 'waste'),
-    opportunities:    findings.filter(f => f.category === 'opportunity'),
-    controlRisks:     findings.filter(f => f.category === 'controlRisk'),
+    waste:            actionableFindings.filter(f => f.category === 'waste'),
+    opportunities:    actionableFindings.filter(f => f.category === 'opportunity'),
+    controlRisks:     actionableFindings.filter(f => f.category === 'controlRisk'),
     measurementRisks,
     decisions:        decisionLayer.decisions,
     decisionFlow:     decisionLayer,
@@ -41,6 +42,12 @@ export function buildReport(findings, data, businessContext = {}, reportStatuses
   };
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function isActionableFinding(f) {
+  return f && (f.severity === 'high' || f.severity === 'medium');
+}
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 
 function buildSummary(findings, data) {
@@ -50,7 +57,7 @@ function buildSummary(findings, data) {
 
   const totalSpend       = sumMetric(totalsSource.rows, 'cost');
   const totalConversions = sumMetric(totalsSource.rows, 'conversions');
-  const avgCpa           = totalConversions > 0 ? totalSpend / totalConversions : null;
+  const avgCpl           = totalConversions > 0 ? totalSpend / totalConversions : null;
   const totalsSourceConfidence = confidenceForTotalsSource(totalsSource.key);
 
   const highCount = findings.filter(f => f.severity === 'high').length;
@@ -59,7 +66,7 @@ function buildSummary(findings, data) {
   return {
     totalSpend:       totalSpend   > 0   ? totalSpend       : null,
     totalConversions: totalConversions > 0 ? totalConversions : null,
-    avgCpa,
+    avgCpl,
     highSeverityCount: highCount,
     bestPerformer,
     totalsSource: totalsSource.key,
@@ -70,7 +77,7 @@ function buildSummary(findings, data) {
 }
 
 /**
- * Find the single best-performing row (lowest CPA with at least 2 conversions).
+ * Find the single best-performing row (lowest CPL with at least 2 conversions).
  */
 function findBestPerformer(rows, sourceKey) {
   const candidates = rows.filter(r =>
@@ -84,7 +91,7 @@ function findBestPerformer(rows, sourceKey) {
   const label = best.searchTerm ?? best.keyword ?? best.campaign ?? best.adGroup ?? 'לא ידוע';
   return {
     label,
-    cpa:         best.cost / best.conversions,
+    cpl:         best.cost / best.conversions,
     conversions: best.conversions,
     cost:        best.cost,
     source:      sourceKey,

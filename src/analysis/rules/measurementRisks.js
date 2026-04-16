@@ -13,9 +13,6 @@ export function measurementRiskRules(data) {
     keywords = [],
     campaigns = [],
     adGroups = [],
-    ads = [],
-    devices = [],
-    locations = [],
   } = data;
   const allRows = [...campaigns, ...adGroups, ...searchTerms, ...keywords];
 
@@ -23,7 +20,6 @@ export function measurementRiskRules(data) {
   findings.push(...leadsExceedClicks(allRows));
   findings.push(...zeroLeadsWholeAccount(allRows));
   findings.push(...missingLeadData(campaigns));
-  findings.push(...missingSegmentCoverage(ads, devices, locations));
 
   return findings;
 }
@@ -31,21 +27,23 @@ export function measurementRiskRules(data) {
 // ── Rules ─────────────────────────────────────────────────────────────────────
 
 /**
- * Search terms or keywords with many clicks but zero leads — suggests tracking gap.
+ * Search terms or keywords with many clicks but zero leads.
+ * VERY HIGH confidence only: 50+ clicks with zero leads = likely tracking gap.
+ * Lower thresholds suppressed (too speculative).
  */
 function manyClicksNoLeads(rows) {
   const findings = [];
   for (const r of rows) {
-    if (!hasValue(r.clicks) || r.clicks < T.minClicksNoLeadsForTracking) continue;
+    if (!hasValue(r.clicks) || r.clicks < 50) continue; // Much stricter: only 50+ clicks
     if (r.conversions !== 0 && r.conversions !== null) continue;
 
     const label = r.searchTerm ?? r.keyword ?? 'מונח לא ידוע';
     findings.push({
       category: 'measurementRisk',
-      severity: 'medium',
-      what: `"${label}" עם ${r.clicks} קליקים ואפס המרות.`,
-      why: 'בנפח כזה, או שהמעקב אינו שלם או שאיכות התנועה אינה ממוקדת מספיק.',
-      action: 'לאמת קודם הגדרות מעקב המרות וייחוס, ואז לבדוק כוונת חיפוש והתאמת דף נחיתה.',
+      severity: 'high',
+      what: `"${label}" קיבל ${r.clicks} קליקים ואפס לידים — סימן חזק למעקב שבור.`,
+      why: 'בנפח של 50+ קליקים, אפס המרות הוא כמעט תמיד בעיית מדידה, לא כוונת חיפוש.',
+      action: 'בדוק Firebase/GA4 בעמודי נחיתה — ודא שתגיות מעקב מורות בעמודיה התוקפות.',
       data: r,
       signal: 'many-clicks-no-leads',
     });
@@ -55,20 +53,21 @@ function manyClicksNoLeads(rows) {
 
 /**
  * More leads than clicks recorded — almost always a tracking or config error.
+ * This is HIGH severity because it's nearly impossible naturally.
  */
 function leadsExceedClicks(rows) {
   const findings = [];
   for (const r of rows) {
     if (!hasValue(r.clicks) || !hasValue(r.conversions)) continue;
-    if (r.clicks <= 0 || r.conversions <= r.clicks) continue;
+    if (r.clicks < 3 || r.conversions <= r.clicks) continue;
 
     const label = r.campaign ?? r.adGroup ?? r.keyword ?? r.searchTerm ?? 'ישות לא ידועה';
     findings.push({
       category: 'measurementRisk',
       severity: 'high',
-      what: `"${label}" מציג ${r.conversions} המרות מתוך ${r.clicks} קליקים בלבד.`,
-      why: 'יותר המרות מקליקים נגרם לרוב מספירה כפולה או מהגדרות המרה שגויות.',
-      action: 'לבצע בדיקה של פעולות המרה, הגדרות מניעת כפילויות ולוגיקת הפעלת תגיות לפני שימוש בנתונים לאופטימיזציה.',
+      what: `"${label}" מציג ${r.conversions} לידים מתוך ${r.clicks} קליקים בלבד — נתונים כושלים.`,
+      why: 'יותר המרות מקליקים בלתי אפשרי. זה תמיד בעיית מדידה — ספירה כפולה או הגדרה שגויה.',
+      action: 'אל תסתמך על נתונים אלה להחלטות. בדוק Google Ads > Tools > Conversions וודא הגדרות מניעת כפילויות.',
       data: r,
       signal: 'conversions-exceed-clicks',
     });
@@ -78,6 +77,7 @@ function leadsExceedClicks(rows) {
 
 /**
  * Entire account shows zero leads — most likely a tracking setup issue.
+ * This is HIGH confidence — entire account with no conversions is a red flag.
  */
 function zeroLeadsWholeAccount(rows) {
   if (!rows.length) return [];
@@ -93,16 +93,17 @@ function zeroLeadsWholeAccount(rows) {
   return [{
     category: 'measurementRisk',
     severity: 'high',
-    what: `לא נרשמו המרות בכלל הנתונים שהועלו למרות הוצאה של CA$${fmt(totalSpend)}.`,
-    why: 'בדרך כלל זה מעיד על בעיית מדידה ולא בהכרח על ביצועים אמיתיים.',
-    action: 'לבדוק פעולות המרה, הגדרות ראשי/משני ויישום תגיות ב-Google Ads וב-GTM.',
+    what: `החשבון כולו מציג אפס לידים למרות הוצאה של CA$${fmt(totalSpend)}.`,
+    why: 'זהו כמעט תמיד בעיית מדידה של אתחול. אתה מוציא כסף אך לא מותקן מעקב.',
+    action: 'עצור קמפיינים מ-עכשיו. בדוק: 1) Google Ads > Tools > Conversions — פעולה ראשית פעילה?, 2) GTM — כל התגיות מורות?',
     data: { totalSpend, totalConvs },
     signal: 'account-zero-conversions',
   }];
 }
 
 /**
- * Campaign report has no leads column — limits analysis severely.
+ * Campaign report has no leads column — severely limits analysis.
+ * Only flag if ALL campaigns are missing data (not just sparse).
  */
 function missingLeadData(campaigns) {
   if (!campaigns.length) return [];
@@ -112,35 +113,16 @@ function missingLeadData(campaigns) {
 
   return [{
     category: 'measurementRisk',
-    severity: 'medium',
-    what: 'בדוח הקמפיינים אין ערכי המרות.',
-    why: 'ללא המרות, היכולת לחשב CPA ולהסיק יעילות מוגבלת מאוד.',
-    action: 'לייצא מחדש את דוח הקמפיינים כולל העמודות Conversions ו-Cost / conv.',
+    severity: 'high',
+    what: 'בדוח הקמפיינים לא קיימת עמודת לידים כלל.',
+    why: 'ללא לידים, לא ניתן לחשב יעילות או לקבל החלטות. בדוח זה אי אפשר להסתמך.',
+    action: 'ייצא את דוח הקמפיינים מחדש עם עמודות "Conversions" ו-"Cost / conv". ודא שמעקב הוגדר.',
     data: {},
     signal: 'missing-campaign-conversions',
-  }];
-}
-
-function missingSegmentCoverage(ads, devices, locations) {
-  const missing = [];
-  if (!ads.length) missing.push('Ads');
-  if (!devices.length) missing.push('Devices');
-  if (!locations.length) missing.push('Location');
-
-  if (missing.length === 0 || missing.length === 3) return [];
-
-  return [{
-    category: 'measurementRisk',
-    severity: 'low',
-    what: `חסרים חלק ממערכי הנתונים הסגמנטליים האופציונליים: ${missing.join(', ')}.`,
-    why: 'כיסוי חלקי של סגמנטים מפחית את רמת הביטחון בהמלצות ספציפיות לערוץ.',
-    action: 'להעלות את כל הדוחות הסגמנטליים האופציונליים כשאפשר לקבלת אבחון מלא יותר.',
-    data: { missingSegments: missing },
-    signal: 'partial-segment-coverage',
   }];
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function hasValue(v) { return v !== null && v !== undefined; }
-function fmt(n) { return n != null ? n.toFixed(2) : '—'; }
+function fmt(n) { return typeof n === 'number' ? n.toFixed(2) : '—'; }
