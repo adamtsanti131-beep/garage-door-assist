@@ -64,7 +64,8 @@ export function buildDecisionLayer(findings, data, summary, businessContext, rep
   const missingBusinessContext = findMissingBusinessContext(businessContext);
   const coverageSummary = buildCoverageSummary(reportCoverage);
 
-  const measurementTrust = evaluateMeasurementTrust(findings, businessContext);
+  const measurementState = evaluateMeasurementState(findings, businessContext);
+  const measurementTrust = measurementState.trust;
   const decisions = findings.map(f =>
     findingToDecision(
       f,
@@ -98,7 +99,9 @@ export function buildDecisionLayer(findings, data, summary, businessContext, rep
     reportCoverageByKey,
   ));
 
-  const sorted = decisions.sort((a, b) => {
+  const refinedDecisions = refineDecisionSet(decisions, measurementTrust);
+
+  const sorted = refinedDecisions.sort((a, b) => {
     if (a.execution_step !== b.execution_step) return a.execution_step - b.execution_step;
     if (a.action_priority !== b.action_priority) return a.action_priority - b.action_priority;
     return confidenceRank(a.confidence) - confidenceRank(b.confidence);
@@ -108,7 +111,7 @@ export function buildDecisionLayer(findings, data, summary, businessContext, rep
 
   return {
     accountStatus: buildAccountStatus(
-      measurementTrust,
+      measurementState,
       sorted,
       missingReports,
       blockedReports,
@@ -123,6 +126,7 @@ export function buildDecisionLayer(findings, data, summary, businessContext, rep
     missingBusinessContext,
     reportCoverage,
     coverageSummary,
+    measurementState,
     knowledgeBoundaries: buildKnowledgeBoundaries(measurementTrust, businessContext, reportCoverage),
     summaryGuidance: {
       canActImmediately: measurementTrust !== 'untrusted' && buckets.immediateActions.length > 0,
@@ -168,10 +172,12 @@ function buildReportCoverage(data, reportStatuses = {}) {
 
 function buildCoverageSummary(reportCoverage) {
   const summary = {
+    totalCount: reportCoverage.length,
     notUploadedCount: 0,
     blockedCount: 0,
     usedCount: 0,
     usedWithWarningsCount: 0,
+    usableCount: 0,
     usedHighImpactCount: 0,
   };
 
@@ -180,6 +186,7 @@ function buildCoverageSummary(reportCoverage) {
     if (item.status === 'uploaded_blocked') summary.blockedCount += 1;
     if (item.status === 'uploaded_used') summary.usedCount += 1;
     if (item.status === 'uploaded_used_with_warnings') summary.usedWithWarningsCount += 1;
+    if (item.present) summary.usableCount += 1;
     if (item.present && item.importance === 'high') summary.usedHighImpactCount += 1;
   }
 
@@ -208,14 +215,35 @@ function findMissingBusinessContext(context) {
   return missing;
 }
 
-function evaluateMeasurementTrust(findings, context) {
+function evaluateMeasurementState(findings, context) {
   const measurement = findings.filter(f => f.category === 'measurementRisk');
   const highCount = measurement.filter(f => f.severity === 'high').length;
+  const reasons = [];
 
-  if (context.trackingTrusted === false) return 'untrusted';
-  if (highCount >= 1) return 'untrusted';
-  if (measurement.length > 0 || context.trackingTrusted == null) return 'caution';
-  return 'trusted';
+  if (context.trackingTrusted === false) {
+    reasons.push('אמון המעקב הוגדר כלא אמין בהקשר העסקי.');
+    return { trust: 'untrusted', reasons };
+  }
+
+  if (highCount >= 1) {
+    reasons.push('זוהו ממצאי מדידה חמורים בדוחות שהועלו.');
+    return { trust: 'untrusted', reasons };
+  }
+
+  if (measurement.length > 0) {
+    reasons.push('זוהו ממצאי מדידה לא קריטיים ולכן נדרש מצב זהירות.');
+  }
+
+  if (context.trackingTrusted == null) {
+    reasons.push('שדה "אמון במעקב" לא הוגדר ולכן לא ניתן לאשר אמון מלא במדידה.');
+  }
+
+  if (reasons.length > 0) {
+    return { trust: 'caution', reasons };
+  }
+
+  reasons.push('לא זוהו סיכוני מדידה פעילים ואמון המעקב הוגדר כאמין.');
+  return { trust: 'trusted', reasons };
 }
 
 function findingToDecision(
@@ -433,12 +461,24 @@ function buildEvidence(finding) {
 }
 
 function resolveEntity(row = {}) {
-  if (row.searchTerm) return { level: 'searchTerm', name: row.searchTerm };
-  if (row.keyword) return { level: 'keyword', name: row.keyword };
-  if (row.adGroup) return { level: 'adGroup', name: row.adGroup };
-  if (row.campaign) return { level: 'campaign', name: row.campaign };
-  if (row.device) return { level: 'device', name: row.device };
-  if (row.location) return { level: 'location', name: row.location };
+  const searchTerm = cleanEntityValue(row.searchTerm);
+  if (searchTerm) return { level: 'searchTerm', name: searchTerm };
+
+  const keyword = cleanEntityValue(row.keyword);
+  if (keyword) return { level: 'keyword', name: keyword };
+
+  const adGroup = cleanEntityValue(row.adGroup);
+  if (adGroup) return { level: 'adGroup', name: adGroup };
+
+  const campaign = cleanEntityValue(row.campaign);
+  if (campaign) return { level: 'campaign', name: campaign };
+
+  const device = cleanEntityValue(row.device);
+  if (device) return { level: 'device', name: device };
+
+  const location = cleanEntityValue(row.location);
+  if (location) return { level: 'location', name: location };
+
   return { level: 'account', name: 'ברמת החשבון' };
 }
 
@@ -1141,13 +1181,13 @@ function bucketDecisions(decisions) {
       continue;
     }
 
-    if (d.execution_step === 5) {
-      scaleLater.push(d);
+    if (d.safety_classification === 'review_before_acting') {
+      reviewBeforeAction.push(d);
       continue;
     }
 
-    if (d.safety_classification === 'review_before_acting') {
-      reviewBeforeAction.push(d);
+    if (d.execution_step === 5) {
+      scaleLater.push(d);
       continue;
     }
 
@@ -1168,18 +1208,22 @@ function bucketDecisions(decisions) {
 }
 
 function buildAccountStatus(
-  measurementTrust,
+  measurementState,
   decisions,
   missingReports,
   blockedReports,
   missingBusinessContext,
   coverageSummary,
 ) {
+  const measurementTrust = measurementState?.trust ?? 'caution';
   const highPriority = decisions.filter(d => d.action_priority === 1).length;
   const blocked = decisions.filter(d => d.blocked_by_tracking).length;
 
   return {
     measurementTrust,
+    measurementReasons: measurementState?.reasons?.length
+      ? measurementState.reasons
+      : buildMeasurementReasons(measurementTrust, coverageSummary),
     readiness: measurementTrust === 'untrusted' ? 'blocked' : measurementTrust === 'caution' ? 'limited' : 'ready',
     headline: statusHeadline(measurementTrust, highPriority),
     highPriorityActions: highPriority,
@@ -1188,12 +1232,15 @@ function buildAccountStatus(
     blockedReportsCount: blockedReports.length,
     usedReportsCount: coverageSummary.usedCount,
     usedWithWarningsCount: coverageSummary.usedWithWarningsCount,
+    usableReportsCount: coverageSummary.usableCount,
+    totalReportSlots: coverageSummary.totalCount,
     missingBusinessContextCount: missingBusinessContext.length,
   };
 }
 
 function statusHeadline(measurementTrust, highPriority) {
   if (measurementTrust === 'untrusted') return 'לא לבצע סקייל עדיין. יש לתקן קודם את אמון המדידה.';
+  if (measurementTrust === 'caution') return 'אמון המדידה חלקי. לפעול בזהירות ולבצע שינויים בהדרגה.';
   if (highPriority > 0) return 'יש לפעול עכשיו על פריטי בזבוז ושליטה בעדיפות גבוהה.';
   return 'החשבון יציב מספיק לאופטימיזציה הדרגתית.';
 }
@@ -1235,7 +1282,146 @@ function buildSummaryNote(measurementTrust, buckets) {
     return 'יש להתחיל בפעולות המיידיות, ואז לעבור לפי הסדר לשלבי בדיקה וסקייל.';
   }
 
+  if (measurementTrust === 'caution') {
+    return 'אמון המדידה במצב זהירות. לבצע כרגע רק פעולות עם ראיות חזקות ובשינוי מדורג.';
+  }
+
   return 'לא נמצאו חסמים דחופים. אפשר להמשיך באופטימיזציה זהירה ובניטור.';
+}
+
+function refineDecisionSet(decisions, measurementTrust) {
+  const withSafeEntities = decisions.map(d => sanitizeDecisionEntity(d));
+  const compressed = compressOpportunities(withSafeEntities, measurementTrust);
+  return dedupeDecisionNoise(compressed);
+}
+
+function sanitizeDecisionEntity(decision) {
+  const level = cleanEntityLevel(decision.entity_level);
+  const fallbackName = defaultEntityName(level);
+  return {
+    ...decision,
+    entity_level: level,
+    entity_name: cleanEntityValue(decision.entity_name) ?? fallbackName,
+  };
+}
+
+function compressOpportunities(decisions, measurementTrust) {
+  const nonOpportunity = decisions.filter(d => d.category !== 'opportunity');
+  let opportunities = decisions.filter(d => d.category === 'opportunity');
+
+  opportunities = opportunities.filter(d => !containsZeroCostEvidence(d));
+
+  if (measurementTrust !== 'trusted') {
+    opportunities = opportunities.filter(d => d.confidence !== 'ביטחון נמוך');
+  }
+
+  if (measurementTrust === 'untrusted') {
+    opportunities = [];
+  }
+
+  opportunities.sort((a, b) => {
+    const conf = confidenceRank(a.confidence) - confidenceRank(b.confidence);
+    if (conf !== 0) return conf;
+    if (a.action_priority !== b.action_priority) return a.action_priority - b.action_priority;
+    return (b.evidence?.length ?? 0) - (a.evidence?.length ?? 0);
+  });
+
+  const maxTotal = measurementTrust === 'trusted' ? 6 : 3;
+  const maxPerEntityLevel = measurementTrust === 'trusted' ? 2 : 1;
+  const kept = [];
+  const seen = new Set();
+  const perLevel = {};
+
+  for (const item of opportunities) {
+    if (kept.length >= maxTotal) break;
+
+    const key = `${item.action_type}::${normalizeText(item.entity_name)}`;
+    if (seen.has(key)) continue;
+
+    const level = item.entity_level ?? 'account';
+    const count = perLevel[level] ?? 0;
+    if (count >= maxPerEntityLevel) continue;
+
+    seen.add(key);
+    perLevel[level] = count + 1;
+    kept.push(item);
+  }
+
+  return [...nonOpportunity, ...kept];
+}
+
+function dedupeDecisionNoise(decisions) {
+  const seen = new Set();
+  const unique = [];
+
+  for (const d of decisions) {
+    const key = [
+      d.action_type,
+      d.execution_step,
+      d.entity_level,
+      normalizeText(d.entity_name),
+      normalizeText(d.user_instruction),
+    ].join('::');
+
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(d);
+  }
+
+  return unique;
+}
+
+function buildMeasurementReasons(measurementTrust, coverageSummary) {
+  if (measurementTrust === 'untrusted') {
+    return ['זוהו בעיות אמון מדידה שחוסמות פעולות סקייל עד לתיקון.'];
+  }
+  if (measurementTrust === 'caution') {
+    return [
+      'אמון המדידה חלקי, ולכן מסקנות סקייל חלשות הודחקו או דורגו לבדיקה בלבד.',
+      `כיסוי דוחות שמיש: ${coverageSummary.usableCount}/${coverageSummary.totalCount}.`,
+    ];
+  }
+  return ['אמון המדידה תקין וניתן להסתמך יותר על אותות הביצועים.'];
+}
+
+function containsZeroCostEvidence(decision) {
+  return (decision.evidence ?? []).some(line => /CA\$0(\.0+)?\b/.test(String(line)));
+}
+
+function cleanEntityValue(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return null;
+  const normalized = raw.toLowerCase();
+  if (['none', 'null', 'undefined', 'n/a', '--', 'not set', '(not set)', '(none)'].includes(normalized)) {
+    return null;
+  }
+  return raw;
+}
+
+function cleanEntityLevel(level) {
+  const safe = String(level ?? '').trim();
+  if (!safe) return 'account';
+  return safe;
+}
+
+function defaultEntityName(level) {
+  const map = {
+    searchTerm: 'מונח חיפוש לא מזוהה',
+    keyword: 'מילת מפתח לא מזוהה',
+    adGroup: 'קבוצת מודעות לא מזוהה',
+    campaign: 'קמפיין לא מזוהה',
+    device: 'פלח מכשיר לא מזוהה',
+    location: 'מיקום לא מזוהה',
+    account: 'ברמת החשבון',
+  };
+  return map[level] ?? 'ברמת החשבון';
+}
+
+function normalizeText(value) {
+  return String(value ?? '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function buildOperatorSteps(finding, entity, context) {

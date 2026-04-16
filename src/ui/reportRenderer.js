@@ -21,7 +21,11 @@ export function renderReport(report) {
   renderFindings('items-waste',            report.waste,            'לא זוהה בזבוז — התקציב נראה ממוקד היטב.');
   renderFindings('items-opportunities',    report.opportunities,    'עדיין לא זוהו הזדמנויות סקייל ברורות.');
   renderFindings('items-control-risks',    report.controlRisks,     'לא נמצאו בעיות שליטה מבניות.');
-  renderFindings('items-measurement-risks',report.measurementRisks, 'לא זוהו סיכוני מדידה או מעקב.');
+  renderFindings(
+    'items-measurement-risks',
+    report.measurementRisks,
+    measurementEmptyMessage(report.decisionFlow?.measurementState?.trust)
+  );
   renderActions ('items-actions',          report.topActions);
 
   section.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -74,12 +78,14 @@ function renderAccountStatus(status) {
     <div class="status-card status-card--${esc(status.readiness)}">
       <strong>סטטוס חשבון: ${esc(status.headline)}</strong>
       <span>אמון במדידה: ${esc(formatMeasurementTrust(status.measurementTrust))}</span>
+      ${(status.measurementReasons ?? []).slice(0, 2).map(r => `<span>הסבר מדידה: ${esc(r)}</span>`).join('')}
       <span>פעולות בעדיפות גבוהה: ${esc(String(status.highPriorityActions))}</span>
       <span>פעולות חסומות: ${esc(String(status.blockedActions))}</span>
       <span>דוחות חסרים: ${esc(String(status.missingReportsCount))}</span>
       <span>דוחות חסומים: ${esc(String(status.blockedReportsCount ?? 0))}</span>
-      <span>דוחות בשימוש: ${esc(String(status.usedReportsCount ?? 0))}</span>
-      <span>בשימוש עם אזהרות: ${esc(String(status.usedWithWarningsCount ?? 0))}</span>
+      <span>דוחות שמישים: ${esc(String(status.usableReportsCount ?? 0))} מתוך ${esc(String(status.totalReportSlots ?? 7))}</span>
+      <span>מתוכם עם אזהרות: ${esc(String(status.usedWithWarningsCount ?? 0))}</span>
+      <span>בשימוש נקי (ללא אזהרות): ${esc(String(status.usedReportsCount ?? 0))}</span>
       <span>שדות עסקיים חסרים: ${esc(String(status.missingBusinessContextCount))}</span>
     </div>
   `;
@@ -138,6 +144,8 @@ function renderDecisionList(containerId, items, emptyMessage) {
   }
 
   for (const d of items) {
+    const safeLevel = formatEntityLevel(d.entity_level);
+    const safeName = safeEntityName(d.entity_name, d.entity_level);
     const el = document.createElement('div');
     el.className = 'report-item report-item--decision';
     el.innerHTML = `
@@ -146,7 +154,7 @@ function renderDecisionList(containerId, items, emptyMessage) {
         <strong class="report-item-what">${esc(d.user_instruction)}</strong>
       </div>
       <p class="report-item-why"><strong>למה:</strong> ${esc(d.reason)}</p>
-      <p class="report-item-action"><strong>ישות:</strong> ${esc(d.entity_level)} / ${esc(d.entity_name)}</p>
+      <p class="report-item-action"><strong>ישות:</strong> ${esc(safeLevel)} / ${esc(safeName)}</p>
       <p class="report-item-action"><strong>שלב:</strong> ${esc(String(d.execution_step))} | <strong>עדיפות:</strong> ${esc(String(d.action_priority))}</p>
       <p class="report-item-action"><strong>רמת בטיחות:</strong> ${esc(formatSafety(d.safety_classification))}</p>
       <p class="report-item-action"><strong>תנאי סף:</strong> ${esc(d.prerequisite)}</p>
@@ -165,7 +173,15 @@ function renderCoverage(reportCoverage, missingBusinessContext) {
   const container = document.getElementById('items-report-coverage');
   if (!container) return;
 
+  const summary = summarizeCoverage(reportCoverage);
   const rows = [];
+  rows.push(`
+    <div class="report-item">
+      <strong>סיכום כיסוי: ${esc(String(summary.usable))}/${esc(String(summary.total))} דוחות שמישים</strong>
+      <span class="item-detail">בשימוש נקי: ${esc(String(summary.used))} | בשימוש עם אזהרות: ${esc(String(summary.usedWithWarnings))} | חסומים: ${esc(String(summary.blocked))} | לא הועלו: ${esc(String(summary.notUploaded))}</span>
+    </div>
+  `);
+
   for (const item of reportCoverage) {
     rows.push(`
       <div class="report-item">
@@ -266,6 +282,7 @@ function renderActions(containerId, actions) {
     el.innerHTML = `
       <strong>${idx + 1}. ${esc(a.action)}</strong>
       <span class="item-detail">${esc(a.reason)}</span>
+      ${a.sourceBucket ? `<span class="item-detail">מקור: ${esc(formatBucketLabel(a.sourceBucket))}</span>` : ''}
     `;
     container.appendChild(el);
   });
@@ -361,6 +378,80 @@ function formatCoverageStatus(value) {
     uploaded_used_with_warnings: 'הועלה ונעשה בו שימוש עם אזהרות',
   };
   return map[value] ?? String(value ?? 'לא ידוע');
+}
+
+function formatEntityLevel(level) {
+  const map = {
+    searchTerm: 'מונח חיפוש',
+    keyword: 'מילת מפתח',
+    adGroup: 'קבוצת מודעות',
+    campaign: 'קמפיין',
+    device: 'מכשיר',
+    location: 'מיקום',
+    account: 'חשבון',
+  };
+  return map[level] ?? String(level ?? 'חשבון');
+}
+
+function safeEntityName(name, level) {
+  const raw = String(name ?? '').trim();
+  if (!raw) return fallbackEntityName(level);
+  const normalized = raw.toLowerCase();
+  if (['none', 'null', 'undefined', 'n/a', '--', '(none)', '(not set)', 'not set'].includes(normalized)) {
+    return fallbackEntityName(level);
+  }
+  return raw;
+}
+
+function fallbackEntityName(level) {
+  const map = {
+    searchTerm: 'מונח חיפוש לא מזוהה',
+    keyword: 'מילת מפתח לא מזוהה',
+    adGroup: 'קבוצת מודעות לא מזוהה',
+    campaign: 'קמפיין לא מזוהה',
+    device: 'מכשיר לא מזוהה',
+    location: 'מיקום לא מזוהה',
+    account: 'ברמת החשבון',
+  };
+  return map[level] ?? 'ברמת החשבון';
+}
+
+function measurementEmptyMessage(trust) {
+  if (trust === 'trusted') return 'לא זוהו סיכוני מדידה או מעקב.';
+  if (trust === 'untrusted') return 'אמון המדידה נמוך, ולכן פעולות משמעותיות נחסמות עד לתיקון מעקב.';
+  return 'אמון המדידה במצב זהירות, ולכן חלק מההמלצות שמרניות או דורשות בדיקה נוספת.';
+}
+
+function summarizeCoverage(reportCoverage) {
+  const summary = {
+    total: reportCoverage?.length ?? 0,
+    used: 0,
+    usedWithWarnings: 0,
+    blocked: 0,
+    notUploaded: 0,
+    usable: 0,
+  };
+
+  for (const item of reportCoverage ?? []) {
+    if (item.status === 'uploaded_used') summary.used += 1;
+    if (item.status === 'uploaded_used_with_warnings') summary.usedWithWarnings += 1;
+    if (item.status === 'uploaded_blocked') summary.blocked += 1;
+    if (item.status === 'not_uploaded') summary.notUploaded += 1;
+    if (item.status === 'uploaded_used' || item.status === 'uploaded_used_with_warnings') summary.usable += 1;
+  }
+
+  return summary;
+}
+
+function formatBucketLabel(bucket) {
+  const map = {
+    immediate: 'לביצוע מיידי',
+    review: 'לבדיקה לפני פעולה',
+    secondary: 'פעולה משנית',
+    scale: 'סקייל בהמשך',
+    hold: 'בהמתנה/חסום',
+  };
+  return map[bucket] ?? String(bucket ?? 'לא ידוע');
 }
 
 function formatTotalsConfidence(value) {

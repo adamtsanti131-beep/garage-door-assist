@@ -20,6 +20,7 @@ import { buildDecisionLayer } from './decisionEngine.js';
 export function buildReport(findings, data, businessContext = {}, reportStatuses = {}) {
   const summary = buildSummary(findings, data);
   const decisionLayer = buildDecisionLayer(findings, data, summary, businessContext, reportStatuses);
+  const measurementRisks = deriveMeasurementSection(findings, decisionLayer);
 
   return {
     timestamp:        new Date().toISOString(),
@@ -27,10 +28,10 @@ export function buildReport(findings, data, businessContext = {}, reportStatuses
     waste:            findings.filter(f => f.category === 'waste'),
     opportunities:    findings.filter(f => f.category === 'opportunity'),
     controlRisks:     findings.filter(f => f.category === 'controlRisk'),
-    measurementRisks: findings.filter(f => f.category === 'measurementRisk'),
+    measurementRisks,
     decisions:        decisionLayer.decisions,
     decisionFlow:     decisionLayer,
-    topActions:       deriveTopActions(findings, decisionLayer),
+    topActions:       deriveTopActions(decisionLayer),
     businessContextUsed: {
       targetCpl: businessContext.targetCpl ?? null,
       serviceArea: businessContext.serviceArea ?? null,
@@ -93,17 +94,27 @@ function findBestPerformer(rows, sourceKey) {
 // ── Top Actions ───────────────────────────────────────────────────────────────
 
 /**
- * Pick the 3 most important actions from findings.
- * Priority: high severity first, then by category order.
+ * Pick the 3 most important actions from decision buckets.
+ * This keeps Top Actions aligned with bucket logic and safety classifications.
  */
-function deriveTopActions(findings, decisionLayer) {
-  const immediate = decisionLayer?.decisionBuckets?.immediateActions ?? [];
-  if (immediate.length > 0) {
-    return immediate.slice(0, 3).map((d, i) => ({
+function deriveTopActions(decisionLayer) {
+  const buckets = decisionLayer?.decisionBuckets ?? {};
+
+  const ranked = [
+    ...(buckets.immediateActions ?? []),
+    ...(buckets.reviewBeforeAction ?? []),
+    ...(buckets.secondaryActions ?? []),
+    ...(buckets.scaleLater ?? []),
+    ...(buckets.doNotTouchYet ?? []),
+  ];
+
+  if (ranked.length > 0) {
+    return ranked.slice(0, 3).map((d, i) => ({
       priority: i + 1,
       action: d.user_instruction,
       reason: d.reason,
       severity: d.confidence,
+      sourceBucket: decideBucketForAction(d),
     }));
   }
 
@@ -118,25 +129,7 @@ function deriveTopActions(findings, decisionLayer) {
     }];
   }
 
-  const catPriority = { measurementRisk: 0, waste: 1, controlRisk: 2, opportunity: 3 };
-  const sevPriority = { high: 0, medium: 1, low: 2 };
-
-  const sorted = [...findings].sort((a, b) => {
-    const s = sevPriority[a.severity] - sevPriority[b.severity];
-    if (s !== 0) return s;
-    return (catPriority[a.category] ?? 9) - (catPriority[b.category] ?? 9);
-  });
-
-  const top = sorted.slice(0, 3);
-
-  const actions = top.map((f, i) => ({
-    priority: i + 1,
-    action:   f.action,
-    reason:   f.what,
-    severity: f.severity,
-  }));
-
-  return actions;
+  return [];
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -159,4 +152,43 @@ function totalsSourceGuidance(sourceKey) {
     return 'סיכומי החשבון מבוססים על מקור חלופי בינוני; מומלץ להעלות גם דוח קמפיינים.';
   }
   return 'סיכומי החשבון מבוססים על מקור חלופי נמוך-אמינות (כמו מכשירים/מיקומים/מודעות). יש לפרש בזהירות.';
+}
+
+function deriveMeasurementSection(findings, decisionLayer) {
+  const direct = findings.filter(f => f.category === 'measurementRisk');
+  if (direct.length > 0) return direct;
+
+  const trust = decisionLayer?.measurementState?.trust ?? 'caution';
+  const reasons = decisionLayer?.measurementState?.reasons ?? [];
+
+  if (trust === 'trusted') return [];
+
+  return [{
+    category: 'measurementRisk',
+    severity: trust === 'untrusted' ? 'high' : 'medium',
+    what: trust === 'untrusted'
+      ? 'אמון המדידה במצב לא אמין, ולכן פעולות משמעותיות נחסמות עד לתיקון.'
+      : 'אמון המדידה במצב זהירות, ולכן ההמלצות שמרניות יותר ודורשות בדיקה.',
+    why: reasons.length > 0
+      ? reasons.join(' | ')
+      : 'רמת האמון במדידה אינה במצב trusted ולכן נדרש ניהול שמרני יותר.',
+    action: trust === 'untrusted'
+      ? 'לתקן תחילה את הגדרות ההמרה והמעקב לפני כל סקייל או שינוי משמעותי.'
+      : 'לבצע שינויים מדורגים בלבד ולאמת יציבות המרות לפני סקייל אגרסיבי.',
+    signal: 'measurement-trust-guardrail',
+    data: {},
+  }];
+}
+
+function decideBucketForAction(decision) {
+  const safety = decision?.safety_classification;
+  if (safety === 'blocked_until_tracking_trusted'
+    || safety === 'blocked_until_business_context_provided'
+    || safety === 'not_safe_from_csv_alone') {
+    return 'hold';
+  }
+  if (safety === 'review_before_acting') return 'review';
+  if (decision?.execution_step === 5) return 'scale';
+  if ((decision?.action_priority ?? 9) <= 2 && (decision?.execution_step ?? 9) <= 2) return 'immediate';
+  return 'secondary';
 }
