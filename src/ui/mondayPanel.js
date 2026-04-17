@@ -1,7 +1,10 @@
 /**
  * mondayPanel.js
  * UI for the Monday.com CRM connection panel.
- * Credentials live server-side (.env). Frontend only shows date range + fetch button.
+ * Credentials are server-side (.env). Browser shows only date range + fetch.
+ *
+ * Uses event delegation: ONE click listener on #monday-form at init time.
+ * This survives every innerHTML re-render without losing listeners.
  */
 
 import { loadMondayConfig, saveMondayConfig, clearMondayConfig } from '../storage/mondayConfig.js';
@@ -13,28 +16,45 @@ export function initMondayPanel() {
 
   if (!toggleBtn || !body || !formEl) return;
 
-  const config = loadMondayConfig();
-  renderPanel(config);
+  // ── Single delegated listener — survives every re-render ──────────────────
+  formEl.addEventListener('click', e => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    if (btn.id === 'btn-monday-fetch') { e.preventDefault(); handleFetch(formEl); }
+    if (btn.id === 'btn-monday-clear') { e.preventDefault(); handleClear(formEl); }
+  });
 
+  // ── Toggle open/close ──────────────────────────────────────────────────────
   toggleBtn.addEventListener('click', () => {
     const isOpen = body.style.display !== 'none';
     body.style.display = isOpen ? 'none' : '';
     toggleBtn.textContent = isOpen ? '▼' : '▲';
   });
 
-  // Start collapsed when we already have data
+  // ── Initial render ─────────────────────────────────────────────────────────
+  const config = loadMondayConfig();
+  renderPanel(formEl, config);
+
   if (config.mondayContext) {
     body.style.display = 'none';
     toggleBtn.textContent = '▼';
     updateHeaderStatus(config.mondayContext, config.lastFetched, config.dateFrom, config.dateTo);
   }
+
+  // Keep panel in sync when context is updated by fetch
+  document.addEventListener('monday-context-updated', () => {
+    const updated = loadMondayConfig();
+    renderPanel(formEl, updated);
+    updateHeaderStatus(updated.mondayContext, updated.lastFetched, updated.dateFrom, updated.dateTo);
+  });
 }
 
-function renderPanel(config) {
-  const formEl = document.getElementById('monday-form');
+// ── Render ────────────────────────────────────────────────────────────────────
+
+function renderPanel(formEl, config, statusMessage = '') {
   if (!formEl) return;
 
-  formEl.innerHTML = `
+  let html = `
     <div class="monday-fields">
       <div class="monday-field">
         <label for="monday-from">מתאריך</label>
@@ -46,69 +66,89 @@ function renderPanel(config) {
       </div>
     </div>
     <div class="monday-actions">
-      <button class="btn-monday-fetch" id="btn-monday-fetch">משוך נתונים</button>
-      ${config.mondayContext ? '<button class="btn-monday-clear" id="btn-monday-clear">נקה נתונים</button>' : ''}
+      <button type="button" class="btn-monday-fetch" id="btn-monday-fetch">משוך נתונים</button>
+      ${config.mondayContext ? '<button type="button" class="btn-monday-clear" id="btn-monday-clear">נקה נתונים</button>' : ''}
     </div>
-    <div class="monday-status" id="monday-status"></div>
-    ${config.mondayContext ? renderKpiSummary(config.mondayContext, config.lastFetched, config.dateFrom, config.dateTo) : ''}
+    <div class="monday-status" id="monday-status">${esc(statusMessage)}</div>
   `;
 
-  // Persist date range immediately on change so it survives page reload
-  document.getElementById('monday-from')?.addEventListener('change', e => {
+  if (config.mondayContext) {
+    try {
+      html += renderKpiSummary(config.mondayContext, config.lastFetched, config.dateFrom, config.dateTo);
+    } catch (err) {
+      console.error('[MondayPanel] renderKpiSummary failed:', err);
+    }
+  }
+
+  formEl.innerHTML = html;
+
+  // Persist date range on change (delegates can't use this — inputs need their own listeners)
+  formEl.querySelector('#monday-from')?.addEventListener('change', e => {
     saveMondayConfig({ dateFrom: e.target.value });
   });
-  document.getElementById('monday-to')?.addEventListener('change', e => {
+  formEl.querySelector('#monday-to')?.addEventListener('change', e => {
     saveMondayConfig({ dateTo: e.target.value });
   });
-
-  document.getElementById('btn-monday-fetch')?.addEventListener('click', handleFetch);
-  document.getElementById('btn-monday-clear')?.addEventListener('click', handleClear);
 }
 
-async function handleFetch() {
-  const dateFrom = document.getElementById('monday-from')?.value?.trim() || null;
-  const dateTo   = document.getElementById('monday-to')?.value?.trim()   || null;
-  const statusEl = document.getElementById('monday-status');
-  const fetchBtn = document.getElementById('btn-monday-fetch');
+// ── Fetch ─────────────────────────────────────────────────────────────────────
+
+async function handleFetch(formEl) {
+  console.log('[MondayPanel] fetch triggered');
+
+  const dateFrom = formEl.querySelector('#monday-from')?.value?.trim() || null;
+  const dateTo   = formEl.querySelector('#monday-to')?.value?.trim()   || null;
+  const fetchBtn = formEl.querySelector('#btn-monday-fetch');
 
   if (fetchBtn) { fetchBtn.disabled = true; fetchBtn.textContent = 'מושך נתונים...'; }
-  if (statusEl) statusEl.textContent = '';
 
   try {
-    const res = await fetch('/monday/fetch', {
+    console.log('[MondayPanel] POST /monday/fetch', { dateFrom, dateTo });
+    const res  = await fetch('/monday/fetch', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ dateFrom, dateTo }),
     });
 
-    const data = await res.json();
+    let data;
+    try {
+      data = await res.json();
+    } catch (parseErr) {
+      // If response is not JSON, treat as error
+      data = null;
+    }
 
     if (!res.ok) {
-      if (statusEl) statusEl.textContent = data.error ?? `שגיאה (${res.status})`;
+      const errMsg = (data && data.error) ? data.error : `שגיאה (${res.status})`;
+      console.warn('[MondayPanel] fetch failed:', errMsg);
+      saveMondayConfig({ mondayContext: null, lastFetched: null });
+      renderPanel(formEl, loadMondayConfig(), errMsg);
+      updateHeaderStatus(null, null, null, null);
       return;
     }
 
     const lastFetched = new Date().toISOString();
     saveMondayConfig({ dateFrom: dateFrom ?? '', dateTo: dateTo ?? '', lastFetched, mondayContext: data });
-    updateHeaderStatus(data, lastFetched, dateFrom, dateTo);
-    renderPanel(loadMondayConfig());
-
+    // Let the monday-context-updated listener handle the re-render so there is one code path
     document.dispatchEvent(new CustomEvent('monday-context-updated', { detail: data }));
 
   } catch (err) {
-    if (statusEl) statusEl.textContent = 'לא ניתן להתחבר לשרת';
-    console.error('[MondayPanel]', err);
-  } finally {
-    if (fetchBtn) { fetchBtn.disabled = false; fetchBtn.textContent = 'משוך נתונים'; }
+    const msg = `לא ניתן להתחבר לשרת: ${err?.message ?? ''}`.trim();
+    console.error('[MondayPanel] fetch error:', err);
+    renderPanel(formEl, loadMondayConfig(), msg);
   }
 }
 
-function handleClear() {
+// ── Clear ─────────────────────────────────────────────────────────────────────
+
+function handleClear(formEl) {
   clearMondayConfig();
+  renderPanel(formEl, { dateFrom: '', dateTo: '', mondayContext: null });
   updateHeaderStatus(null, null, null, null);
-  renderPanel({ dateFrom: '', dateTo: '', mondayContext: null });
   document.dispatchEvent(new CustomEvent('monday-context-updated', { detail: null }));
 }
+
+// ── KPI summary block ─────────────────────────────────────────────────────────
 
 function renderKpiSummary(ctx, lastFetched, dateFrom, dateTo) {
   if (!ctx) return '';
@@ -116,13 +156,19 @@ function renderKpiSummary(ctx, lastFetched, dateFrom, dateTo) {
   const fmt  = (v, prefix = '') => v != null ? `${prefix}${Number(v).toLocaleString('he-IL', { maximumFractionDigits: 0 })}` : '—';
   const fmtP = v => v != null ? `${(v * 100).toFixed(1)}%` : '—';
   const dt   = lastFetched ? new Date(lastFetched).toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' }) : '';
-  const range = (dateFrom || dateTo) ? ` | ${dateFrom ?? ''}${dateFrom && dateTo ? ' — ' : ''}${dateTo ?? ''}` : '';
+  const range = (dateFrom || dateTo)
+    ? ` | ${dateFrom ?? ''}${dateFrom && dateTo ? ' — ' : ''}${dateTo ?? ''}`
+    : '';
+
+  const warnings = (ctx.warnings ?? []).length
+    ? `<div class="monday-warnings">${ctx.warnings.map(w => `<div>⚠ ${esc(w)}</div>`).join('')}</div>`
+    : '';
 
   return `
     <div class="monday-kpi-block">
       <div class="monday-kpi-block-title">CRM — Google Ads בלבד${range}${dt ? ` (עודכן: ${dt})` : ''}</div>
       <div class="monday-kpi-grid">
-        ${kpiTile('לידים (ממומן)', fmt(ctx.paidLeadCount))}
+        ${kpiTile('לידים ממומנים', fmt(ctx.paidLeadCount))}
         ${kpiTile('הוזמנו', fmt(ctx.bookedCount))}
         ${kpiTile('נסגרו', fmt(ctx.closedCount))}
         ${kpiTile('בוטלו', fmt(ctx.lostCount))}
@@ -134,7 +180,7 @@ function renderKpiSummary(ctx, lastFetched, dateFrom, dateTo) {
         ${kpiTile('סה״כ רווח (Net-חלקים)', fmt(ctx.totalNetLessParts, 'CA$'))}
         ${kpiTile('סה״כ מכירות (ברוטו+מע״מ)', fmt(ctx.totalGrossSoldIncludingGst, 'CA$'))}
       </div>
-      ${ctx.warnings?.length ? `<div class="monday-warnings">${ctx.warnings.map(w => `<div>⚠ ${esc(w)}</div>`).join('')}</div>` : ''}
+      ${warnings}
     </div>
   `;
 }
@@ -143,19 +189,30 @@ function kpiTile(label, value) {
   return `<div class="monday-kpi-item"><span class="kpi-label">${esc(label)}</span><span class="kpi-value">${value}</span></div>`;
 }
 
+// ── Header status badge ───────────────────────────────────────────────────────
+
 export function updateHeaderStatus(ctx, lastFetched, dateFrom, dateTo) {
   const statusEl = document.getElementById('monday-header-status');
   if (!statusEl) return;
+
   if (!ctx) {
     statusEl.textContent = 'לא מחובר';
-    statusEl.className = 'monday-header-status';
+    statusEl.className   = 'monday-header-status';
     return;
   }
-  const range = (dateFrom || dateTo) ? ` | ${dateFrom ?? ''}${dateFrom && dateTo ? '–' : ''}${dateTo ?? ''}` : '';
-  const dt = lastFetched ? new Date(lastFetched).toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' }) : '';
+
+  const range = (dateFrom || dateTo)
+    ? ` | ${dateFrom ?? ''}${dateFrom && dateTo ? '–' : ''}${dateTo ?? ''}`
+    : '';
+  const dt = lastFetched
+    ? new Date(lastFetched).toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' })
+    : '';
+
   statusEl.textContent = `${ctx.paidLeadCount} לידים | ${ctx.closedCount} נסגרו${range} | עודכן ${dt}`;
   statusEl.className   = 'monday-header-status monday-header-status--connected';
 }
+
+// ── Utility ───────────────────────────────────────────────────────────────────
 
 function esc(str) {
   return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

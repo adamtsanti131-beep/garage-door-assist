@@ -59,6 +59,11 @@ export class MondayError extends Error {
  * @returns {Promise<Object>}     — aggregated KPI context
  */
 export async function fetchMondayData(apiToken, boardId, dateFrom = null, dateTo = null) {
+  // Swap dates if from > to
+  if (dateFrom && dateTo && new Date(dateFrom) > new Date(dateTo)) {
+    [dateFrom, dateTo] = [dateTo, dateFrom];
+  }
+
   // ── Step 1: fetch board column definitions ──────────────────────────────────
   const columnsQuery = `{
     boards(ids: [${boardId}]) {
@@ -105,7 +110,7 @@ function buildColumnMap(columns) {
   const map = {};
   for (const [key, title] of Object.entries(COLUMN_TITLES)) {
     const col = columns.find(c => c.title === title);
-    if (col) map[key] = col.id;
+    if (col) map[key] = { id: col.id, type: col.type };
   }
   return map;
 }
@@ -116,8 +121,8 @@ function buildColumnMap(columns) {
 
 function resolveDateColumn(columns, colMap) {
   if (colMap.date) {
-    const col = columns.find(c => c.id === colMap.date);
-    return { columnId: colMap.date, columnTitle: col?.title ?? COLUMN_TITLES.date, fallbackUsed: false };
+    const col = columns.find(c => c.id === colMap.date.id);
+    return { columnId: colMap.date.id, columnTitle: col?.title ?? COLUMN_TITLES.date, fallbackUsed: false };
   }
 
   // Fallback: first column with type === 'date'
@@ -170,15 +175,25 @@ function parseItem(item, colMap) {
     byId[cv.id] = cv;
   }
 
-  const getText  = key => (colMap[key] ? byId[colMap[key]]?.text?.trim() ?? '' : '');
+  const getText  = key => (colMap[key] ? byId[colMap[key].id]?.text?.trim() ?? '' : '');
   const getNum   = key => {
-    const raw = colMap[key] ? byId[colMap[key]]?.text?.trim() : null;
+    const col = colMap[key];
+    if (!col) return null;
+    const cv = byId[col.id];
+    if (!cv) return null;
+    let raw;
+    if (col.type === 'formula' || col.type === 'numbers') {
+      raw = cv.value ?? cv.text;
+    } else {
+      raw = cv.text;
+    }
     if (!raw) return null;
-    const n = parseFloat(raw.replace(/[^0-9.-]/g, ''));
+    const str = raw.toString().replace(/[^0-9.-]/g, '');
+    const n = parseFloat(str);
     return Number.isFinite(n) ? n : null;
   };
 
-  return {
+  const result = {
     id:           item.id,
     source:       getText('source'),
     jobStatus:    getText('jobStatus'),
@@ -194,6 +209,8 @@ function parseItem(item, colMap) {
     matchType:    getText('matchType'),
     device:       getText('device'),
   };
+
+  return result;
 }
 
 // ── Date filtering ────────────────────────────────────────────────────────────
@@ -312,6 +329,8 @@ function aggregate(paid, warnings, colMap) {
 async function gqlRequest(apiToken, query) {
   let res;
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
     res = await fetch(MONDAY_API, {
       method:  'POST',
       headers: {
@@ -319,8 +338,13 @@ async function gqlRequest(apiToken, query) {
         Authorization:   `Bearer ${apiToken}`,
       },
       body: JSON.stringify({ query }),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
   } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new MondayError('network_error', 'החיבור ל-Monday.com נכשל בגלל timeout — נסה שוב מאוחר יותר', err);
+    }
     throw new MondayError('network_error', 'לא ניתן להתחבר ל-Monday.com — בדוק את החיבור לאינטרנט', err);
   }
 

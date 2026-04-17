@@ -411,6 +411,21 @@ function estimateConfidence(finding, actionType, measurementTrust, context, repo
     score -= 0.1;
   }
 
+  // Monday CRM context: adjust confidence for scale/opportunity decisions based on real funnel quality.
+  // Boost when close rate is healthy and job value is high — these confirm the lead funnel is working.
+  // Reduce when backend quality is weak — scale decisions become less safe without confirmed conversion.
+  const crm = context.mondayContext;
+  if (crm && (crm.paidLeadCount ?? 0) >= 10) {
+    const closeRate = crm.closeRate ?? 0;
+    const avgNet    = crm.avgNetRevenue ?? 0;
+    const bookRate  = crm.bookRate ?? 0;
+    if (finding.category === 'opportunity' || actionType === 'scale_winner') {
+      if (closeRate >= 0.25 && avgNet >= 600) score += 0.1;   // healthy funnel + high value → safer to scale
+      if (closeRate < 0.20 || bookRate < 0.25) score -= 0.12; // weak funnel → scale suggestions less confident
+    }
+    if (actionType === 'scale_winner' && closeRate >= 0.25) score += 0.05; // additional boost for confirmed closers
+  }
+
   if (score >= 0.75) return 'ביטחון גבוה';
   if (score >= 0.55) return 'ביטחון בינוני';
   return 'ביטחון נמוך';
@@ -1272,6 +1287,7 @@ function buildMondayAwareDecisions(mondayCtx, data, measurementTrust, context) {
       execution_step:        5,
       confidence:            'ביטחון בינוני',
       category:              'opportunity',
+      crm_sourced:           true,
       entity_level:          'account',
       entity_name:           'ערך עסקה גבוה',
       reason:                `Net ממוצע לעסקה סגורה הוא ${money(avgNetRevenue)} — לא מומלץ לאופטימיזציה אגרסיבית להורדת מחיר הליד.`,
@@ -1304,6 +1320,7 @@ function buildMondayAwareDecisions(mondayCtx, data, measurementTrust, context) {
       execution_step:        5,
       confidence:            blocked ? 'ביטחון נמוך' : 'ביטחון בינוני',
       category:              'opportunity',
+      crm_sourced:           true,
       entity_level:          'account',
       entity_name:           'שיעור סגירה בריא',
       reason:                `שיעור סגירה של ${pct(closeRate)} עם ${paidLeadCount} לידים — יש מקום להגדלה זהירה מהאזורים החזקים.`,
@@ -1483,7 +1500,8 @@ function compressOpportunities(decisions, measurementTrust) {
   }
 
   if (measurementTrust === 'untrusted') {
-    opportunities = [];
+    // CRM-sourced decisions are not dependent on Google Ads tracking — keep them even when untrusted
+    opportunities = opportunities.filter(d => d.crm_sourced === true);
   }
 
   opportunities.sort((a, b) => {
