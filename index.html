@@ -107,6 +107,19 @@
       </div>
     </section>
 
+    <!-- Monday.com CRM Panel -->
+    <section class="monday-section">
+      <div class="monday-section-header">
+        <span class="monday-logo-dot"></span>
+        <h2>נתוני CRM — Monday.com</h2>
+        <span class="monday-header-status" id="monday-header-status">לא מחובר</span>
+        <button class="monday-toggle-btn" id="monday-toggle-btn" aria-label="הצג/הסתר">▼</button>
+      </div>
+      <div class="monday-panel-body" id="monday-panel-body">
+        <div id="monday-form"></div>
+      </div>
+    </section>
+
     <!-- Report Section (hidden until first analysis) -->
     <section class="report-section" id="report-section" style="display:none">
 
@@ -117,6 +130,9 @@
 
       <!-- Summary Bar -->
       <div class="report-summary" id="report-summary"></div>
+
+      <!-- Monday.com CRM outcomes (shown when connected) -->
+      <div id="monday-outcomes" style="display:none"></div>
 
       <!-- Top 3 Actions — prominent, first thing the user sees -->
       <div id="top-actions-summary" style="display:none"></div>

@@ -18,6 +18,7 @@ import { REPORT_TYPES }  from './src/parser/schemas.js';
 import { routeReport }   from './src/parser/reportRouter.js';
 import { runRules }      from './src/analysis/rulesEngine.js';
 import { buildReport }   from './src/analysis/reportBuilder.js';
+import { fetchMondayData, MondayError } from './src/monday/mondayAggregator.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -162,6 +163,32 @@ app.post('/analyze', upload.fields(UPLOAD_FIELDS), (req, res) => {
   }
 });
 
+// ── POST /monday/fetch ────────────────────────────────────────────────────────
+// Accepts JSON: { apiToken, boardId, dateFrom?, dateTo? }
+// Returns aggregated KPI context from the Monday.com board.
+
+app.post('/monday/fetch', async (req, res) => {
+  const { apiToken, boardId, dateFrom, dateTo } = req.body ?? {};
+
+  if (!apiToken || !boardId) {
+    return res.status(400).json({ error: 'יש לספק apiToken ו-boardId' });
+  }
+
+  try {
+    const context = await fetchMondayData(apiToken, boardId, dateFrom ?? null, dateTo ?? null);
+    res.json(context);
+  } catch (err) {
+    if (err instanceof MondayError) {
+      const statusCode = err.code === 'auth_error' ? 401
+                       : err.code === 'board_not_found' ? 404
+                       : 502;
+      return res.status(statusCode).json({ error: err.hebrew });
+    }
+    console.error('[/monday/fetch] שגיאה לא צפויה:', err);
+    res.status(500).json({ error: 'שגיאת שרת בלתי צפויה בחיבור ל-Monday.com' });
+  }
+});
+
 // ── Static files (production build) ──────────────────────────────────────────
 // In production Render builds the Vite app first, then Express serves it.
 
@@ -216,6 +243,12 @@ function parseBusinessContext(raw) {
       trackingTrusted: toNullableBoolean(parsed.trackingTrusted),
       offlineConversionsImported: toNullableBoolean(parsed.offlineConversionsImported),
       goodLeadNote: safeString(parsed.goodLeadNote),
+      // Monday.com enrichment (optional — null when not connected)
+      closeRate: toNullableNumber(parsed.closeRate),
+      bookRate: toNullableNumber(parsed.bookRate),
+      avgNetRevenue: toNullableNumber(parsed.avgNetRevenue),
+      avgNetLessParts: toNullableNumber(parsed.avgNetLessParts),
+      mondayContext: parsed.mondayContext ?? null,
     };
   } catch {
     return {};

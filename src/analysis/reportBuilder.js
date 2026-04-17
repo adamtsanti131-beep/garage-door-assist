@@ -48,6 +48,7 @@ export function buildReport(findings, data, businessContext = {}, reportStatuses
       serviceArea: businessContext.serviceArea ?? null,
       trackingTrusted: businessContext.trackingTrusted ?? null,
       offlineConversionsImported: businessContext.offlineConversionsImported ?? null,
+      mondayContext: businessContext.mondayContext ?? null,
     },
   };
 }
