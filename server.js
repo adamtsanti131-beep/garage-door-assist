@@ -164,16 +164,19 @@ app.post('/analyze', upload.fields(UPLOAD_FIELDS), (req, res) => {
 });
 
 // ── POST /monday/fetch ────────────────────────────────────────────────────────
-// Accepts JSON: { apiToken, boardId, dateFrom?, dateTo? }
-// Returns aggregated KPI context from the Monday.com board.
+// Accepts JSON: { dateFrom?, dateTo? }
+// Credentials are read from MONDAY_API_TOKEN and MONDAY_BOARD_ID env vars.
 
 app.post('/monday/fetch', async (req, res) => {
-  console.log('[/monday/fetch] request received, boardId:', req.body?.boardId);
-  const { apiToken, boardId, dateFrom, dateTo } = req.body ?? {};
+  const apiToken = process.env.MONDAY_API_TOKEN;
+  const boardId  = process.env.MONDAY_BOARD_ID;
 
   if (!apiToken || !boardId) {
-    return res.status(400).json({ error: 'יש לספק apiToken ו-boardId' });
+    return res.status(503).json({ error: 'Monday.com לא מוגדר בשרת — הגדר MONDAY_API_TOKEN ו-MONDAY_BOARD_ID בקובץ .env' });
   }
+
+  const { dateFrom, dateTo } = req.body ?? {};
+  console.log('[/monday/fetch] request received, boardId:', boardId, 'dateFrom:', dateFrom, 'dateTo:', dateTo);
 
   try {
     const context = await fetchMondayData(apiToken, boardId, dateFrom ?? null, dateTo ?? null);

@@ -1,7 +1,7 @@
 /**
  * mondayPanel.js
  * UI for the Monday.com CRM connection panel.
- * Manual-trigger only — user clicks "התחבר" to fetch data.
+ * Credentials live server-side (.env). Frontend only shows date range + fetch button.
  */
 
 import { loadMondayConfig, saveMondayConfig, clearMondayConfig } from '../storage/mondayConfig.js';
@@ -13,22 +13,20 @@ export function initMondayPanel() {
 
   if (!toggleBtn || !body || !formEl) return;
 
-  // Load saved config and render
   const config = loadMondayConfig();
   renderPanel(config);
 
-  // Toggle panel open/close
   toggleBtn.addEventListener('click', () => {
     const isOpen = body.style.display !== 'none';
     body.style.display = isOpen ? 'none' : '';
     toggleBtn.textContent = isOpen ? '▼' : '▲';
   });
 
-  // Start collapsed if already connected
+  // Start collapsed when we already have data
   if (config.mondayContext) {
     body.style.display = 'none';
     toggleBtn.textContent = '▼';
-    updateHeaderStatus(config.mondayContext, config.lastFetched);
+    updateHeaderStatus(config.mondayContext, config.lastFetched, config.dateFrom, config.dateTo);
   }
 }
 
@@ -39,16 +37,6 @@ function renderPanel(config) {
   formEl.innerHTML = `
     <div class="monday-fields">
       <div class="monday-field">
-        <label for="monday-token">API Token</label>
-        <input type="password" id="monday-token" placeholder="הזן טוקן API של Monday.com"
-               value="${esc(config.apiToken ?? '')}" autocomplete="off" />
-      </div>
-      <div class="monday-field">
-        <label for="monday-board">Board ID</label>
-        <input type="text" id="monday-board" placeholder="מזהה הלוח (מספרי)"
-               value="${esc(config.boardId ?? '')}" />
-      </div>
-      <div class="monday-field">
         <label for="monday-from">מתאריך</label>
         <input type="date" id="monday-from" value="${esc(config.dateFrom ?? '')}" />
       </div>
@@ -58,38 +46,39 @@ function renderPanel(config) {
       </div>
     </div>
     <div class="monday-actions">
-      <button class="btn-monday-fetch" id="btn-monday-fetch">התחבר</button>
-      ${config.mondayContext ? '<button class="btn-monday-clear" id="btn-monday-clear">נקה חיבור</button>' : ''}
+      <button class="btn-monday-fetch" id="btn-monday-fetch">משוך נתונים</button>
+      ${config.mondayContext ? '<button class="btn-monday-clear" id="btn-monday-clear">נקה נתונים</button>' : ''}
     </div>
     <div class="monday-status" id="monday-status"></div>
-    ${config.mondayContext ? renderKpiSummary(config.mondayContext, config.lastFetched) : ''}
+    ${config.mondayContext ? renderKpiSummary(config.mondayContext, config.lastFetched, config.dateFrom, config.dateTo) : ''}
   `;
+
+  // Persist date range immediately on change so it survives page reload
+  document.getElementById('monday-from')?.addEventListener('change', e => {
+    saveMondayConfig({ dateFrom: e.target.value });
+  });
+  document.getElementById('monday-to')?.addEventListener('change', e => {
+    saveMondayConfig({ dateTo: e.target.value });
+  });
 
   document.getElementById('btn-monday-fetch')?.addEventListener('click', handleFetch);
   document.getElementById('btn-monday-clear')?.addEventListener('click', handleClear);
 }
 
 async function handleFetch() {
-  const token    = document.getElementById('monday-token')?.value?.trim();
-  const boardId  = document.getElementById('monday-board')?.value?.trim();
   const dateFrom = document.getElementById('monday-from')?.value?.trim() || null;
   const dateTo   = document.getElementById('monday-to')?.value?.trim()   || null;
   const statusEl = document.getElementById('monday-status');
   const fetchBtn = document.getElementById('btn-monday-fetch');
 
-  if (!token || !boardId) {
-    if (statusEl) statusEl.textContent = 'יש להזין טוקן API ומזהה לוח';
-    return;
-  }
-
-  if (fetchBtn) { fetchBtn.disabled = true; fetchBtn.textContent = 'מתחבר...'; }
+  if (fetchBtn) { fetchBtn.disabled = true; fetchBtn.textContent = 'מושך נתונים...'; }
   if (statusEl) statusEl.textContent = '';
 
   try {
     const res = await fetch('/monday/fetch', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ apiToken: token, boardId, dateFrom, dateTo }),
+      body:    JSON.stringify({ dateFrom, dateTo }),
     });
 
     const data = await res.json();
@@ -100,8 +89,8 @@ async function handleFetch() {
     }
 
     const lastFetched = new Date().toISOString();
-    saveMondayConfig({ apiToken: token, boardId, dateFrom, dateTo, lastFetched, mondayContext: data });
-    updateHeaderStatus(data, lastFetched);
+    saveMondayConfig({ dateFrom: dateFrom ?? '', dateTo: dateTo ?? '', lastFetched, mondayContext: data });
+    updateHeaderStatus(data, lastFetched, dateFrom, dateTo);
     renderPanel(loadMondayConfig());
 
     document.dispatchEvent(new CustomEvent('monday-context-updated', { detail: data }));
@@ -110,27 +99,28 @@ async function handleFetch() {
     if (statusEl) statusEl.textContent = 'לא ניתן להתחבר לשרת';
     console.error('[MondayPanel]', err);
   } finally {
-    if (fetchBtn) { fetchBtn.disabled = false; fetchBtn.textContent = 'התחבר'; }
+    if (fetchBtn) { fetchBtn.disabled = false; fetchBtn.textContent = 'משוך נתונים'; }
   }
 }
 
 function handleClear() {
   clearMondayConfig();
-  updateHeaderStatus(null, null);
-  renderPanel({ apiToken: '', boardId: '', dateFrom: '', dateTo: '', mondayContext: null });
+  updateHeaderStatus(null, null, null, null);
+  renderPanel({ dateFrom: '', dateTo: '', mondayContext: null });
   document.dispatchEvent(new CustomEvent('monday-context-updated', { detail: null }));
 }
 
-function renderKpiSummary(ctx, lastFetched) {
+function renderKpiSummary(ctx, lastFetched, dateFrom, dateTo) {
   if (!ctx) return '';
 
   const fmt  = (v, prefix = '') => v != null ? `${prefix}${Number(v).toLocaleString('he-IL', { maximumFractionDigits: 0 })}` : '—';
   const fmtP = v => v != null ? `${(v * 100).toFixed(1)}%` : '—';
   const dt   = lastFetched ? new Date(lastFetched).toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' }) : '';
+  const range = (dateFrom || dateTo) ? ` | ${dateFrom ?? ''}${dateFrom && dateTo ? ' — ' : ''}${dateTo ?? ''}` : '';
 
   return `
     <div class="monday-kpi-block">
-      <div class="monday-kpi-block-title">CRM — נתוני Google Ads בלבד${dt ? ` (עודכן: ${dt})` : ''}</div>
+      <div class="monday-kpi-block-title">CRM — Google Ads בלבד${range}${dt ? ` (עודכן: ${dt})` : ''}</div>
       <div class="monday-kpi-grid">
         ${kpiTile('לידים (ממומן)', fmt(ctx.paidLeadCount))}
         ${kpiTile('הוזמנו', fmt(ctx.bookedCount))}
@@ -153,7 +143,7 @@ function kpiTile(label, value) {
   return `<div class="monday-kpi-item"><span class="kpi-label">${esc(label)}</span><span class="kpi-value">${value}</span></div>`;
 }
 
-export function updateHeaderStatus(ctx, lastFetched) {
+export function updateHeaderStatus(ctx, lastFetched, dateFrom, dateTo) {
   const statusEl = document.getElementById('monday-header-status');
   if (!statusEl) return;
   if (!ctx) {
@@ -161,8 +151,9 @@ export function updateHeaderStatus(ctx, lastFetched) {
     statusEl.className = 'monday-header-status';
     return;
   }
+  const range = (dateFrom || dateTo) ? ` | ${dateFrom ?? ''}${dateFrom && dateTo ? '–' : ''}${dateTo ?? ''}` : '';
   const dt = lastFetched ? new Date(lastFetched).toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' }) : '';
-  statusEl.textContent = `${ctx.paidLeadCount} לידים | ${ctx.closedCount} נסגרו | עודכן ${dt}`;
+  statusEl.textContent = `${ctx.paidLeadCount} לידים | ${ctx.closedCount} נסגרו${range} | עודכן ${dt}`;
   statusEl.className   = 'monday-header-status monday-header-status--connected';
 }
 

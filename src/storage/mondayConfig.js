@@ -1,14 +1,12 @@
 /**
  * mondayConfig.js
- * localStorage wrapper for Monday.com connection config and fetched context.
- * API token stored client-side — acceptable for a single-user personal tool.
+ * localStorage wrapper for Monday.com date range and fetched KPI context.
+ * API token and board ID are server-side only (MONDAY_API_TOKEN / MONDAY_BOARD_ID in .env).
  */
 
 const KEY = 'ppc_monday_config_v1';
 
 const DEFAULTS = {
-  apiToken:     '',
-  boardId:      '',
   dateFrom:     '',
   dateTo:       '',
   lastFetched:  null,
@@ -19,7 +17,10 @@ export function loadMondayConfig() {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return { ...DEFAULTS };
-    return { ...DEFAULTS, ...JSON.parse(raw) };
+    const parsed = JSON.parse(raw);
+    // Strip any legacy apiToken / boardId that may have been saved previously
+    const { apiToken: _a, boardId: _b, ...rest } = parsed;
+    return { ...DEFAULTS, ...rest };
   } catch {
     return { ...DEFAULTS };
   }
@@ -28,7 +29,9 @@ export function loadMondayConfig() {
 export function saveMondayConfig(patch) {
   try {
     const current = loadMondayConfig();
-    localStorage.setItem(KEY, JSON.stringify({ ...current, ...patch }));
+    // Never persist credentials to localStorage
+    const { apiToken: _a, boardId: _b, ...safePatch } = patch;
+    localStorage.setItem(KEY, JSON.stringify({ ...current, ...safePatch }));
   } catch {
     // localStorage unavailable — silent fail
   }
