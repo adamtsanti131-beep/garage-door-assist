@@ -286,6 +286,11 @@ function aggregate(paid, warnings, colMap) {
   const avgNetRevenue    = closedWithNet > 0 ? totalNet          / closedWithNet : null;
   const avgNetLessParts  = closedWithNlp > 0 ? totalNetLessParts / closedWithNlp : null;
 
+  // Warn when closed deals have no revenue data at all — silent blanks are confusing
+  if (closedCount > 0 && closedWithNet === 0 && closedWithNlp === 0) {
+    warnings.push(`נסגרו ${closedCount} עסקות אך לא נמצאו ערכי הכנסה — בדוק שעמודות "Net" ו-"Net Less Parts" ממולאות בלוח`);
+  }
+
   return {
     paidLeadCount,
     bookedCount,
