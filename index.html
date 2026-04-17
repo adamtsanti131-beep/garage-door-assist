@@ -17,64 +17,6 @@
 
   <main class="app-main">
 
-    <section class="context-section">
-      <h2>הקשר עסקי (משפר את איכות ההחלטות)</h2>
-      <form id="business-context-form" class="context-grid">
-        <label class="context-field">
-          <span>יעד CPL (ש״ח/דולר לפי החשבון)</span>
-          <input type="number" id="target-cpl" min="0" step="1" placeholder="לדוגמה: 90" />
-        </label>
-
-        <label class="context-field">
-          <span>אזור שירות ראשי</span>
-          <input type="text" id="service-area" placeholder="לדוגמה: תל אביב + ערים סמוכות" />
-        </label>
-
-        <label class="context-field">
-          <span>שירותים מוחרגים</span>
-          <input type="text" id="excluded-services" placeholder="לדוגמה: התקנות מסחריות, שערים" />
-        </label>
-
-        <label class="context-field">
-          <span>סוג ליד מועדף</span>
-          <input type="text" id="preferred-lead-type" placeholder="לדוגמה: שיחות חירום" />
-        </label>
-
-        <label class="context-field">
-          <span>ערך עסקה ממוצע</span>
-          <input type="number" id="average-deal-value" min="0" step="1" placeholder="אופציונלי" />
-        </label>
-
-        <label class="context-field">
-          <span>האם אפשר לסמוך על מעקב ההמרות?</span>
-          <select id="tracking-trusted">
-            <option value="">לא הוגדר</option>
-            <option value="true">כן</option>
-            <option value="false">לא</option>
-          </select>
-        </label>
-
-        <label class="context-field">
-          <span>האם מיובאות המרות אופליין?</span>
-          <select id="offline-conversions-imported">
-            <option value="">לא הוגדר</option>
-            <option value="true">כן</option>
-            <option value="false">לא</option>
-          </select>
-        </label>
-
-        <label class="context-field context-field--wide">
-          <span>מה נחשב ליד איכותי? (הערה אופציונלית)</span>
-          <textarea id="good-lead-note" rows="2" placeholder="לדוגמה: שיחות מבעלי בתים להחלפת קפיץ"></textarea>
-        </label>
-
-        <div class="context-actions">
-          <button class="btn-save-context" type="submit">שמירת הקשר עסקי</button>
-          <span id="business-context-status" class="context-status">מילוי הטופס משפר את איכות ההמלצות.</span>
-        </div>
-      </form>
-    </section>
-
     <!-- Upload Section -->
     <section class="upload-section">
       <h2>העלאת דוחות</h2>
@@ -176,78 +118,28 @@
       <!-- Summary Bar -->
       <div class="report-summary" id="report-summary"></div>
 
+      <!-- Top 3 Actions — prominent, first thing the user sees -->
+      <div id="top-actions-summary" style="display:none"></div>
+
       <div class="account-status" id="account-status"></div>
 
-      <div class="decision-order" id="decision-order"></div>
+      <!-- Findings by category — rendered by reportRenderer.js -->
+      <div id="findings-categories"></div>
 
-      <div class="decision-grid">
-        <div class="report-card decisions-now">
-          <h3>מה לעשות עכשיו</h3>
-          <div class="report-items" id="items-immediate-actions"></div>
+      <!-- Coverage (detail section at bottom) -->
+      <details class="coverage-details" id="coverage-panel">
+        <summary class="coverage-summary-toggle">כיסוי דוחות ומגבלות</summary>
+        <div class="coverage-inner">
+          <div class="report-card coverage-card">
+            <h3>כיסוי דוחות</h3>
+            <div class="report-items" id="items-report-coverage"></div>
+          </div>
+          <div class="report-card limitations-card">
+            <h3>ידוע, סביר, ולא ידוע</h3>
+            <div class="report-items" id="items-limitations"></div>
+          </div>
         </div>
-
-        <div class="report-card decisions-review">
-          <h3>לבדוק לפני פעולה</h3>
-          <div class="report-items" id="items-review-actions"></div>
-        </div>
-
-        <div class="report-card decisions-secondary">
-          <h3>פעולות משניות</h3>
-          <div class="report-items" id="items-secondary-actions"></div>
-        </div>
-
-        <div class="report-card decisions-hold">
-          <h3>לא לשנות עדיין</h3>
-          <div class="report-items" id="items-hold-actions"></div>
-        </div>
-
-        <div class="report-card decisions-scale">
-          <h3>הגדלה בהמשך (לאחר תנאי סף)</h3>
-          <div class="report-items" id="items-scale-actions"></div>
-        </div>
-      </div>
-
-      <div class="coverage-grid">
-        <div class="report-card coverage-card">
-          <h3>כיסוי דוחות</h3>
-          <div class="report-items" id="items-report-coverage"></div>
-        </div>
-
-        <div class="report-card limitations-card">
-          <h3>ידוע, סביר, ולא ידוע</h3>
-          <div class="report-items" id="items-limitations"></div>
-        </div>
-      </div>
-
-      <!-- Legacy category panels kept as supporting evidence -->
-      <div class="report-grid">
-
-        <div class="report-card waste">
-          <h3>🗑️ בזבוז — לעצור הוצאה כאן</h3>
-          <div class="report-items" id="items-waste"></div>
-        </div>
-
-        <div class="report-card opportunities">
-          <h3>🚀 הזדמנויות — להרחיב כאן</h3>
-          <div class="report-items" id="items-opportunities"></div>
-        </div>
-
-        <div class="report-card control-risks">
-          <h3>⚠️ סיכוני שליטה — לתקן השבוע</h3>
-          <div class="report-items" id="items-control-risks"></div>
-        </div>
-
-        <div class="report-card measurement-risks">
-          <h3>📡 סיכוני מדידה — לבדוק את הנתונים</h3>
-          <div class="report-items" id="items-measurement-risks"></div>
-        </div>
-
-        <div class="report-card actions">
-          <h3>🎯 3 הפעולות המובילות להיום</h3>
-          <div class="report-items" id="items-actions"></div>
-        </div>
-
-      </div>
+      </details>
     </section>
 
     <!-- History Section -->

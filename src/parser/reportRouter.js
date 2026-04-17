@@ -49,25 +49,50 @@ export function routeReport(csvText, reportType) {
   }
 
   // Auto-detect the likely type and warn only when strongly confident it differs.
-  // We require strength >= 2 (a uniquely identifying field set) to avoid false
-  // positives — e.g. Device reports contain adGroup + campaign columns and would
-  // otherwise trigger a spurious "looks like Ad Group" warning.
+  // We only show user-facing mismatch warnings for strength >= 3 (very strong signals).
+  // Weak signals (strength 1-2) are logged internally but never surfaced to the UI.
   try {
     const { headers } = parseCSV(csvText);
     if (headers.length > 0) {
       const detected = detectReportType(headers);
-      if (detected && detected.type !== reportType && detected.strength >= 2) {
+      if (detected) {
         const detectedLabel = SCHEMAS[detected.type]?.label ?? detected.type;
         const expectedLabel = SCHEMAS[reportType]?.label ?? reportType;
-        result.validation.warnings.unshift(
-          `נראה שזה קובץ מסוג "${detectedLabel}", אבל הוא הועלה לשדה "${expectedLabel}". יש לבדוק שהקובץ הועלה למקום הנכון.`
-        );
-        result.detectedType = detected.type;
+        if (detected.type === reportType) {
+          // Perfect match: file is what was expected
+          result.validation.slotMatch = {
+            state: 'match_confirmed',
+            reason: `נמצאו שדות שמאשרים את סוג הדוח "${expectedLabel}".`,
+          };
+        } else if (detected.strength >= 3) {
+          // Very strong mismatch signal: show warning to user
+          result.validation.slotMatch = {
+            state: 'strong_mismatch',
+            reason: `השדות דומים יותר לדוח "${detectedLabel}" מאשר ל"${expectedLabel}".`,
+          };
+          result.validation.warnings.unshift(
+            `יתכן שקובץ זה מתאים יותר ל"${detectedLabel}" מאשר ל"${expectedLabel}". יש לוודא שהקובץ הועלה לסלוט הנכון.`
+          );
+          result.detectedType = detected.type;
+        } else {
+          // Weak signal (strength 1-2): don't show mismatch to user, stay neutral
+          // (could be a generic column like "Locations of interest" in an Ad Group file)
+          result.validation.slotMatch = {
+            state: 'likely_match',
+            reason: `לא נמצאו שדות חזקים שמצביעים על סוג דוח אחר.`,
+          };
+        }
+      } else {
+        result.validation.slotMatch = {
+          state: 'likely_match',
+          reason: `לא ניתן לזהות את סוג הקובץ על סמך כותרות העמודות.`,
+        };
       }
     }
   } catch {
     // auto-detection is best-effort — never block on failure
   }
+
 
   return result;
 }

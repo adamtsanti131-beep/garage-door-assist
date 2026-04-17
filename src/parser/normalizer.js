@@ -41,20 +41,78 @@ export function normalizeRows(rawRows, reportType) {
  * @param {string[]} columnNames — raw column names from the CSV header
  * @returns {{ type: string, strength: number }|null}
  */
+const LOCATION_SPECIFIC_KEYWORDS = [
+  'most specific location',
+  'matched location',
+  'location type',
+  'country/territory',
+  'country',
+  'region',
+  'city',
+  'metro area',
+  'postal code',
+  'province',
+  'state',
+  'suburb',
+  'locality',
+];
+const LOCATION_GENERIC_KEYWORDS = [
+  'location',
+  'locations of interest',
+  'user location',
+];
+
 export function detectReportType(columnNames) {
+  const lowerHeaders = columnNames.map(col => col.toLowerCase().trim());
   const colMap  = buildColumnMap(columnNames);
   const present = new Set(Object.values(colMap));
 
   let best = null;
   for (const signal of DETECTION_SIGNALS) {
+    if (signal.type === REPORT_TYPES.LOCATION) continue;
     if (signal.fields.every(f => present.has(f))) {
       if (!best || (signal.strength ?? 1) > (best.strength ?? 1)) {
         best = signal;
       }
     }
   }
+
+  const locationSignal = detectLocationReport(lowerHeaders, present);
+  if (locationSignal && (!best || locationSignal.strength > (best.strength ?? 1))) {
+    best = locationSignal;
+  }
+
   if (!best) return null;
   return { type: best.type, strength: best.strength ?? 1 };
+}
+
+function detectLocationReport(lowerHeaders, presentFields) {
+  const hasSpecificLocation = lowerHeaders.some(header =>
+    LOCATION_SPECIFIC_KEYWORDS.some(keyword => header.includes(keyword))
+  );
+  const hasGenericLocation = lowerHeaders.some(header =>
+    LOCATION_GENERIC_KEYWORDS.some(keyword => header.includes(keyword))
+  );
+
+  // If the file contains strong identity signals for other report types,
+  // do not treat a generic location header as a location report.
+  const hasOtherIdentity = presentFields.has('adGroup') || presentFields.has('searchTerm') ||
+    presentFields.has('keyword') || presentFields.has('device') || presentFields.has('adDescription') ||
+    presentFields.has('finalUrl');
+
+  if (hasSpecificLocation && !hasOtherIdentity) {
+    return { type: REPORT_TYPES.LOCATION, strength: 3 };
+  }
+
+  if (hasSpecificLocation && hasOtherIdentity) {
+    return { type: REPORT_TYPES.LOCATION, strength: 1 };
+  }
+
+  if (hasGenericLocation && !hasOtherIdentity) {
+    return { type: REPORT_TYPES.LOCATION, strength: 2 };
+  }
+
+  return null;
 }
 
 // ── Row normalizer ────────────────────────────────────────────────────────────
@@ -184,12 +242,23 @@ function parseValue(raw, field) {
   // Numeric fields — strip currency symbols and thousands separators
   const cleaned = str.replace(/[CA$£€,\s]/g, '');
   const n = parseFloat(cleaned);
-  return isNaN(n) ? null : n;
+  if (isNaN(n)) return null;
+  // Google Ads never exports negative metric values — treat as parsing artifact
+  if (n < 0 && NON_NEGATIVE_FIELDS.has(field)) return null;
+  return n;
 }
 
 const STRING_FIELDS = new Set([
   'campaign', 'adGroup', 'searchTerm', 'keyword', 'matchType',
   'device', 'location', 'finalUrl', 'adDescription', 'adStatus',
+]);
+
+// These fields can never be negative in a valid Google Ads export.
+// Negative values indicate a parsing artifact — treat as null.
+const NON_NEGATIVE_FIELDS = new Set([
+  'clicks', 'impressions', 'cost', 'conversions',
+  'ctr', 'avgCpc', 'conversionRate', 'costPerConversion',
+  'searchImprShare', 'searchLostIsRank', 'searchLostIsBudget', 'qualityScore',
 ]);
 
 function isStringField(field) { return STRING_FIELDS.has(field); }
@@ -209,7 +278,10 @@ function isAggregateNormalizedRow(row) {
 
   if (identityValues.length === 0) return false;
   const first = normalizeLabel(identityValues[0]);
-  return /^(total|subtotal|grand total|total:|total\s*-|sum\s+of)/i.test(first);
+  // Require the entire label to be a known aggregate keyword (no trailing text).
+  // This prevents false positives on campaign names like "Total Remodeling LLC".
+  // English patterns + Hebrew equivalents (Google Ads exports in Hebrew locale).
+  return /^(total|subtotal|grand total|total:|total\s*-|sum\s+of|total row|סה"כ|סהכ|כולל|סיכום|סך הכל|שורת סיכום)\s*$/i.test(first);
 }
 
 function normalizeLabel(value) {

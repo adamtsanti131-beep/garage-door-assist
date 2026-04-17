@@ -159,7 +159,11 @@ export const DETECTION_SIGNALS = [
   { type: REPORT_TYPES.KEYWORDS,     fields: ['keyword', 'matchType'],    strength: 3 },
   { type: REPORT_TYPES.DEVICES,      fields: ['device'],                  strength: 3 },
   { type: REPORT_TYPES.LOCATION,     fields: ['location'],                strength: 3 },
-  { type: REPORT_TYPES.ADS,          fields: ['adDescription', 'finalUrl'], strength: 2 },
+  // Ads: primary signal requires both adDescription and finalUrl (strongest).
+  // Secondary: adDescription + adStatus covers exports where Final URL is absent.
+  // Both at strength 2 — either combination is sufficient to identify an Ads report.
+  { type: REPORT_TYPES.ADS,          fields: ['adDescription', 'finalUrl'],  strength: 2 },
+  { type: REPORT_TYPES.ADS,          fields: ['adDescription', 'adStatus'],  strength: 2 },
   { type: REPORT_TYPES.AD_GROUP,     fields: ['adGroup'],                 strength: 1 },
   { type: REPORT_TYPES.CAMPAIGN,     fields: ['campaign'],                strength: 1 },  // weakest
 ];

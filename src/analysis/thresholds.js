@@ -17,12 +17,16 @@ export const THRESHOLDS = {
   cplSevere:              150,   // > 150 — severe, immediate attention
 
   // ── WASTE DETECTION — zero leads ──────────────────────────────────────────
-  // Flag if: cost >= minSpendForWaste
-  //       OR clicks >= minClicksForWaste
-  //       OR (cost >= minSpendWithClicksGate AND clicks >= minClicksForWaste)
-  minSpendForWaste:        75,   // CAD
-  minClicksForWaste:       15,   // clicks
-  minSpendWithClicksGate:  50,   // CAD (when combined with clicks gate)
+  // Tier HIGH  (act now):  cost >= minSpendForWaste AND clicks >= 3,
+  //                     OR clicks >= minClicksForWaste
+  // Tier MEDIUM (watch):   clicks 5–14 AND cost >= minSpendForSoftCaution
+  //                     OR cost >= minSpendWithClicksGate AND clicks 5–14
+  // Tier NONE  (suppress): clicks < 5
+  minSpendForWaste:        75,   // CAD — hard waste tier, spend threshold
+  minClicksForWaste:       15,   // clicks — hard waste tier, click threshold
+  minSpendWithClicksGate:  50,   // CAD — hard waste combined gate
+  minClicksForSoftCaution:  5,   // clicks — soft watch tier starts here
+  minSpendForSoftCaution:  20,   // CAD — minimum spend to show soft watch
 
   // ── DATA SUFFICIENCY ──────────────────────────────────────────────────────
   minClicksForJudgment:           5,   // basic judgment threshold
@@ -31,8 +35,8 @@ export const THRESHOLDS = {
   minImpressionsForQS:            50,  // Quality Score judgment gate
 
   // ── LEADS & SCALING ───────────────────────────────────────────────────────
-  minLeadsForScaling:             2,   // need 2+ leads to recommend scaling
-  minLeadsForWinner:              2,   // need 2+ leads to call "strong performer"
+  minLeadsForScaling:             3,   // need 3+ leads to recommend scaling
+  minLeadsForWinner:              3,   // need 3+ leads to call "strong performer"
   strongConvRatePct:              5.0, // 5%+ lead rate = high-intent signal
 
   // ── QUALITY SIGNALS ───────────────────────────────────────────────────────
@@ -42,7 +46,7 @@ export const THRESHOLDS = {
   highLostIsBudgetWarn:           0.30, // > 30% lost to budget limit
 
   // ── MEASUREMENT RISKS ─────────────────────────────────────────────────────
-  minClicksNoLeadsForTracking:    25,  // 25+ clicks, 0 leads = possible tracking concern
+  minClicksNoLeadsForTracking:    50,  // 50+ clicks with 0 leads = high-confidence tracking gap (stricter than waste thresholds)
 
   // ── ACCOUNT-LEVEL WASTE ───────────────────────────────────────────────────
   wastedSpendWarnPct:             0.15, // 15% of total spend with 0 leads = warning

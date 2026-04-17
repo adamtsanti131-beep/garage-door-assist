@@ -97,6 +97,7 @@ app.post('/analyze', upload.fields(UPLOAD_FIELDS), (req, res) => {
         warnings: result.validation?.warnings ?? [],
         errors: result.validation?.errors ?? [],
         detectedType: result.detectedType ?? null,
+        slotMatch: result.validation?.slotMatch ?? null,
         blockReason: null,
       };
 
@@ -112,11 +113,16 @@ app.post('/analyze', upload.fields(UPLOAD_FIELDS), (req, res) => {
       }
 
       parsedReports[reportType] = result.rows;
+      // Only amber (uploaded_used_with_warnings) for warnings the user can act on:
+      //   - slot mismatch detected (user may have uploaded to wrong slot)
+      //   - suspicious data (e.g. zero conversions whole account, leads > clicks)
+      // NOT for informational-only warnings:
+      //   - "missing preferred columns" (normal — export may not include all columns)
+      //   - "aggregate rows removed" (informational — expected cleanup)
+      const hasMeaningfulWarning = isMeaningfulWarning(result.validation);
       reportStatuses[reportType] = {
         ...baseStatus,
-        status: result.validation.warnings?.length
-          ? 'uploaded_used_with_warnings'
-          : 'uploaded_used',
+        status: hasMeaningfulWarning ? 'uploaded_used_with_warnings' : 'uploaded_used',
       };
     }
 
@@ -243,6 +249,28 @@ function summarizeBlockReason(validation) {
   if (firstError.includes('פענח')) return 'מבנה CSV לא נתמך או קובץ פגום.';
   if (firstError.includes('כותרת')) return 'מבנה ייצוא לא נתמך: לא נמצאה שורת כותרת תקינה.';
   return firstError || 'הקובץ נחסם עקב שגיאת בדיקה.';
+}
+
+/**
+ * A warning is "meaningful" (warrants amber status) only if it signals something
+ * the user can investigate or act on:
+ *   - slot mismatch: user may have uploaded the wrong file
+ *   - suspicious data: zero conversions account-wide, leads > clicks, abnormal CTR
+ *
+ * Informational-only warnings (missing preferred columns, aggregate rows removed)
+ * do NOT trigger amber — they are routine and not actionable by the uploader.
+ */
+function isMeaningfulWarning(validation) {
+  if (!validation) return false;
+
+  // Strong slot-type mismatch
+  if (validation.slotMatch?.state === 'strong_mismatch') return true;
+
+  // Suspicious-data warnings from checkForSuspiciousData() in validator.js
+  const SUSPICIOUS_PREFIXES = ['אפס המרות', 'ההמרות', 'זוהה CTR'];
+  return (validation.warnings ?? []).some(w =>
+    SUSPICIOUS_PREFIXES.some(prefix => w.startsWith(prefix))
+  );
 }
 
 function countCoverageStatuses(reportStatuses) {

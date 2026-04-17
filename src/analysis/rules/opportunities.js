@@ -30,16 +30,16 @@ export function opportunityRules(data) {
 
 /**
  * Search terms/keywords with strong lead generation and good CPL.
- * Excellent (≤55): Always flag as opportunity to protect and scale.
- * Good (56–75): Only flag if there's real volume to justify scaling.
+ * ONLY flag actionable opportunities: excellent CPL OR good CPL with real volume.
+ * Suppress low-volume findings (no decision clarity without more data).
  */
 function strongLeaders(rows) {
   const findings = [];
   for (const r of rows) {
-    if (!hasValue(r.conversions) || r.conversions < Math.max(T.minLeadsForWinner, 2)) continue;
+    if (!hasValue(r.conversions) || r.conversions < Math.max(T.minLeadsForWinner, 3)) continue;
     if (!hasValue(r.cost) || r.cost <= 0) continue;
-    if (!hasValue(r.clicks) || r.clicks < 8) continue;
-    if (r.cost < 25) continue;
+    if (!hasValue(r.clicks) || r.clicks < 10) continue; // stricter
+    if (r.cost < 30) continue; // stricter spend
 
     const cpl = r.cost / r.conversions;
     if (cpl > T.cplGood) continue; // only <= 75 CAD
@@ -48,55 +48,44 @@ function strongLeaders(rows) {
     const isExcellent = cpl <= T.cplExcellent;
     const clicks = r.clicks ?? 0;
 
-    // Excellent CPL: Always opportunity
+    // Excellent CPL: High priority to protect and scale
     if (isExcellent) {
       findings.push({
         category: 'opportunity',
         severity: 'high',
-        what: `"${label}" יצר ${r.conversions} המרות ב-CA$${fmt(cpl)} ל-CPA (הוצאה CA$${fmt(r.cost)}).`,
-        why: 'זהו מנצח יעיל עם מספיק נתונים כדי להגן עליו ולהגדיל אותו.',
+        what: `"${label}" יצר ${r.conversions} לידים ב-CA$${fmt(cpl)} CPL — ביצוע עליון.`,
+        why: 'זה הביצוע הטוב ביותר בנתונים שלך. עליך להגן על התקציב וללחוץ להגדלת נפח בפידליטי זו.',
         action: r.searchTerm
-          ? `לקדם את השאילתה הזו למילת מפתח בהתאמה מדויקת ולהעלות הצעת מחיר בזהירות תוך ניטור CPA.`
-          : 'להגן על נתח התקציב ולבדוק העלאות הצעת מחיר מדודות לצורך הגדלת נפח.',
+          ? `לא להוריד הצעת מחיר. בעד להעלות ב-15%-20% וניטור יעילות. אם CPL נשמר בTa$${T.cplExcellent}, להגדיל עוד.`
+          : `להתמקד בקמפיין זה. להגדיל תקציב יומי בהדרגה ובמקביל להוריד הצעות במקומות חלשים יותר.`,
         data: r,
         signal: 'strong-leader',
       });
     }
-    // Good CPL with meaningful volume: Opportunity to scale
+    // Good CPL with solid volume: Actionable scaling opportunity
     else if (clicks >= 10) {
       findings.push({
         category: 'opportunity',
         severity: 'medium',
-        what: `"${label}" יצר ${r.conversions} המרות ב-CA$${fmt(cpl)} ל-CPA (הוצאה CA$${fmt(r.cost)}).`,
-        why: 'הביצועים יעילים עם נפח שימושי, ולכן זו מועמדת מעשית להגדלה.',
+        what: `"${label}" יצר ${r.conversions} לידים ב-CA$${fmt(cpl)} CPL — יעיל ובנפח משמעותי.`,
+        why: 'הביצועים חזקים ויש מספיק נתונים. זו מועמדת ישירה להגדלה מהירה.',
         action: r.searchTerm
-          ? 'להעלות הצעת מחיר ב-15%-25% בשלבים מבוקרים ולעקוב אחרי יציבות ה-CPA.'
-          : 'להגדיל הצעות מחיר בהדרגה ולנטר יעילות המרות בכל מחזור.',
+          ? `להעלות הצעת מחיר ב-20%. אם CPL נשמר ≤ CA$${T.cplBorderline}, להגדיל עוד 20% בשבוע הבא.`
+          : `להגדיל תקציב קמפיין זה בנדלן של 20-25%. ניטור CPL בכל 3-4 ימים.`,
         data: r,
         signal: 'strong-leader',
       });
     }
-    // Good CPL but low volume: Just good performer, don't push scaling
-    else {
-      findings.push({
-        category: 'opportunity',
-        severity: 'low',
-        what: `"${label}" יצר ${r.conversions} המרות ב-CA$${fmt(cpl)} ל-CPA.`,
-        why: 'היעילות טובה אך גודל המדגם עדיין מוגבל.',
-        action: r.searchTerm
-          ? 'להמשיך להגן על המונח ולהמיר אותו להתאמה מדויקת אם עדיין לא בודד.'
-          : 'לשמור על התמיכה הנוכחית ולשקול הגדלה מחדש כשנפח הנתונים יגדל.',
-        data: r,
-        signal: 'strong-leader',
-      });
-    }
+    // SUPPRESSED: Low-volume findings have no clear action (wait for more data)
+    // Don't generate LOW severity — insufficient data = insufficient action clarity
   }
   return findings;
 }
 
 /**
  * Search terms/keywords with good lead rate but low spend — scalable.
- * 2+ leads, < 50 CAD spend, conversion rate > 5%.
+ * 2+ leads, 20-120 CAD spend, conversion rate > 5%.
+ * ONLY medium+ severity (actionable findings only).
  */
 function scalingCandidates(rows) {
   const findings = [];
@@ -104,16 +93,16 @@ function scalingCandidates(rows) {
     if (!hasValue(r.conversions) || r.conversions < 2) continue;
     if (!hasValue(r.cost) || r.cost <= 0 || r.cost > 120) continue;
     if (r.cost < 20) continue;
-    if (!hasValue(r.clicks) || r.clicks < 10) continue;
-    if (!hasValue(r.conversionRate) || r.conversionRate < Math.max(T.strongConvRatePct, 8)) continue;
+    if (!hasValue(r.clicks) || r.clicks < T.minClicksForConfidentJudgment) continue;
+    if (!hasValue(r.conversionRate) || r.conversionRate < T.strongConvRatePct) continue;
 
     const label = r.searchTerm ?? r.keyword ?? 'מונח לא ידוע';
     findings.push({
       category: 'opportunity',
       severity: 'medium',
-      what: `"${label}" עם שיעור המרה של ${fmt(r.conversionRate)}% בהוצאה של CA$${fmt(r.cost)} בלבד.`,
-      why: 'שיעור המרה גבוה בהוצאה נמוכה מרמז על פוטנציאל נפח לא ממומש.',
-      action: 'להעלות הצעות מחיר ב-15%-20% ולנטר CPA תוך כדי הגדלת נפח.',
+      what: `"${label}" הממיר ב-${fmt(r.conversionRate)}% בהוצאה נמוכה של CA$${fmt(r.cost)} בלבד.`,
+      why: 'שיעור המרה גבוה עם הוצאה נמוכה פירושו שיש בך יד נוקטת פקודות ונפח שיכול להתרחב מיד.',
+      action: 'להעלות הצעת מחיר ב-20%-25% מידית. ניטור CPL לפני שתגדיל עוד. זו לא השערה — זו מפעל היעילות שלך.',
       data: r,
       signal: 'scale-candidate',
     });
@@ -123,6 +112,7 @@ function scalingCandidates(rows) {
 
 /**
  * Campaigns performing better than the account average CPL.
+ * Only flag campaigns that are meaningfully better (25%+).
  */
 function outperformingCampaigns(campaigns) {
   if (campaigns.length < 2) return [];
@@ -142,9 +132,9 @@ function outperformingCampaigns(campaigns) {
     findings.push({
       category: 'opportunity',
       severity: 'high',
-      what: `הקמפיין "${camp.campaign ?? 'קמפיין לא ידוע'}" עומד על CA$${fmt(cpl)} CPA, לפחות 25% טוב מהממוצע בחשבון CA$${fmt(avgCpl)}.`,
-      why: 'הסטת תקציב לכאן צפויה להגדיל המרות ביעילות גבוהה יותר מהממוצע.',
-      action: 'להגן קודם על תקציב הקמפיין הזה ולהעביר תקציב מקמפיינים חלשים לפי הצורך.',
+      what: `קמפיין "${camp.campaign ?? 'קמפיין לא ידוע'}" עומד על CA$${fmt(cpl)} CPL — 25%+ טוב מממוצע החשבון (CA$${fmt(avgCpl)}).`,
+      why: 'זוהי קמפיין מבטחת — כל שקל שהוצא כאן יעיל יותר מהרוב. זה הזמן להעביר תקציב למכאן.',
+      action: 'להשקיע תקציב נוסף ישירות בקמפיין זה. העבר מינימום 15%-20% מתקציבים תת-ביצועים לכאן וראה גדילה מיידית.',
       data: camp,
       signal: 'outperforming-campaign',
     });
@@ -154,6 +144,7 @@ function outperformingCampaigns(campaigns) {
 
 /**
  * Campaigns limited by budget based on lost impression share data.
+ * Only flag if losing > 30% impressions due to budget AND campaign is actually converting.
  */
 function budgetLimitedWinners(campaigns) {
   const findings = [];
@@ -172,9 +163,9 @@ function budgetLimitedWinners(campaigns) {
     findings.push({
       category: 'opportunity',
       severity: 'medium',
-      what: `הקמפיין "${camp.campaign ?? 'קמפיין לא ידוע'}" מאבד ${fmt(camp.searchLostIsBudget)}% מנתח החשיפות בחיפוש בגלל תקציב.`,
-      why: 'הקמפיין ממיר אך מוגבל תקציבית, ולכן נפח הלידים כנראה חסום.',
-      action: 'להגדיל תקציב יומי בהדרגה ובשליטה, ולוודא שה-CPA נשאר בטווח תקין.',
+      what: `קמפיין "${camp.campaign ?? 'קמפיין לא ידוע'}" מאבד ${fmt(camp.searchLostIsBudget)}% מחשיפות בחיפוש בגלל תקציב מוגבל.`,
+      why: 'הקמפיין ממיר ביעילות אך תקציב יומי נמוך חוסם את הלידים. זה כסף שנשאר על השולחן.',
+      action: 'הגדל תקציב יומי ב-25%-50%. ניטור ה-CPL לאחר 3-4 ימים. אם הוא נשמר בטווח, להגדיל עוד.',
       data: camp,
       signal: 'budget-limited-winner',
     });
@@ -194,12 +185,13 @@ function highIntentDevices(devices) {
     const cpl = row.cost / row.conversions;
     if (cpl > T.cplGood) continue;
 
+    // ONLY HIGH or MEDIUM - no low severity device findings
     findings.push({
       category: 'opportunity',
       severity: cpl <= T.cplExcellent ? 'high' : 'medium',
-      what: `פלח המכשיר "${row.device}" ייצר ${row.conversions} המרות ב-CA$${fmt(cpl)} CPA.`,
-      why: 'יעילות ברמת מכשיר מצביעה היכן תוספת הצעת מחיר יכולה לייצר לידים נוספים.',
-      action: `להחיל התאמות הצעת מחיר חיוביות עבור ${row.device} תוך ניטור איכות ההמרות.`,
+      what: `${row.device} יצר ${row.conversions} לידים ב-CA$${fmt(cpl)} CPL.`,
+      why: `${row.device} משמא כהפלח היעיל שלך בדמוגרפיית מכשירים. זה חוק יעילות שצריך לנצל מיד.`,
+      action: `הפעל +${cpl <= T.cplExcellent ? '25%' : '15%'} התאמת הצעות ל-${row.device}. ניטור יומי לפחות 3 ימים.`,
       data: row,
       signal: 'high-intent-device',
     });
@@ -219,12 +211,13 @@ function highIntentLocations(locations) {
     const cpl = row.cost / row.conversions;
     if (cpl > T.cplGood) continue;
 
+    // ONLY HIGH or MEDIUM - no low severity location findings
     findings.push({
       category: 'opportunity',
       severity: cpl <= T.cplExcellent ? 'high' : 'medium',
-      what: `פלח המיקום "${row.location}" ייצר ${row.conversions} המרות ב-CA$${fmt(cpl)} CPA.`,
-      why: 'הביצועים ברמת מיקום תומכים בהגדלת הצעת מחיר או תקציב גאוגרפית וממוקדת.',
-      action: `לתעדף את המיקום היעיל "${row.location}" עם העלאות מבוקרות של הצעת מחיר או תקציב.`,
+      what: `${row.location} יצר ${row.conversions} לידים ב-CA$${fmt(cpl)} CPL.`,
+      why: `זה האזור היעיל ביותר שלך גיאוגרפית. כל דולר שהוצא כאן מממיר ביעילות.`,
+      action: `הפעל +${cpl <= T.cplExcellent ? '30%' : '20%'} התאמות הצעות ל-${row.location}. בנוסף, בחן הגדלת תקציב אזורי עבור ${row.location}.`,
       data: row,
       signal: 'high-intent-location',
     });
@@ -235,7 +228,7 @@ function highIntentLocations(locations) {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function hasValue(v) { return v !== null && v !== undefined; }
-function fmt(n) { return n != null ? n.toFixed(2) : '—'; }
+function fmt(n) { return typeof n === 'number' ? n.toFixed(2) : '—'; }
 
 function computeAvgCpl(campaigns) {
   const valid = campaigns.filter(c => hasValue(c.conversions) && c.conversions > 0 && hasValue(c.cost));
@@ -296,10 +289,19 @@ function scoreOpportunity(item) {
 
 function dedupeOpportunityKey(item) {
   const row = item?.data ?? {};
+  // Deduplicate by entity identity (type + value), not by signal.
+  // Prevents the same search term or keyword appearing under both
+  // strong-leader and scale-candidate signals simultaneously.
+  const entityType = row.searchTerm ? 'term'
+    : row.keyword  ? 'kw'
+    : row.campaign ? 'camp'
+    : row.device   ? 'dev'
+    : row.location ? 'loc'
+    : 'other';
   const subject = normalizeSubject(
-    row.searchTerm ?? row.keyword ?? row.campaign ?? row.device ?? row.location ?? item.signal ?? 'unknown'
+    row.searchTerm ?? row.keyword ?? row.campaign ?? row.device ?? row.location ?? 'unknown'
   );
-  return `${item.signal ?? 'generic'}::${subject}`;
+  return `${entityType}::${subject}`;
 }
 
 function opportunityClass(item) {

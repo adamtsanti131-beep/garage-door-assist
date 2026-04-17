@@ -8,20 +8,15 @@ import { initUploader, showUploadOutcome, showUploadWarnings } from './ui/upload
 import { initHistoryPanel, refreshHistoryPanel } from './ui/historyPanel.js';
 import { renderReport }  from './ui/reportRenderer.js';
 import { saveToHistory } from './storage/history.js';
-import {
-  initBusinessContextPanel,
-  readCurrentBusinessContext,
-} from './ui/businessContextPanel.js';
+import { readCurrentBusinessContext } from './ui/businessContextPanel.js';
 
 let currentFiles = {};
-let currentBusinessContext = {};
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
   initUploader(onFilesChange);
   initHistoryPanel(renderReport);
-  initBusinessContextPanel(onBusinessContextChange);
   document.getElementById('btn-analyze')?.addEventListener('click', runAnalysis);
 });
 
@@ -34,10 +29,6 @@ function onFilesChange(files) {
   document.getElementById('analyze-hint').textContent = hasAny
     ? 'מוכן לניתוח'
     : 'יש להעלות לפחות קובץ CSV אחד לניתוח';
-}
-
-function onBusinessContextChange(context) {
-  currentBusinessContext = context;
 }
 
 // ── Analysis ──────────────────────────────────────────────────────────────────
@@ -72,8 +63,8 @@ async function runAnalysis() {
       if (file) formData.append(key, file);
     }
 
-    currentBusinessContext = readCurrentBusinessContext();
-    formData.append('businessContext', JSON.stringify(currentBusinessContext));
+    const businessContext = readCurrentBusinessContext();
+    formData.append('businessContext', JSON.stringify(businessContext));
 
     hint.textContent = 'מריץ ניתוח...';
 
@@ -120,9 +111,13 @@ async function runAnalysis() {
     renderReport(report);
     refreshHistoryPanel(renderReport);
 
-    const immediate = report.decisionFlow?.decisionBuckets?.immediateActions?.length ?? 0;
-    const review = report.decisionFlow?.decisionBuckets?.reviewBeforeAction?.length ?? 0;
-    hint.textContent = `הושלם — ${immediate} פעולה מיידית, ${review} פריט לבדיקה`;
+    const highCount = report.summary?.highSeverityCount ?? 0;
+    const totalWaste = report.waste?.length ?? 0;
+    hint.textContent = highCount > 0
+      ? `הושלם — ${highCount} ממצאים דחופים דורשים טיפול`
+      : totalWaste > 0
+      ? `הושלם — נמצאו ${totalWaste} ממצאי בזבוז לבדיקה`
+      : 'הושלם — לא נמצאו ממצאים דחופים';
 
   } catch (err) {
     hint.textContent = `שגיאה: ${err.message}`;
