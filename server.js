@@ -168,6 +168,7 @@ app.post('/analyze', upload.fields(UPLOAD_FIELDS), (req, res) => {
 // Returns aggregated KPI context from the Monday.com board.
 
 app.post('/monday/fetch', async (req, res) => {
+  console.log('[/monday/fetch] request received, boardId:', req.body?.boardId);
   const { apiToken, boardId, dateFrom, dateTo } = req.body ?? {};
 
   if (!apiToken || !boardId) {
