@@ -170,13 +170,17 @@ app.post('/analyze', upload.fields(UPLOAD_FIELDS), (req, res) => {
 app.post('/monday/fetch', async (req, res) => {
   const apiToken = process.env.MONDAY_API_TOKEN;
   const boardId  = process.env.MONDAY_BOARD_ID;
-
-  if (!apiToken || !boardId) {
-    return res.status(503).json({ error: 'Monday.com לא מוגדר בשרת — הגדר MONDAY_API_TOKEN ו-MONDAY_BOARD_ID בקובץ .env' });
-  }
-
   const { dateFrom, dateTo } = req.body ?? {};
-  console.log('[/monday/fetch] request received, boardId:', boardId, 'dateFrom:', dateFrom, 'dateTo:', dateTo);
+
+  // Debug log — token existence only, never the value
+  console.log('[/monday/fetch] MONDAY_API_TOKEN set:', !!apiToken, '| MONDAY_BOARD_ID:', boardId ?? '(missing)', '| dateFrom:', dateFrom ?? null, '| dateTo:', dateTo ?? null);
+
+  if (!apiToken || apiToken.startsWith('your_')) {
+    return res.status(503).json({ error: 'MONDAY_API_TOKEN חסר בקובץ .env בשרת — יש להגדיר טוקן API אמיתי' });
+  }
+  if (!boardId || boardId.startsWith('your_')) {
+    return res.status(503).json({ error: 'MONDAY_BOARD_ID חסר בקובץ .env בשרת — יש להגדיר מזהה לוח אמיתי' });
+  }
 
   try {
     const context = await fetchMondayData(apiToken, boardId, dateFrom ?? null, dateTo ?? null);
