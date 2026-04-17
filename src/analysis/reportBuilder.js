@@ -22,23 +22,31 @@ export function buildReport(findings, data, businessContext = {}, reportStatuses
   const summary = buildSummary(actionableFindings, data);
   const decisionLayer = buildDecisionLayer(actionableFindings, data, summary, businessContext, reportStatuses);
   const measurementRisks = deriveMeasurementSection(actionableFindings, decisionLayer);
+  const opportunities = buildOpportunitiesSection(findings, decisionLayer, businessContext, measurementRisks);
+  const measurementTrust = decisionLayer?.measurementState?.trust ?? 'caution';
 
   // Cross-category dedup: when a measurement risk already explains why an entity
   // has zero leads (likely tracking broken), suppress the waste finding for that
   // same entity. Showing both contradicts the user: one card says "wasted spend",
   // another says "tracking may be broken — we can't trust that zero". Keep the
   // upstream root-cause (measurement) and drop the downstream symptom (waste).
-  const waste = suppressWasteCoveredByMeasurement(
-    actionableFindings.filter(f => f.category === 'waste'),
-    measurementRisks,
+  const waste = normalizeWasteSection(
+    suppressWasteCoveredByMeasurement(
+      actionableFindings.filter(f => f.category === 'waste'),
+      measurementRisks,
+    ),
+    measurementTrust,
   );
 
   return {
     timestamp:        new Date().toISOString(),
     summary,
     waste,
-    opportunities:    actionableFindings.filter(f => f.category === 'opportunity'),
-    controlRisks:     actionableFindings.filter(f => f.category === 'controlRisk'),
+    opportunities,
+    controlRisks:     normalizeControlSection(
+      actionableFindings.filter(f => f.category === 'controlRisk'),
+      measurementTrust,
+    ),
     measurementRisks,
     decisions:        decisionLayer.decisions,
     decisionFlow:     decisionLayer,
@@ -50,6 +58,220 @@ export function buildReport(findings, data, businessContext = {}, reportStatuses
       offlineConversionsImported: businessContext.offlineConversionsImported ?? null,
     },
   };
+}
+
+function buildOpportunitiesSection(findings, decisionLayer, businessContext, measurementRisks) {
+  const measurementTrust = decisionLayer?.measurementState?.trust ?? 'caution';
+  const hasExplicitTrackingIssue = (measurementRisks ?? []).some(r =>
+    r?.severity === 'high'
+    || r?.signal === 'many-clicks-no-leads'
+    || r?.signal === 'conversions-exceed-clicks'
+    || r?.signal === 'account-zero-conversions'
+    || r?.signal === 'missing-campaign-conversions'
+  );
+
+  const source = (findings ?? [])
+    .filter(f => f?.category === 'opportunity')
+    .filter(f => hasPositiveCost(f?.data?.cost));
+
+  const deduped = dedupeOpportunities(source);
+  const sorted = deduped.sort((a, b) => scoreOpportunityFinding(b) - scoreOpportunityFinding(a));
+
+  const actionableNow = [];
+  const reviewBeforeActing = [];
+  const blockedByMissingBusinessContext = [];
+  const weakInsufficientSample = [];
+
+  for (const item of sorted) {
+    const normalized = normalizeOpportunityFinding(item, measurementTrust, hasExplicitTrackingIssue);
+
+    if (isWeakOpportunity(normalized)) {
+      if (weakInsufficientSample.length < 3) weakInsufficientSample.push(normalized);
+      continue;
+    }
+
+    if (isBlockedByMissingContext(normalized, businessContext)) {
+      if (blockedByMissingBusinessContext.length < 3) {
+        blockedByMissingBusinessContext.push(toBlockedContextOpportunity(normalized, businessContext));
+      }
+      continue;
+    }
+
+    if (measurementTrust === 'caution' || isReviewOnlyOpportunity(normalized)) {
+      if (reviewBeforeActing.length < 4) reviewBeforeActing.push(toReviewOnlyOpportunity(normalized));
+      continue;
+    }
+
+    if (actionableNow.length < 4) actionableNow.push(normalized);
+  }
+
+  return {
+    actionableNow,
+    reviewBeforeActing,
+    blockedByMissingBusinessContext,
+    weakInsufficientSample,
+  };
+}
+
+function normalizeOpportunityFinding(item, measurementTrust, hasExplicitTrackingIssue) {
+  if (measurementTrust !== 'caution') return item;
+
+  const row = item?.data ?? {};
+  const entityLabel = row.searchTerm ?? row.keyword ?? row.campaign ?? row.device ?? row.location ?? 'הישות הרלוונטית';
+
+  const conservativeAction = hasExplicitTrackingIssue
+    ? 'blocked_until_tracking_trusted: אמון המדידה חלקי ויש לפתור תחילה את מהימנות המעקב לפני כל סקייל.'
+    : item.signal === 'high-intent-device'
+      ? `review_before_acting: לבצע בדיקה קטנה ומדורגת בלבד בהתאמות מכשיר עבור "${entityLabel}", ואז לוודא יציבות המרות לפני הרחבה.`
+      : item.signal === 'high-intent-location'
+        ? `review_before_acting: לבצע בדיקה קטנה ומדורגת בלבד באזור גאוגרפי עבור "${entityLabel}", תוך ניטור איכות לידים לפני הרחבה.`
+        : item.signal === 'budget-limited-winner'
+          ? `review_before_acting: לבצע הגדלה קטנה בלבד של תקציב בקמפיין "${entityLabel}", ולבדוק שהעלות לליד נשארת יציבה.`
+          : item.signal === 'outperforming-campaign' || item.signal === 'strong-leader'
+            ? `review_before_acting: לבצע בדיקה מדורגת עבור "${entityLabel}" באמצעות התאמת הצעת מחיר קטנה, ורק לאחר מכן לשקול הרחבה.`
+            : item.signal === 'scale-candidate'
+              ? `review_before_acting: לבצע בדיקת סקייל קטנה בלבד עבור "${entityLabel}" לאחר אימות יציבות המדידה.`
+            : item.severity === 'high'
+              ? 'review_before_acting: לא זוהתה שגיאת מעקב חד-משמעית, אך אמון המדידה חלקי ולכן יש לפעול בזהירות.'
+              : 'small_test_only: לא זוהתה שגיאת מעקב חד-משמעית, אך אמון המדידה חלקי ולכן מותרת בדיקה קטנה בלבד.';
+
+  const conservativeWhy = hasExplicitTrackingIssue
+    ? 'אות חיובי שראוי לבדיקה זהירה בלבד עד להשלמת תיקוף מדידה.'
+    : item.severity === 'high'
+      ? 'אות חיובי שראוי לבדיקה זהירה. מועמד לבדיקה מדורגת ולא לסקייל מיידי.'
+      : 'מועמד לבדיקה מדורגת. אפשר לשקול בדיקה קטנה לאחר אימות יציבות המדידה.';
+
+  return {
+    ...item,
+    action: conservativeAction,
+    why: conservativeWhy,
+  };
+}
+
+function isBlockedByMissingContext(item, businessContext) {
+  if (businessContext?.targetCpl == null) return true;
+  if (item?.signal === 'high-intent-location' && !businessContext?.serviceArea) return true;
+  return false;
+}
+
+function toBlockedContextOpportunity(item, businessContext) {
+  const blockedBy = businessContext?.targetCpl == null
+    ? 'targetCpl'
+    : (!businessContext?.serviceArea && item?.signal === 'high-intent-location')
+      ? 'serviceArea'
+      : 'businessContext';
+
+  const action = blockedBy === 'targetCpl'
+    ? 'blocked_until_business_context_provided: חסר יעד עלות לליד ולכן ההמלצה אינה ניתנת לביצוע כרגע.'
+    : blockedBy === 'serviceArea'
+      ? 'blocked_until_business_context_provided: חסר אזור שירות ולכן הרחבה גאוגרפית אינה ניתנת לביצוע כרגע.'
+      : 'blocked_until_business_context_provided: חסר הקשר עסקי חיוני ולכן אין לפעול כעת.';
+
+  return {
+    ...item,
+    action,
+  };
+}
+
+function toReviewOnlyOpportunity(item) {
+  const action = startsWithActionPrefix(item?.action, 'small_test_only')
+    || startsWithActionPrefix(item?.action, 'review_before_acting')
+    ? item.action
+    : 'review_before_acting: לבצע בדיקה קטנה ומדורגת בלבד לאחר אימות יציבות המדידה, בלי סקייל רחב.';
+
+  return {
+    ...item,
+    action,
+  };
+}
+
+function isWeakOpportunity(item) {
+  return item?.severity === 'low' || item?.signal === 'insufficient-sample';
+}
+
+function hasPositiveCost(cost) {
+  return typeof cost === 'number' && cost > 0;
+}
+
+function scoreOpportunityFinding(item) {
+  const row = item?.data ?? {};
+  const severity = item?.severity === 'high' ? 3 : item?.severity === 'medium' ? 2 : 1;
+  const conv = Math.min(3, Math.floor((row.conversions ?? 0) / 2));
+  const spend = row.cost >= 120 ? 2 : row.cost >= 60 ? 1 : 0;
+  const clicks = row.clicks >= 25 ? 2 : row.clicks >= 15 ? 1 : 0;
+  return severity + conv + spend + clicks;
+}
+
+function dedupeOpportunities(items) {
+  const seen = new Set();
+  const out = [];
+  for (const item of items) {
+    const row = item?.data ?? {};
+    const key = [
+      item?.signal ?? 'unknown',
+      normalizeText(row.searchTerm ?? row.keyword ?? row.campaign ?? row.device ?? row.location ?? 'unknown'),
+    ].join('::');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
+function isReviewOnlyOpportunity(item) {
+  return startsWithActionPrefix(item?.action, 'review_before_acting')
+    || startsWithActionPrefix(item?.action, 'small_test_only');
+}
+
+function startsWithActionPrefix(action, prefix) {
+  return String(action ?? '').trim().toLowerCase().startsWith(`${prefix}:`);
+}
+
+function normalizeWasteSection(wasteFindings, measurementTrust) {
+  if (measurementTrust !== 'caution') return wasteFindings;
+
+  return wasteFindings.map(item => {
+    if (item.signal === 'wasted-spend-share') {
+      const source = item?.data?.source;
+      return {
+        ...item,
+        action: source === 'searchTerms'
+          ? 'לבצע ניקוי מונחי חיפוש באופן מדורג: לזהות שאילתות לא רלוונטיות, להוסיף שלילות ממוקדות, ולהפחית חשיפה רק לקבוצות שממשיכות ללא לידים.'
+          : 'לבצע בדיקה שמרנית של ישויות עם 0 לידים: לאמת מעקב המרות, לבדוק כוונת חיפוש ודף נחיתה, ולהפחית חשיפה בהדרגה לפני עצירה.',
+      };
+    }
+
+    return item;
+  });
+}
+
+function normalizeText(value) {
+  return String(value ?? '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeControlSection(controlFindings, measurementTrust) {
+  if (measurementTrust !== 'caution') return controlFindings;
+
+  return controlFindings.map(item => {
+    if (item.signal === 'non-converting-campaign') {
+      return {
+        ...item,
+        action: 'לבצע בדיקה שמרנית של הקמפיין: לאמת מעקב המרות, לבדוק כוונת חיפוש ודף נחיתה, ולהפחית חשיפה בהדרגה לפני עצירה.',
+      };
+    }
+
+    if (item.signal === 'low-quality-score') {
+      return {
+        ...item,
+        action: 'לבדוק רלוונטיות בין מונח החיפוש, נוסח המודעה ודף הנחיתה, לשפר התאמות מסר, ולעדכן מודעות באופן מדורג לפני שינוי רחב.',
+      };
+    }
+
+    return item;
+  });
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

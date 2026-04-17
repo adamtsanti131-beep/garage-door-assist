@@ -6,6 +6,16 @@
 
 import { THRESHOLDS as T } from '../thresholds.js';
 
+const OPPORTUNITY_SAMPLE = {
+  minCost: 60,
+  minClicks: 15,
+  minConversions: 3,
+  minCampaignCost: 120,
+  minCampaignClicks: 20,
+  minDeviceCost: 80,
+  minLocationCost: 80,
+};
+
 export function opportunityRules(data) {
   const findings = [];
   const {
@@ -36,19 +46,24 @@ export function opportunityRules(data) {
 function strongLeaders(rows) {
   const findings = [];
   for (const r of rows) {
-    if (!hasValue(r.conversions) || r.conversions < Math.max(T.minLeadsForWinner, 3)) continue;
     if (!hasValue(r.cost) || r.cost <= 0) continue;
-    if (!hasValue(r.clicks) || r.clicks < 10) continue; // stricter
-    if (r.cost < 30) continue; // stricter spend
+
+    const label = r.searchTerm ?? r.keyword ?? 'מונח לא ידוע';
+    if (!hasHardOpportunitySample(r, {
+      minCost: OPPORTUNITY_SAMPLE.minCost,
+      minClicks: OPPORTUNITY_SAMPLE.minClicks,
+      minConversions: Math.max(T.minLeadsForWinner, OPPORTUNITY_SAMPLE.minConversions),
+    })) {
+      maybeAddWeakSample(findings, r, label, 'אין עדיין נפח מספיק של עלות/קליקים/המרות כדי להכריז על מנצח לסקייל.');
+      continue;
+    }
 
     const cpl = r.cost / r.conversions;
     if (cpl > T.cplGood) continue; // only <= 75 CAD
 
-    const label = r.searchTerm ?? r.keyword ?? 'מונח לא ידוע';
     const isExcellent = cpl <= T.cplExcellent;
-    const clicks = r.clicks ?? 0;
 
-    // Excellent CPL: High priority to protect and scale
+    // Excellent CPL with hard sample threshold: safe scaling candidate
     if (isExcellent) {
       findings.push({
         category: 'opportunity',
@@ -56,28 +71,26 @@ function strongLeaders(rows) {
         what: `"${label}" יצר ${r.conversions} לידים ב-CA$${fmt(cpl)} CPL — ביצוע עליון.`,
         why: 'זה הביצוע הטוב ביותר בנתונים שלך. עליך להגן על התקציב וללחוץ להגדלת נפח בפידליטי זו.',
         action: r.searchTerm
-          ? `לא להוריד הצעת מחיר. בעד להעלות ב-15%-20% וניטור יעילות. אם CPL נשמר בTa$${T.cplExcellent}, להגדיל עוד.`
-          : `להתמקד בקמפיין זה. להגדיל תקציב יומי בהדרגה ובמקביל להוריד הצעות במקומות חלשים יותר.`,
+          ? 'small_test_only: לא להוריד הצעת מחיר, לבצע בדיקת סקייל קטנה ומדורגת בלבד (עד 10%) עם ניטור CPL צמוד.'
+          : 'small_test_only: לבחון הגדלה הדרגתית קטנה בלבד בקמפיין זה ולנטר CPL לפני כל שלב נוסף.',
         data: r,
         signal: 'strong-leader',
       });
     }
-    // Good CPL with solid volume: Actionable scaling opportunity
-    else if (clicks >= 10) {
+    // Good CPL with hard sample threshold: actionable but controlled
+    else {
       findings.push({
         category: 'opportunity',
         severity: 'medium',
         what: `"${label}" יצר ${r.conversions} לידים ב-CA$${fmt(cpl)} CPL — יעיל ובנפח משמעותי.`,
         why: 'הביצועים חזקים ויש מספיק נתונים. זו מועמדת ישירה להגדלה מהירה.',
         action: r.searchTerm
-          ? `להעלות הצעת מחיר ב-20%. אם CPL נשמר ≤ CA$${T.cplBorderline}, להגדיל עוד 20% בשבוע הבא.`
-          : `להגדיל תקציב קמפיין זה בנדלן של 20-25%. ניטור CPL בכל 3-4 ימים.`,
+          ? 'review_before_acting: לבצע קודם בדיקה ידנית קצרה, ואז להפעיל בדיקת סקייל קטנה בלבד.'
+          : 'review_before_acting: לאשר קודם יציבות CPL ואז לבצע הגדלה קטנה ומדורגת בלבד.',
         data: r,
         signal: 'strong-leader',
       });
     }
-    // SUPPRESSED: Low-volume findings have no clear action (wait for more data)
-    // Don't generate LOW severity — insufficient data = insufficient action clarity
   }
   return findings;
 }
@@ -90,19 +103,25 @@ function strongLeaders(rows) {
 function scalingCandidates(rows) {
   const findings = [];
   for (const r of rows) {
-    if (!hasValue(r.conversions) || r.conversions < 2) continue;
-    if (!hasValue(r.cost) || r.cost <= 0 || r.cost > 120) continue;
-    if (r.cost < 20) continue;
-    if (!hasValue(r.clicks) || r.clicks < T.minClicksForConfidentJudgment) continue;
+    if (!hasValue(r.cost) || r.cost <= 0 || r.cost > 160) continue;
     if (!hasValue(r.conversionRate) || r.conversionRate < T.strongConvRatePct) continue;
 
     const label = r.searchTerm ?? r.keyword ?? 'מונח לא ידוע';
+    if (!hasHardOpportunitySample(r, {
+      minCost: OPPORTUNITY_SAMPLE.minCost,
+      minClicks: OPPORTUNITY_SAMPLE.minClicks,
+      minConversions: OPPORTUNITY_SAMPLE.minConversions,
+    })) {
+      maybeAddWeakSample(findings, r, label, 'יחס ההמרה חיובי, אך המדגם קטן מדי ולכן אין עדיין המלצת סקייל אמינה.');
+      continue;
+    }
+
     findings.push({
       category: 'opportunity',
       severity: 'medium',
       what: `"${label}" הממיר ב-${fmt(r.conversionRate)}% בהוצאה נמוכה של CA$${fmt(r.cost)} בלבד.`,
       why: 'שיעור המרה גבוה עם הוצאה נמוכה פירושו שיש בך יד נוקטת פקודות ונפח שיכול להתרחב מיד.',
-      action: 'להעלות הצעת מחיר ב-20%-25% מידית. ניטור CPL לפני שתגדיל עוד. זו לא השערה — זו מפעל היעילות שלך.',
+      action: 'review_before_acting: לבצע בדיקת סקייל קטנה בלבד לאחר אימות יציבות במדגם הנוכחי.',
       data: r,
       signal: 'scale-candidate',
     });
@@ -122,9 +141,11 @@ function outperformingCampaigns(campaigns) {
 
   const findings = [];
   for (const camp of campaigns) {
-    if (!hasValue(camp.conversions) || camp.conversions < T.minLeadsForWinner) continue;
-    if (!hasValue(camp.cost) || camp.cost <= 0) continue;
-    if (camp.cost < 100) continue;
+    if (!hasHardOpportunitySample(camp, {
+      minCost: OPPORTUNITY_SAMPLE.minCampaignCost,
+      minClicks: OPPORTUNITY_SAMPLE.minCampaignClicks,
+      minConversions: Math.max(T.minLeadsForWinner, OPPORTUNITY_SAMPLE.minConversions),
+    })) continue;
 
     const cpl = camp.cost / camp.conversions;
     if (cpl > avgCpl * 0.75) continue; // needs to be meaningfully better (25%+)
@@ -134,7 +155,7 @@ function outperformingCampaigns(campaigns) {
       severity: 'high',
       what: `קמפיין "${camp.campaign ?? 'קמפיין לא ידוע'}" עומד על CA$${fmt(cpl)} CPL — 25%+ טוב מממוצע החשבון (CA$${fmt(avgCpl)}).`,
       why: 'זוהי קמפיין מבטחת — כל שקל שהוצא כאן יעיל יותר מהרוב. זה הזמן להעביר תקציב למכאן.',
-      action: 'להשקיע תקציב נוסף ישירות בקמפיין זה. העבר מינימום 15%-20% מתקציבים תת-ביצועים לכאן וראה גדילה מיידית.',
+      action: 'review_before_acting: לבצע קודם בדיקת יציבות קצרה, ואז להעביר תקציב בהדרגה ובצעדים קטנים בלבד.',
       data: camp,
       signal: 'outperforming-campaign',
     });
@@ -151,8 +172,11 @@ function budgetLimitedWinners(campaigns) {
   for (const camp of campaigns) {
     if (!hasValue(camp.searchLostIsBudget)) continue;
     if (camp.searchLostIsBudget < T.highLostIsBudgetWarn * 100) continue;
-    if (!hasValue(camp.conversions) || camp.conversions < 1) continue;
-    if (!hasValue(camp.cost) || camp.cost <= 0 || camp.cost < 100) continue;
+    if (!hasHardOpportunitySample(camp, {
+      minCost: OPPORTUNITY_SAMPLE.minCampaignCost,
+      minClicks: OPPORTUNITY_SAMPLE.minCampaignClicks,
+      minConversions: OPPORTUNITY_SAMPLE.minConversions,
+    })) continue;
 
     const cpl = hasValue(camp.cost) && camp.conversions > 0
       ? camp.cost / camp.conversions
@@ -165,7 +189,7 @@ function budgetLimitedWinners(campaigns) {
       severity: 'medium',
       what: `קמפיין "${camp.campaign ?? 'קמפיין לא ידוע'}" מאבד ${fmt(camp.searchLostIsBudget)}% מחשיפות בחיפוש בגלל תקציב מוגבל.`,
       why: 'הקמפיין ממיר ביעילות אך תקציב יומי נמוך חוסם את הלידים. זה כסף שנשאר על השולחן.',
-      action: 'הגדל תקציב יומי ב-25%-50%. ניטור ה-CPL לאחר 3-4 ימים. אם הוא נשמר בטווח, להגדיל עוד.',
+      action: 'review_before_acting: לבצע בדיקה הדרגתית קטנה בתקציב ולנטר CPL לפני כל הרחבה נוספת.',
       data: camp,
       signal: 'budget-limited-winner',
     });
@@ -177,10 +201,11 @@ function highIntentDevices(devices) {
   const findings = [];
   for (const row of devices) {
     if (!hasValue(row.device) || !hasValue(row.conversions) || !hasValue(row.cost)) continue;
-    if (row.cost <= 0) continue;
-    if (row.conversions < Math.max(T.minLeadsForScaling, 2)) continue;
-    if (!hasValue(row.clicks) || row.clicks < 15) continue;
-    if (row.cost < 60) continue;
+    if (!hasHardOpportunitySample(row, {
+      minCost: OPPORTUNITY_SAMPLE.minDeviceCost,
+      minClicks: OPPORTUNITY_SAMPLE.minClicks,
+      minConversions: Math.max(T.minLeadsForScaling, OPPORTUNITY_SAMPLE.minConversions),
+    })) continue;
 
     const cpl = row.cost / row.conversions;
     if (cpl > T.cplGood) continue;
@@ -189,9 +214,9 @@ function highIntentDevices(devices) {
     findings.push({
       category: 'opportunity',
       severity: cpl <= T.cplExcellent ? 'high' : 'medium',
-      what: `${row.device} יצר ${row.conversions} לידים ב-CA$${fmt(cpl)} CPL.`,
-      why: `${row.device} משמא כהפלח היעיל שלך בדמוגרפיית מכשירים. זה חוק יעילות שצריך לנצל מיד.`,
-      action: `הפעל +${cpl <= T.cplExcellent ? '25%' : '15%'} התאמת הצעות ל-${row.device}. ניטור יומי לפחות 3 ימים.`,
+      what: `במכשיר "${row.device}" נוצרו ${row.conversions} לידים בעלות CA$${fmt(cpl)} לליד.`,
+      why: `המכשיר "${row.device}" מסתמן כפלח היעיל ביותר שלך בדמוגרפיית מכשירים. זהו אות יעילות שכדאי למנף בהדרגה.`,
+      action: `small_test_only: להפעיל התאמת הצעות קטנה בלבד ל-${row.device} (עד 10%) ולנטר לפני הרחבה.`,
       data: row,
       signal: 'high-intent-device',
     });
@@ -203,10 +228,11 @@ function highIntentLocations(locations) {
   const findings = [];
   for (const row of locations) {
     if (!hasValue(row.location) || !hasValue(row.conversions) || !hasValue(row.cost)) continue;
-    if (row.cost <= 0) continue;
-    if (row.conversions < Math.max(T.minLeadsForScaling, 2)) continue;
-    if (!hasValue(row.clicks) || row.clicks < 10) continue;
-    if (row.cost < 50) continue;
+    if (!hasHardOpportunitySample(row, {
+      minCost: OPPORTUNITY_SAMPLE.minLocationCost,
+      minClicks: OPPORTUNITY_SAMPLE.minClicks,
+      minConversions: Math.max(T.minLeadsForScaling, OPPORTUNITY_SAMPLE.minConversions),
+    })) continue;
 
     const cpl = row.cost / row.conversions;
     if (cpl > T.cplGood) continue;
@@ -215,9 +241,9 @@ function highIntentLocations(locations) {
     findings.push({
       category: 'opportunity',
       severity: cpl <= T.cplExcellent ? 'high' : 'medium',
-      what: `${row.location} יצר ${row.conversions} לידים ב-CA$${fmt(cpl)} CPL.`,
+      what: `באזור "${row.location}" נוצרו ${row.conversions} לידים בעלות CA$${fmt(cpl)} לליד.`,
       why: `זה האזור היעיל ביותר שלך גיאוגרפית. כל דולר שהוצא כאן מממיר ביעילות.`,
-      action: `הפעל +${cpl <= T.cplExcellent ? '30%' : '20%'} התאמות הצעות ל-${row.location}. בנוסף, בחן הגדלת תקציב אזורי עבור ${row.location}.`,
+      action: `small_test_only: לבצע בדיקת מיקום קטנה בלבד עבור ${row.location} אחרי בדיקת התאמה לאזור השירות.`,
       data: row,
       signal: 'high-intent-location',
     });
@@ -254,13 +280,13 @@ function compressOpportunities(findings) {
   };
 
   for (const item of ranked) {
-    if (kept.length >= 8) break;
+    if (kept.length >= 6) break;
 
     const dedupeKey = dedupeOpportunityKey(item);
     if (seen.has(dedupeKey)) continue;
 
     const cls = opportunityClass(item);
-    const classLimit = cls === 'termOrKeyword' ? 3 : 2;
+    const classLimit = cls === 'termOrKeyword' ? 2 : 1;
     if ((perClassCount[cls] ?? 0) >= classLimit) continue;
 
     seen.add(dedupeKey);
@@ -318,4 +344,27 @@ function normalizeSubject(value) {
     .toLowerCase()
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function hasHardOpportunitySample(row, { minCost, minClicks, minConversions }) {
+  if (!hasValue(row?.cost) || row.cost <= 0 || row.cost < minCost) return false;
+  if (!hasValue(row?.clicks) || row.clicks < minClicks) return false;
+  if (!hasValue(row?.conversions) || row.conversions < minConversions) return false;
+  return true;
+}
+
+function maybeAddWeakSample(findings, row, label, why) {
+  if (!hasValue(row?.cost) || row.cost <= 0) return;
+  if (!hasValue(row?.clicks) || row.clicks < 5) return;
+  if (!hasValue(row?.conversions) || row.conversions <= 0) return;
+
+  findings.push({
+    category: 'opportunity',
+    severity: 'low',
+    what: `"${label}" מציג אות חיובי, אך המדגם עדיין חלש להחלטת סקייל בטוחה.`,
+    why,
+    action: 'small_test_only: להימנע מסקייל אגרסיבי. לכל היותר בדיקה קטנה ומדודה עד להצטברות נתונים נוספים.',
+    data: row,
+    signal: 'insufficient-sample',
+  });
 }

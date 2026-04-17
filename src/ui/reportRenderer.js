@@ -68,12 +68,14 @@ function renderTopActionsBar(topActions) {
 
   const items = topActions.slice(0, 3).map((a, i) => {
     const bucket = a.sourceBucket ?? 'secondary';
+    const actionText = humanizeActionText(a.action);
+    const reasonText = humanizeActionText(a.reason);
     return `
       <div class="top-action-item top-action-item--${esc(bucket)}">
         <span class="top-action-number">${i + 1}</span>
         <div class="top-action-content">
-          <strong>${esc(a.action)}</strong>
-          <span>${esc(a.reason)}</span>
+          <strong>${esc(actionText)}</strong>
+          <span>${esc(reasonText)}</span>
         </div>
       </div>
     `;
@@ -137,6 +139,18 @@ function renderCategoryFindings(report) {
   if (!container) return;
 
   const measurementTrust = report.decisionFlow?.measurementState?.trust;
+  const opportunitySections = normalizeOpportunitySections(report.opportunities);
+  const hasAnyOpportunity =
+    opportunitySections.actionableNow.length > 0
+    || opportunitySections.reviewBeforeActing.length > 0
+    || opportunitySections.blockedByMissingBusinessContext.length > 0
+    || opportunitySections.weakInsufficientSample.length > 0;
+  const opportunityDisplayedItems = [
+    ...opportunitySections.actionableNow,
+    ...opportunitySections.reviewBeforeActing,
+    ...opportunitySections.blockedByMissingBusinessContext,
+    ...opportunitySections.weakInsufficientSample,
+  ];
 
   const categories = [
     {
@@ -167,9 +181,11 @@ function renderCategoryFindings(report) {
       key:     'opportunity',
       icon:    '🚀',
       label:   'הזדמנויות',
-      items:   (report.opportunities ?? []).filter(isActionableFinding),
+      items:   opportunityDisplayedItems,
       emptyMsg: 'לא זוהו הזדמנויות סקייל ברורות בנתונים הנוכחיים.',
-      showIfEmpty: false,
+      showIfEmpty: hasAnyOpportunity,
+      customBody: renderOpportunityBuckets(opportunitySections),
+      badgeMode: 'total',
     },
   ];
 
@@ -186,18 +202,22 @@ function isActionableFinding(f) {
   return f && (f.severity === 'high' || f.severity === 'medium');
 }
 
-function renderCategorySection({ key, icon, label, items, emptyMsg }) {
+function renderCategorySection({ key, icon, label, items, emptyMsg, customBody = '', badgeMode = 'default' }) {
   const highCount  = items.filter(i => i.severity === 'high').length;
   const totalCount = items.length;
 
-  const badge = highCount > 0
-    ? `<span class="category-count category-count--alert">${highCount} דחוף</span>`
-    : totalCount > 0
-    ? `<span class="category-count">${totalCount}</span>`
-    : '';
+  const badge = badgeMode === 'total'
+    ? (totalCount > 0 ? `<span class="category-count">${totalCount}</span>` : '')
+    : highCount > 0
+      ? `<span class="category-count category-count--alert">${highCount} דחוף</span>`
+      : totalCount > 0
+        ? `<span class="category-count">${totalCount}</span>`
+        : '';
 
   let bodyHtml;
-  if (!items.length) {
+  if (customBody) {
+    bodyHtml = customBody;
+  } else if (!items.length) {
     bodyHtml = `<p class="findings-empty">${esc(emptyMsg)}</p>`;
   } else {
     const visible = items.slice(0, SHOW_FIRST);
@@ -225,11 +245,118 @@ function renderCategorySection({ key, icon, label, items, emptyMsg }) {
   `;
 }
 
+function normalizeOpportunitySections(opportunities) {
+  if (Array.isArray(opportunities)) {
+    const actionableNow = opportunities
+      .filter(isActionableFinding)
+      .filter(o => !isReviewOnlyAction(o?.action));
+
+    return {
+      actionableNow,
+      reviewBeforeActing: opportunities
+        .filter(o => isReviewOnlyAction(o?.action)),
+      blockedByMissingBusinessContext: [],
+      weakInsufficientSample: [],
+    };
+  }
+
+  return {
+    actionableNow: (opportunities?.actionableNow ?? [])
+      .filter(isActionableFinding)
+      .filter(o => !isReviewOnlyAction(o?.action)),
+    reviewBeforeActing: (opportunities?.reviewBeforeActing ?? []),
+    blockedByMissingBusinessContext: opportunities?.blockedByMissingBusinessContext ?? [],
+    weakInsufficientSample: opportunities?.weakInsufficientSample ?? [],
+  };
+}
+
+function renderOpportunityBuckets(sections) {
+  const groups = [
+    {
+      title: 'ניתן לביצוע כעת',
+      items: sections.actionableNow,
+      empty: 'אין כרגע הזדמנויות ודאיות שניתן לבצע מיידית.',
+    },
+    {
+      title: 'דורש בדיקה לפני פעולה',
+      items: sections.reviewBeforeActing,
+      empty: 'אין כרגע הזדמנויות שמסווגות לבדיקה לפני פעולה.',
+    },
+    {
+      title: 'חסום בגלל הקשר עסקי חסר',
+      items: sections.blockedByMissingBusinessContext,
+      empty: 'אין הזדמנויות שחסומות כרגע בגלל הקשר עסקי חסר.',
+    },
+    {
+      title: 'מדגם חלש / לא מספק',
+      items: sections.weakInsufficientSample,
+      empty: 'לא זוהו כרגע הזדמנויות עם מדגם חלש.',
+    },
+  ];
+
+  return groups.map(group => {
+    const cards = group.items.length
+      ? group.items.map(buildFindingCardHtml).join('')
+      : `<p class="findings-empty">${esc(group.empty)}</p>`;
+
+    return `
+      <div class="opportunity-subsection">
+        <h4 class="category-subtitle">${esc(group.title)}</h4>
+        ${cards}
+      </div>
+    `;
+  }).join('');
+}
+
+function isReviewOnlyAction(action) {
+  const normalized = String(action ?? '').trim().toLowerCase();
+  return normalized.startsWith('review_before_acting:') || normalized.startsWith('small_test_only:');
+}
+
+function humanizeActionText(action) {
+  const raw = String(action ?? '').trim();
+  if (!raw) return '';
+
+  const withoutPrefix = raw
+    .replace(/^review_before_acting:\s*/i, '')
+    .replace(/^small_test_only:\s*/i, '')
+    .replace(/^blocked_until_tracking_trusted:\s*/i, '')
+    .replace(/^blocked_until_business_context_provided:\s*/i, '');
+
+  return withoutPrefix
+    .replace(/\bNone\b/gi, 'לא מזוהה')
+    .replace(/\(not set\)|\bnot set\b/gi, 'לא מזוהה')
+    .replace(/\bComputers\b/gi, 'מחשבים')
+    .replace(/\bCPL\b/gi, 'עלות לליד')
+    .replace(/\bCRM\b/gi, 'מערכת ניהול לידים')
+    .replace(/\bLTV\b/gi, 'ערך לקוח לאורך זמן')
+    .replace(/\bGA\b/gi, 'גוגל אנליטיקס')
+    .replace(/\bGTM\b/gi, "תג מנג'ר")
+    .replace(/\btargetCpl\b/gi, 'יעד עלות לליד')
+    .replace(/\bserviceArea\b/gi, 'אזור שירות')
+    .replace(/\bactionable\b/gi, 'ניתן לביצוע')
+    .replace(/\bscale\b/gi, 'סקייל')
+    .replace(/\btest\b/gi, 'בדיקה')
+    .replace(/\breview\b/gi, 'בדיקה')
+    .replace(/\bverify\b/gi, 'לאמת')
+    .replace(/\blikely\b/gi, 'סביר')
+    .replace(/\bconfirmed\b/gi, 'מאומת')
+    .replace(/\bunknown\b/gi, 'לא ידוע')
+    .replace(/\breduce\b/gi, 'להפחית')
+    .replace(/\bcheck\b/gi, 'לבדוק')
+    .replace(/בדיקה קטן/g, 'בדיקה קטנה')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function buildFindingCardHtml(f) {
   const detailId     = `fd-${Math.random().toString(36).slice(2, 8)}`;
   const severity     = f.severity ?? 'low';
   const evidenceHtml = buildFindingEvidence(f.data);
-  const hint         = getDataHint(f);
+  const hint         = humanizeActionText(getDataHint(f));
+  const actionText   = humanizeActionText(f.action);
+  const whyText      = humanizeActionText(f.why);
+  const whatText     = humanizeActionText(f.what);
 
   return `
     <div class="finding-card finding-card--${severity}">
@@ -237,9 +364,9 @@ function buildFindingCardHtml(f) {
         <span class="severity-dot severity-dot--${severity}" title="${formatSeverity(severity)}"></span>
         <span class="finding-badge">${esc(f.category === 'opportunity' ? 'הזדמנות' : f.category === 'waste' ? 'בזבוז' : f.category === 'controlRisk' ? 'סיכון' : 'מדידה')}</span>
       </div>
-      ${f.what    ? `<p class="finding-what"><strong>ממצא:</strong> ${esc(f.what)}</p>` : ''}
-      ${f.why     ? `<p class="finding-why"><strong>סיכון:</strong> ${esc(f.why)}</p>` : ''}
-      ${f.action  ? `<p class="finding-action"><strong>מה לעשות:</strong> ${esc(f.action)}</p>` : ''}
+      ${whatText  ? `<p class="finding-what"><strong>ממצא:</strong> ${esc(whatText)}</p>` : ''}
+      ${whyText   ? `<p class="finding-why"><strong>סיכון:</strong> ${esc(whyText)}</p>` : ''}
+      ${actionText ? `<p class="finding-action"><strong>מה לעשות:</strong> ${esc(actionText)}</p>` : ''}
       ${hint      ? `<span class="data-hint">${esc(hint)}</span>` : ''}
       ${evidenceHtml ? `
         <button class="details-toggle" type="button" data-target="${detailId}">פרטים ▼</button>
@@ -267,7 +394,7 @@ function buildFindingEvidence(data) {
   if (data.location)             lines.push(`מיקום: ${data.location}`);
   if (data.totalSpend  != null)  lines.push(`סה"כ הוצאה: CA$${Number(data.totalSpend).toFixed(2)}`);
   if (data.wastedSpend != null)  lines.push(`ללא המרות: CA$${Number(data.wastedSpend).toFixed(2)}`);
-  return lines.map(l => `<span class="evidence-chip">${esc(l)}</span>`).join('');
+  return lines.map(l => `<span class="evidence-chip">${esc(humanizeActionText(l))}</span>`).join('');
 }
 
 function getDataHint(f) {
@@ -437,7 +564,7 @@ function formatTotalsConfidence(value) {
 function measurementEmptyMessage(trust) {
   if (trust === 'trusted')   return 'לא זוהו סיכוני מדידה — המעקב נראה תקין.';
   if (trust === 'untrusted') return 'אמון המדידה נמוך — יש לתקן מעקב לפני שינויים משמעותיים.';
-  return 'אמון המדידה במצב זהירות — מומלץ לאמת הגדרות מעקב.';
+  return 'לא זוהתה שגיאת מעקב חד-משמעית, אך אמון המדידה חלקי ולכן יש לפעול בזהירות.';
 }
 
 function summarizeCoverage(reportCoverage) {
