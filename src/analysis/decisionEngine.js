@@ -434,11 +434,15 @@ function estimateConfidence(finding, actionType, measurementTrust, context, repo
     const closeRate = crm.closeRate ?? 0;
     const avgNet    = crm.avgNetRevenue ?? 0;
     const bookRate  = crm.bookRate ?? 0;
+    // Historical mode: bookedCount=0 with closedCount>0 means board tracks current status only.
+    // bookRate=0 is an artifact — don't use it to penalize confidence.
+    const isHistoricalMode = (crm.bookedCount === 0) && ((crm.closedCount ?? 0) > 0);
     if (finding.category === 'opportunity' || actionType === 'scale_winner') {
-      if (closeRate >= 0.25 && avgNet >= 600) score += 0.1;   // healthy funnel + high value → safer to scale
-      if (closeRate < 0.20 || bookRate < 0.25) score -= 0.12; // weak funnel → scale suggestions less confident
+      if (closeRate >= 0.25 && avgNet >= 600) score += 0.1;
+      if (!isHistoricalMode && (closeRate < 0.20 || bookRate < 0.25)) score -= 0.12;
+      else if (isHistoricalMode && closeRate < 0.20) score -= 0.12;
     }
-    if (actionType === 'scale_winner' && closeRate >= 0.25) score += 0.05; // additional boost for confirmed closers
+    if (actionType === 'scale_winner' && closeRate >= 0.25) score += 0.05;
   }
 
   if (score >= 0.75) return 'ביטחון גבוה';

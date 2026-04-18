@@ -70,14 +70,22 @@ export function detectFunnelSignals(ctx) {
     return signals;
   }
 
+  // Historical-mode detection: board tracks current status only.
+  // If bookedCount=0 but closedCount>0, all leads resolved past the booked stage —
+  // bookRate=0 is a data artifact, not a real conversion problem.
+  const isHistoricalMode = bookedCount === 0 && closedCount > 0;
+  if (isHistoricalMode) {
+    signals.push({ key: 'historical_mode', severity: 'note' });
+  }
+
   // Cancellation
   const cancellationRate = paidLeadCount > 0 ? lostCount / paidLeadCount : 0;
   if (cancellationRate > HIGH_CANCELLATION_RATE) {
     signals.push({ key: 'high_cancellation', severity: 'warning', rate: cancellationRate });
   }
 
-  // Booking rate
-  if (bookRate != null) {
+  // Booking rate — skip in historical mode (bookRate=0 is an artifact, not poor conversion)
+  if (!isHistoricalMode && bookRate != null) {
     if (bookRate < WEAK_BOOKING_RATE) {
       signals.push({ key: 'weak_booking', severity: 'warning', rate: bookRate });
     } else if (bookRate >= STRONG_BOOKING_RATE) {
@@ -85,8 +93,9 @@ export function detectFunnelSignals(ctx) {
     }
   }
 
-  // Close rate (only meaningful if we have ≥5 booked leads)
-  if (closeRate != null && bookedCount >= 5) {
+  // Close rate — use closedCount guard in historical mode (bookedCount stays 0)
+  const closeRateGuard = isHistoricalMode ? closedCount >= 5 : bookedCount >= 5;
+  if (closeRate != null && closeRateGuard) {
     if (closeRate < WEAK_CLOSE_RATE) {
       signals.push({ key: 'weak_close', severity: 'warning', rate: closeRate });
     } else if (closeRate >= HEALTHY_CLOSE_RATE) {
@@ -133,9 +142,19 @@ function buildNarrative(ctx, signals, summary, businessContext) {
     return bullets;
   }
 
-  bullets.push(
-    `${paidLeadCount} לידים ממומנים הגיעו מ-Google Ads בתקופה הנבחרת: ${bookedCount} הוזמנו (${pct(bookRate)}), ${closedCount} נסגרו (${pct(closeRate)}), ${lostCount} בוטלו.`
-  );
+  if (hasSignal('historical_mode')) {
+    bullets.push(`הערה: הלוח שומר סטטוס נוכחי בלבד — לידים שהגיעו להזמנה ונסגרו מופיעים כ"סגורים", לא כ"הוזמנו". שיעור ההזמנה (0%) הוא ארטיפקט טכני, לא מדד אמיתי. ניתוח שיעור הסגירה (${pct(closeRate)}) תקף.`);
+  }
+
+  if (hasSignal('historical_mode')) {
+    bullets.push(
+      `${paidLeadCount} לידים ממומנים הגיעו מ-Google Ads בתקופה הנבחרת: ${closedCount} נסגרו (${pct(closeRate)}), ${lostCount} בוטלו.`
+    );
+  } else {
+    bullets.push(
+      `${paidLeadCount} לידים ממומנים הגיעו מ-Google Ads בתקופה הנבחרת: ${bookedCount} הוזמנו (${pct(bookRate)}), ${closedCount} נסגרו (${pct(closeRate)}), ${lostCount} בוטלו.`
+    );
+  }
 
   // ── Booking rate ──────────────────────────────────────────────────────────
 

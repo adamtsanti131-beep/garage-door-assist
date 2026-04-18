@@ -659,7 +659,9 @@ describe('buildReport — low-severity findings are fully isolated from outputs'
     const report = buildReport(lowFindings, { campaigns: [], adGroups: [], searchTerms: [], keywords: [], ads: [], devices: [], locations: [] }, {}, {});
     expect(report.waste).toHaveLength(0);
     expect(report.controlRisks).toHaveLength(0);
-    expect(report.opportunities).toHaveLength(0);
+    // opportunities is now a structured object, not a flat array
+    expect(report.opportunities.actionableNow).toHaveLength(0);
+    expect(report.opportunities.reviewBeforeActing).toHaveLength(0);
   });
 
   it('low-severity findings do not increment summary.highSeverityCount', () => {

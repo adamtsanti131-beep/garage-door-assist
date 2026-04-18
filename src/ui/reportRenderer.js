@@ -99,6 +99,7 @@ function renderBusinessInterpretation(interp) {
   const signalBadges = (funnelSignals ?? []).map(s => {
     const labelMap = {
       low_volume:       { text: 'נפח נמוך', cls: 'bi-badge--note' },
+      historical_mode:  { text: 'נתונים היסטוריים', cls: 'bi-badge--note' },
       high_cancellation:{ text: 'ביטולים גבוהים', cls: 'bi-badge--warning' },
       weak_booking:     { text: 'הזמנות חלשות', cls: 'bi-badge--warning' },
       strong_booking:   { text: 'הזמנות חזקות', cls: 'bi-badge--positive' },
