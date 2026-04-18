@@ -3,6 +3,8 @@
  * Converts findings into an ordered decision-support plan for non-expert users.
  */
 
+import { detectFunnelSignals } from './businessInterpreter.js';
+
 const REPORT_ROLE_MAP = {
   campaign: {
     key: 'campaigns',
@@ -98,6 +100,16 @@ export function buildDecisionLayer(findings, data, summary, businessContext, rep
     businessContext,
     reportCoverageByKey,
   ));
+
+  // Monday CRM-aware decisions — added only when CRM context is present
+  if (businessContext.mondayContext) {
+    decisions.push(...buildMondayAwareDecisions(
+      businessContext.mondayContext,
+      data,
+      measurementTrust,
+      businessContext,
+    ));
+  }
 
   const refinedDecisions = refineDecisionSet(decisions, measurementTrust);
 
@@ -412,6 +424,21 @@ function estimateConfidence(finding, actionType, measurementTrust, context, repo
 
   if (!hasLocations && (actionType === 'location_bid_control' || finding.signal === 'high-intent-location')) {
     score -= 0.1;
+  }
+
+  // Monday CRM context: adjust confidence for scale/opportunity decisions based on real funnel quality.
+  // Boost when close rate is healthy and job value is high — these confirm the lead funnel is working.
+  // Reduce when backend quality is weak — scale decisions become less safe without confirmed conversion.
+  const crm = context.mondayContext;
+  if (crm && (crm.paidLeadCount ?? 0) >= 10) {
+    const closeRate = crm.closeRate ?? 0;
+    const avgNet    = crm.avgNetRevenue ?? 0;
+    const bookRate  = crm.bookRate ?? 0;
+    if (finding.category === 'opportunity' || actionType === 'scale_winner') {
+      if (closeRate >= 0.25 && avgNet >= 600) score += 0.1;   // healthy funnel + high value → safer to scale
+      if (closeRate < 0.20 || bookRate < 0.25) score -= 0.12; // weak funnel → scale suggestions less confident
+    }
+    if (actionType === 'scale_winner' && closeRate >= 0.25) score += 0.05; // additional boost for confirmed closers
   }
 
   if (score >= 0.75) return 'ביטחון גבוה';
@@ -1149,6 +1176,194 @@ function buildGuardrailDecisions(
   return decisions;
 }
 
+// ── Monday CRM-aware decisions ────────────────────────────────────────────────
+// Only called when businessContext.mondayContext is present.
+// Produces decisions driven by real business funnel outcomes, not just CSV metrics.
+
+function buildMondayAwareDecisions(mondayCtx, data, measurementTrust, context) {
+  const decisions = [];
+  const { paidLeadCount, bookedCount, closedCount, lostCount,
+          bookRate, closeRate, avgNetRevenue } = mondayCtx;
+
+  if (!paidLeadCount || paidLeadCount < 10) return decisions;
+
+  const signals      = detectFunnelSignals(mondayCtx);
+  const hasSignal    = key => signals.some(s => s.key === key);
+  const pct          = v  => `${(v * 100).toFixed(0)}%`;
+  const money        = v  => `CA$${Math.round(v)}`;
+  const blocked      = measurementTrust === 'untrusted';
+
+  // ── 1. High cancellation → tighten intent ──────────────────────────────────
+  if (hasSignal('high_cancellation')) {
+    const cancelRate = paidLeadCount > 0 ? lostCount / paidLeadCount : 0;
+    decisions.push({
+      action_type:           'intent_tightening',
+      action_priority:       2,
+      execution_step:        2,
+      confidence:            blocked ? 'ביטחון נמוך' : 'ביטחון בינוני',
+      category:              'waste',
+      entity_level:          'account',
+      entity_name:           'כוונת חיפוש',
+      reason:                `${pct(cancelRate)} מהלידים ממקורות Google Ads בוטלו — אות לכוונת חיפוש לא רלוונטית.`,
+      evidence:              [`${lostCount} ביטולים מתוך ${paidLeadCount} לידים (${pct(cancelRate)}) לפי נתוני CRM.`],
+      evidence_state:        blocked ? 'unknown' : 'confirmed',
+      prerequisite:          blocked ? 'יש לפתור קודם את אמון המעקב.' : 'אין תנאי סף חוסמים.',
+      user_instruction:      'להדק כוונת חיפוש: לסקור מונחי חיפוש, להוסיף מילות מפתח שליליות, לבחון נוסח מודעות.',
+      operator_steps:        [
+        'Google Ads > Search Terms → לסנן לפי הוצאה ולחפש ביקושים שאינם קשורים לשירות.',
+        'להוסיף שלילות בהתאמה מדויקת או ביטויית לבקשות לא-שירות.',
+        'לבדוק ביצועים גאוגרפיים — להפחית הצעות מחיר לאזורים עם שיעור ביטול גבוה.',
+        'לבחון שהמודעות מנסחות בבירור לאיזה שירות מדובר.',
+      ],
+      monitor_after_change:  'לנטר שיעור ביטול ב-Monday לאחר שינויי כוונה.',
+      reassess_timing:       'לבחון מחדש אחרי 7-14 ימים עם נתוני CRM מעודכנים.',
+      expected_outcome:      'לידים רלוונטיים יותר ושיעור ביטול נמוך יותר.',
+      risk_if_ignored:       'ה-CPL האמיתי גבוה מהנראה — ביטולים אינם נמדדים ב-Google Ads.',
+      do_not_do_yet:         blocked,
+      requires_business_context: false,
+      blocked_by_tracking:   blocked,
+      review_required_before_action: !blocked,
+      safety_classification: blocked ? 'blocked_until_tracking_trusted' : 'review_before_acting',
+    });
+  }
+
+  // ── 2. Weak booking rate → lead quality review ─────────────────────────────
+  if (hasSignal('weak_booking')) {
+    decisions.push({
+      action_type:           'lead_quality_review',
+      action_priority:       2,
+      execution_step:        2,
+      confidence:            blocked ? 'ביטחון נמוך' : 'ביטחון בינוני',
+      category:              'controlRisk',
+      entity_level:          'account',
+      entity_name:           'איכות לידים',
+      reason:                `שיעור הזמנה של ${pct(bookRate)} — רק ${bookedCount} מתוך ${paidLeadCount} לידים הגיעו לתיאום.`,
+      evidence:              [`${bookedCount} הזמנות מתוך ${paidLeadCount} לידים ממומנים (${pct(bookRate)}) לפי CRM.`],
+      evidence_state:        blocked ? 'unknown' : 'confirmed',
+      prerequisite:          blocked ? 'יש לפתור קודם את אמון המעקב.' : 'אין תנאי סף חוסמים.',
+      user_instruction:      'לבחון את איכות התנועה: לסקור מונחי חיפוש ולהפחית כוונות שאינן "שירות עכשיו".',
+      operator_steps:        [
+        'לסקור מונחי חיפוש ולהחריג בקשות מחקר, תיקון עצמי וכוונות לא-שירות.',
+        'להפחית חשיפה בהתאמה רחבה לטובת ביטוי ומדויקת.',
+        'לבחון נוסח מודעה — האם הוא מסנן בקשות שאינן ישימות?',
+        'לבדוק דף נחיתה — האם הוא מגדיר בבירור את השירות שניתן?',
+      ],
+      monitor_after_change:  'לנטר שיעור הזמנה ב-Monday לאחר שינויי כוונה.',
+      reassess_timing:       'לבחון מחדש עם נתוני CRM מעודכנים אחרי 14 ימים.',
+      expected_outcome:      'שיעור הזמנה גבוה יותר, CPL אמיתי מדויק יותר.',
+      risk_if_ignored:       'המשך רכישת לידים שאינם מגיעים להזמנות.',
+      do_not_do_yet:         blocked,
+      requires_business_context: false,
+      blocked_by_tracking:   blocked,
+      review_required_before_action: !blocked,
+      safety_classification: blocked ? 'blocked_until_tracking_trusted' : 'review_before_acting',
+    });
+  }
+
+  // ── 3. Strong booking + weak close → operational gap note ─────────────────
+  if (hasSignal('operational_gap')) {
+    decisions.push({
+      action_type:           'operational_note',
+      action_priority:       3,
+      execution_step:        3,
+      confidence:            'ביטחון בינוני',
+      category:              'controlRisk',
+      entity_level:          'account',
+      entity_name:           'שיעור סגירה',
+      reason:                `הזמנות טובות (${pct(bookRate)}) אך שיעור סגירה נמוך (${pct(closeRate)}) — הבעיה ככל הנראה תפעולית, לא ב-Google Ads.`,
+      evidence:              [`${bookedCount} הוזמנו, רק ${closedCount} נסגרו (${pct(closeRate)}) לפי CRM.`],
+      evidence_state:        'confirmed',
+      prerequisite:          'אין תנאי סף חוסמים.',
+      user_instruction:      'לבחון תהליך מכירות: מחיר, זמן תגובה, שיחת הצעה ומעקב. לא לשנות עדיין Google Ads.',
+      operator_steps:        [
+        'לבדוק זמן מענה על פניות — האם תגובה מהירה מספיק?',
+        'לסקור מחירי הצעה — האם תחרותיים לשוק?',
+        'לבדוק האם קיים מעקב פעיל אחרי לידים שלא נסגרו.',
+        'לא לשנות הגדרות Google Ads כרגע — הביא מהחלק הנכון של המשפך.',
+      ],
+      monitor_after_change:  'לנטר שיעור סגירה ב-Monday לאחר שיפורים תפעוליים.',
+      reassess_timing:       'לבחון מחדש עם נתוני CRM אחרי 30 ימים.',
+      expected_outcome:      'יותר עסקות סגורות ממאגר ההזמנות הקיים.',
+      risk_if_ignored:       'Google Ads מביא לידים טובים שאינם ממומשים.',
+      do_not_do_yet:         false,
+      requires_business_context: false,
+      blocked_by_tracking:   false,
+      review_required_before_action: true,
+      safety_classification: 'review_before_acting',
+    });
+  }
+
+  // ── 4. High average job value → value-based CPL guidance ──────────────────
+  if (hasSignal('high_value_jobs') && avgNetRevenue != null) {
+    const suggestedMaxCpl = Math.round(avgNetRevenue * 0.25);
+    decisions.push({
+      action_type:           'value_based_cpl_guidance',
+      action_priority:       3,
+      execution_step:        5,
+      confidence:            'ביטחון בינוני',
+      category:              'opportunity',
+      crm_sourced:           true,
+      entity_level:          'account',
+      entity_name:           'ערך עסקה גבוה',
+      reason:                `Net ממוצע לעסקה סגורה הוא ${money(avgNetRevenue)} — לא מומלץ לאופטימיזציה אגרסיבית להורדת מחיר הליד.`,
+      evidence:              [`ממוצע Net: ${money(avgNetRevenue)} לעסקה סגורה (לפי CRM).`],
+      evidence_state:        'confirmed',
+      prerequisite:          'יש לוודא שמעקב ההמרות עובד תקין לפני שינוי CPL יעד.',
+      user_instruction:      `CPL מקסימלי מומלץ: ${money(suggestedMaxCpl)} (25% מ-Net ממוצע). אל תקצץ הצעות רק כדי להוזיל לידים.`,
+      operator_steps:        [
+        `CPL מקסימלי מומלץ: ${money(suggestedMaxCpl)}.`,
+        'לא לקצץ הצעות מחיר מתחת לרמה זו אם עסקות ממשיכות להיסגר.',
+        'להתמקד בשיפור שיעור סגירה — לא בצמצום עלות ליד.',
+      ],
+      monitor_after_change:  'לנטר יחס CPL/Net ב-CRM בחודשים הבאים.',
+      reassess_timing:       'לבחון מחדש אחרי 30 יום עם נתוני CRM מעודכנים.',
+      expected_outcome:      'אופטימיזציה מבוססת ערך אמיתי, לא מחיר ליד בלבד.',
+      risk_if_ignored:       'אופטימיזציה לעלות ליד בלבד עלולה לחתוך עסקאות עם ערך גבוה.',
+      do_not_do_yet:         false,
+      requires_business_context: false,
+      blocked_by_tracking:   false,
+      review_required_before_action: false,
+      safety_classification: 'safe_to_do_now',
+    });
+  }
+
+  // ── 5. Healthy close + low volume → controlled scaling ────────────────────
+  if (hasSignal('scale_candidate') && !hasSignal('weak_booking') && !hasSignal('high_cancellation')) {
+    decisions.push({
+      action_type:           'scale_from_strength',
+      action_priority:       4,
+      execution_step:        5,
+      confidence:            blocked ? 'ביטחון נמוך' : 'ביטחון בינוני',
+      category:              'opportunity',
+      crm_sourced:           true,
+      entity_level:          'account',
+      entity_name:           'שיעור סגירה בריא',
+      reason:                `שיעור סגירה של ${pct(closeRate)} עם ${paidLeadCount} לידים — יש מקום להגדלה זהירה מהאזורים החזקים.`,
+      evidence:              [`${closedCount} עסקות נסגרו מ-${paidLeadCount} לידים ממומנים (${pct(closeRate)}).`],
+      evidence_state:        blocked ? 'unknown' : 'confirmed',
+      prerequisite:          'יש לפתור קודם בעיות בזבוז ומעקב לפני סקייל.',
+      user_instruction:      'לאחר תיקוני בסיס: להגדיל הצעות מחיר בקמפיינים ואזורים שהמירו — לא הגדלת תקציב גורפת.',
+      operator_steps:        [
+        'לזהות קמפיינים עם CPL מתחת לסף ועם ≥3 המרות.',
+        'להגדיל הצעות מחיר ב-+10% בקמפיינים אלו בלבד.',
+        'לנטר CPL למשך 7-14 ימים לפני הגדלה נוספת.',
+        'לא להעלות תקציב כולל — רק לחלק ביצועים טוב יותר.',
+      ],
+      monitor_after_change:  'לנטר CPL ונפח לידים ב-CRM לאחר ההגדלה.',
+      reassess_timing:       'לבחון מחדש עם נתוני CRM אחרי 14 ימים.',
+      expected_outcome:      'יותר לידים ועסקות מאזורים חזקים מוכחים.',
+      risk_if_ignored:       'פוטנציאל לקוחות נשאר לא ממוצה.',
+      do_not_do_yet:         blocked,
+      requires_business_context: false,
+      blocked_by_tracking:   blocked,
+      review_required_before_action: !blocked,
+      safety_classification: blocked ? 'blocked_until_tracking_trusted' : 'review_before_acting',
+    });
+  }
+
+  return decisions;
+}
+
 function bucketDecisions(decisions) {
   const immediateActions = [];
   const secondaryActions = [];
@@ -1302,7 +1517,8 @@ function compressOpportunities(decisions, measurementTrust) {
   }
 
   if (measurementTrust === 'untrusted') {
-    opportunities = [];
+    // CRM-sourced decisions are not dependent on Google Ads tracking — keep them even when untrusted
+    opportunities = opportunities.filter(d => d.crm_sourced === true);
   }
 
   opportunities.sort((a, b) => {

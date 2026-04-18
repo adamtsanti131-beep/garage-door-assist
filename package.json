@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"node server.js\" \"vite\"",
-    "server": "node server.js",
+    "dev": "concurrently \"node --env-file=.env server.js\" \"vite\"",
+    "server": "node --env-file=.env server.js",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "node server.js",
+    "start": "node --env-file=.env server.js",
     "test": "vitest run",
     "test:watch": "vitest"
   },

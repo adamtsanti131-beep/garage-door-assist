@@ -18,6 +18,8 @@ export function renderReport(report) {
     .toLocaleString('he-IL', { dateStyle: 'medium', timeStyle: 'short' });
 
   renderSummary(report.summary);
+  renderMondayOutcomes(report.businessContextUsed?.mondayContext ?? null);
+  renderBusinessInterpretation(report.businessInterpretation ?? null);
   renderTopActionsBar(report.topActions);
   renderAccountStatus(report.decisionFlow?.accountStatus);
   renderCategoryFindings(report);
@@ -50,6 +52,86 @@ function renderSummary(summary) {
     <div class="summary-stat ${high > 0 ? 'summary-stat--alert' : ''}"><span class="summary-label">עדיפות גבוהה</span><span class="summary-value">${high} פריטים</span></div>
     <div class="summary-stat summary-stat--wide"><span class="summary-label">הביצוע הטוב ביותר</span><span class="summary-value">${best}</span></div>
     <div class="summary-stat summary-stat--wide"><span class="summary-label">מקור הסכומים</span><span class="summary-value">${source} (${confidence})</span></div>
+  `;
+}
+
+// ── Monday.com CRM outcomes bar ───────────────────────────────────────────────
+
+function renderMondayOutcomes(ctx) {
+  const el = document.getElementById('monday-outcomes');
+  if (!el) return;
+  if (!ctx) { el.style.display = 'none'; return; }
+
+  const fmt  = (v, prefix = '') => v != null ? `${prefix}${Number(v).toLocaleString('he-IL', { maximumFractionDigits: 0 })}` : '—';
+  const fmtP = v => v != null ? `${(v * 100).toFixed(1)}%` : '—';
+
+  el.style.display = '';
+  el.innerHTML = `
+    <div class="monday-outcomes-bar">
+      <div class="monday-outcomes-title"><span class="monday-dot"></span>תוצאות CRM (Google Ads בלבד)</div>
+      <div class="monday-outcomes-grid">
+        <div class="mo-stat"><span class="mo-label">לידים ממומנים</span><span class="mo-value">${fmt(ctx.paidLeadCount)}</span></div>
+        <div class="mo-stat"><span class="mo-label">הוזמנו</span><span class="mo-value">${fmt(ctx.bookedCount)}</span></div>
+        <div class="mo-stat"><span class="mo-label">נסגרו</span><span class="mo-value">${fmt(ctx.closedCount)}</span></div>
+        <div class="mo-stat"><span class="mo-label">בוטלו</span><span class="mo-value">${fmt(ctx.lostCount)}</span></div>
+        <div class="mo-stat"><span class="mo-label">שיעור הזמנה</span><span class="mo-value">${fmtP(ctx.bookRate)}</span></div>
+        <div class="mo-stat"><span class="mo-label">שיעור סגירה</span><span class="mo-value">${fmtP(ctx.closeRate)}</span></div>
+        <div class="mo-stat"><span class="mo-label">הכנסה ממוצעת</span><span class="mo-value">${fmt(ctx.avgNetRevenue, 'CA$')}</span></div>
+        <div class="mo-stat"><span class="mo-label">רווח ממוצע</span><span class="mo-value">${fmt(ctx.avgNetLessParts, 'CA$')}</span></div>
+        <div class="mo-stat"><span class="mo-label">סה״כ הכנסה</span><span class="mo-value">${fmt(ctx.totalNetRevenue, 'CA$')}</span></div>
+        <div class="mo-stat"><span class="mo-label">סה״כ רווח</span><span class="mo-value">${fmt(ctx.totalNetLessParts, 'CA$')}</span></div>
+        <div class="mo-stat"><span class="mo-label">סה״כ ברוטו+מע״מ</span><span class="mo-value">${fmt(ctx.totalGrossSoldIncludingGst, 'CA$')}</span></div>
+      </div>
+    </div>
+  `;
+}
+
+// ── Business Interpretation ───────────────────────────────────────────────────
+
+function renderBusinessInterpretation(interp) {
+  const el = document.getElementById('business-interpretation');
+  if (!el) return;
+
+  if (!interp) { el.style.display = 'none'; return; }
+
+  const { hasMondayData, narrative, contextNote, funnelSignals, dataWarnings } = interp;
+
+  const signalBadges = (funnelSignals ?? []).map(s => {
+    const labelMap = {
+      low_volume:       { text: 'נפח נמוך', cls: 'bi-badge--note' },
+      high_cancellation:{ text: 'ביטולים גבוהים', cls: 'bi-badge--warning' },
+      weak_booking:     { text: 'הזמנות חלשות', cls: 'bi-badge--warning' },
+      strong_booking:   { text: 'הזמנות חזקות', cls: 'bi-badge--positive' },
+      weak_close:       { text: 'סגירה חלשה', cls: 'bi-badge--warning' },
+      healthy_close:    { text: 'סגירה תקינה', cls: 'bi-badge--positive' },
+      high_value_jobs:  { text: 'ערך עסקה גבוה', cls: 'bi-badge--positive' },
+      scale_candidate:  { text: 'פוטנציאל הגדלה', cls: 'bi-badge--positive' },
+      operational_gap:  { text: 'פער תפעולי', cls: 'bi-badge--note' },
+    };
+    const info = labelMap[s.key] ?? { text: s.key, cls: 'bi-badge--note' };
+    return `<span class="bi-badge ${esc(info.cls)}">${esc(info.text)}</span>`;
+  }).join('');
+
+  const narrativeHtml = (narrative ?? []).length
+    ? `<ul class="bi-narrative">${narrative.map(b => `<li>${esc(b)}</li>`).join('')}</ul>`
+    : '';
+
+  const warningsHtml = (dataWarnings ?? []).length
+    ? `<div class="bi-data-warnings">${dataWarnings.map(w => `<div>⚠ ${esc(w)}</div>`).join('')}</div>`
+    : '';
+
+  el.style.display = '';
+  el.innerHTML = `
+    <div class="business-interpretation">
+      <div class="bi-header">
+        <span class="bi-icon">${hasMondayData ? '🔗' : '📊'}</span>
+        <h3 class="bi-title">פרשנות עסקית</h3>
+        ${signalBadges ? `<div class="bi-badges">${signalBadges}</div>` : ''}
+      </div>
+      ${narrativeHtml}
+      ${warningsHtml}
+      <div class="bi-context-note">${esc(contextNote ?? '')}</div>
+    </div>
   `;
 }
 

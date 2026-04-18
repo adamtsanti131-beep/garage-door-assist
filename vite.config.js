@@ -4,10 +4,11 @@ export default defineConfig({
   root: '.',
   publicDir: 'public',
   server: {
-    // Forward /analyze requests to the Express backend during development
+    // Forward API requests to the Express backend during development
     proxy: {
       '/analyze': 'http://localhost:3001',
       '/health':  'http://localhost:3001',
+      '/monday':  'http://localhost:3001',
     },
   },
   test: {

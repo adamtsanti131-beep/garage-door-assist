@@ -9,7 +9,8 @@ import {
   pickBestPerformerSource,
   sumMetric,
 } from './dataSources.js';
-import { buildDecisionLayer } from './decisionEngine.js';
+import { buildDecisionLayer }       from './decisionEngine.js';
+import { buildBusinessInterpretation } from './businessInterpreter.js';
 
 /**
  * @param {Finding[]} findings  — from rulesEngine.runRules()
@@ -38,6 +39,12 @@ export function buildReport(findings, data, businessContext = {}, reportStatuses
     measurementTrust,
   );
 
+  const businessInterpretation = buildBusinessInterpretation(
+    businessContext.mondayContext ?? null,
+    summary,
+    businessContext,
+  );
+
   return {
     timestamp:        new Date().toISOString(),
     summary,
@@ -51,11 +58,13 @@ export function buildReport(findings, data, businessContext = {}, reportStatuses
     decisions:        decisionLayer.decisions,
     decisionFlow:     decisionLayer,
     topActions:       deriveTopActions(decisionLayer),
+    businessInterpretation,
     businessContextUsed: {
       targetCpl: businessContext.targetCpl ?? null,
       serviceArea: businessContext.serviceArea ?? null,
       trackingTrusted: businessContext.trackingTrusted ?? null,
       offlineConversionsImported: businessContext.offlineConversionsImported ?? null,
+      mondayContext: businessContext.mondayContext ?? null,
     },
   };
 }

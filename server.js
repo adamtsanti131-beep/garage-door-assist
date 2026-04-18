@@ -18,6 +18,7 @@ import { REPORT_TYPES }  from './src/parser/schemas.js';
 import { routeReport }   from './src/parser/reportRouter.js';
 import { runRules }      from './src/analysis/rulesEngine.js';
 import { buildReport }   from './src/analysis/reportBuilder.js';
+import { fetchMondayData, MondayError } from './src/monday/mondayAggregator.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -162,6 +163,37 @@ app.post('/analyze', upload.fields(UPLOAD_FIELDS), (req, res) => {
   }
 });
 
+// ── POST /monday/fetch ────────────────────────────────────────────────────────
+// Accepts JSON: { dateFrom?, dateTo? }
+// Credentials are read from MONDAY_API_TOKEN and MONDAY_BOARD_ID env vars.
+
+app.post('/monday/fetch', async (req, res) => {
+  const apiToken = process.env.MONDAY_API_TOKEN;
+  const boardId  = process.env.MONDAY_BOARD_ID;
+  const { dateFrom, dateTo } = req.body ?? {};
+
+  if (!apiToken || apiToken.startsWith('your_')) {
+    return res.status(503).json({ error: 'MONDAY_API_TOKEN חסר או לא מוגדר — יש להגדיר טוקן API אמיתי בקובץ .env' });
+  }
+  if (!boardId || boardId.startsWith('your_')) {
+    return res.status(503).json({ error: 'MONDAY_BOARD_ID חסר או לא מוגדר — יש להגדיר מזהה לוח אמיתי בקובץ .env' });
+  }
+
+  try {
+    const context = await fetchMondayData(apiToken, boardId, dateFrom ?? null, dateTo ?? null);
+    res.json(context);
+  } catch (err) {
+    if (err instanceof MondayError) {
+      const statusCode = err.code === 'auth_error' ? 401
+                       : err.code === 'board_not_found' ? 404
+                       : 502;
+      return res.status(statusCode).json({ error: err.hebrew });
+    }
+    console.error('[/monday/fetch] שגיאה לא צפויה:', err);
+    res.status(500).json({ error: 'שגיאת שרת בלתי צפויה בחיבור ל-Monday.com' });
+  }
+});
+
 // ── Static files (production build) ──────────────────────────────────────────
 // In production Render builds the Vite app first, then Express serves it.
 
@@ -201,6 +233,19 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`שרת עוזר PPC פעיל בכתובת: http://localhost:${PORT}`);
   console.log(`בדיקת תקינות: http://localhost:${PORT}/health`);
+
+  // ── Monday.com config check (runs once at startup) ──────────────────────────
+  const token   = process.env.MONDAY_API_TOKEN;
+  const boardId = process.env.MONDAY_BOARD_ID;
+  const tokenOk = token   && !token.startsWith('your_');
+  const boardOk = boardId && !boardId.startsWith('your_');
+  console.log('[Monday] MONDAY_API_TOKEN:', tokenOk ? `set (${token.length} chars)` : '⚠ MISSING or placeholder');
+  console.log('[Monday] MONDAY_BOARD_ID: ', boardOk ? boardId : '⚠ MISSING or placeholder');
+  if (!tokenOk || !boardOk) {
+    console.log('[Monday] ⚠ Monday fetch will fail until both values are set in .env');
+  } else {
+    console.log('[Monday] ✓ Monday config looks ready');
+  }
 });
 
 function parseBusinessContext(raw) {
@@ -216,6 +261,12 @@ function parseBusinessContext(raw) {
       trackingTrusted: toNullableBoolean(parsed.trackingTrusted),
       offlineConversionsImported: toNullableBoolean(parsed.offlineConversionsImported),
       goodLeadNote: safeString(parsed.goodLeadNote),
+      // Monday.com enrichment (optional — null when not connected)
+      closeRate: toNullableNumber(parsed.closeRate),
+      bookRate: toNullableNumber(parsed.bookRate),
+      avgNetRevenue: toNullableNumber(parsed.avgNetRevenue),
+      avgNetLessParts: toNullableNumber(parsed.avgNetLessParts),
+      mondayContext: parsed.mondayContext ?? null,
     };
   } catch {
     return {};

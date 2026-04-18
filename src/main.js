@@ -9,6 +9,8 @@ import { initHistoryPanel, refreshHistoryPanel } from './ui/historyPanel.js';
 import { renderReport }  from './ui/reportRenderer.js';
 import { saveToHistory } from './storage/history.js';
 import { readCurrentBusinessContext } from './ui/businessContextPanel.js';
+import { initMondayPanel } from './ui/mondayPanel.js';
+import { loadMondayConfig } from './storage/mondayConfig.js';
 
 let currentFiles = {};
 
@@ -17,6 +19,7 @@ let currentFiles = {};
 document.addEventListener('DOMContentLoaded', () => {
   initUploader(onFilesChange);
   initHistoryPanel(renderReport);
+  initMondayPanel();
   document.getElementById('btn-analyze')?.addEventListener('click', runAnalysis);
 });
 
@@ -64,6 +67,19 @@ async function runAnalysis() {
     }
 
     const businessContext = readCurrentBusinessContext();
+
+    // Merge full Monday.com context when available — does not affect analysis if absent
+    const mondayConfig = loadMondayConfig();
+    if (mondayConfig?.mondayContext) {
+      const m = mondayConfig.mondayContext;
+      businessContext.mondayContext   = m;
+      // Convenience summaries — rules engine may reference these directly
+      if (m.closeRate      != null) businessContext.closeRate      = m.closeRate;
+      if (m.bookRate       != null) businessContext.bookRate       = m.bookRate;
+      if (m.avgNetRevenue  != null) businessContext.avgNetRevenue  = m.avgNetRevenue;
+      if (m.avgNetLessParts != null) businessContext.avgNetLessParts = m.avgNetLessParts;
+    }
+
     formData.append('businessContext', JSON.stringify(businessContext));
 
     hint.textContent = 'מריץ ניתוח...';
