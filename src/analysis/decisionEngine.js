@@ -276,6 +276,20 @@ function findingToDecision(
   const reviewRequired = safetyClassification === 'review_before_acting';
   const evidenceState = resolveEvidenceState(confidence, requiresBusinessContext, blockedByTracking);
   const operatorSteps = buildOperatorSteps(finding, entity, context);
+  const userInstruction = finding.category === 'opportunity'
+    ? sanitizeOpportunityInstruction(finding.action, {
+      measurementTrust,
+      safetyClassification,
+      confidence,
+      signal: finding.signal,
+    })
+    : finding.category === 'waste'
+      ? sanitizeWasteInstruction(finding.action, measurementTrust)
+      : finding.action;
+
+  const safeReason = finding.category === 'opportunity'
+    ? sanitizeOpportunityReason(finding.why, measurementTrust)
+    : finding.why;
 
   return {
     action_type: actionType,
@@ -283,9 +297,10 @@ function findingToDecision(
     execution_step: step,
     confidence,
     category: finding.category,
+    signal: finding.signal,
     entity_level: entity.level,
     entity_name: entity.name,
-    reason: finding.why,
+    reason: safeReason,
     evidence: buildEvidence(finding),
     evidence_state: evidenceState,
     prerequisite: blockedByTracking
@@ -293,7 +308,7 @@ function findingToDecision(
       : requiresBusinessContext
         ? 'יש למלא הקשר עסקי חסר לפני פעולה סופית.'
         : 'אין תנאי סף חוסמים.',
-    user_instruction: finding.action,
+    user_instruction: userInstruction,
     expected_outcome: expectedOutcomeFor(finding.category),
     risk_if_ignored: riskIfIgnoredFor(finding.category),
     do_not_do_yet: safetyClassification === 'not_safe_from_csv_alone'
@@ -437,12 +452,12 @@ function resolveEvidenceState(confidence, requiresBusinessContext, blockedByTrac
 }
 
 function requiresContext(actionType, finding, missingBusinessContext) {
-  if (finding.category === 'opportunity') {
-    return missingBusinessContext.includes('targetCpl');
-  }
-
   if (actionType === 'location_bid_control' || finding.signal === 'high-intent-location') {
     return missingBusinessContext.includes('serviceArea');
+  }
+
+  if (finding.category === 'opportunity') {
+    return missingBusinessContext.includes('targetCpl');
   }
 
   return false;
@@ -1261,7 +1276,8 @@ function buildSummaryNote(measurementTrust, buckets) {
 function refineDecisionSet(decisions, measurementTrust) {
   const withSafeEntities = decisions.map(d => sanitizeDecisionEntity(d));
   const compressed = compressOpportunities(withSafeEntities, measurementTrust);
-  return dedupeDecisionNoise(compressed);
+  const deduped = dedupeDecisionNoise(compressed);
+  return applyCautionActionGuardrails(deduped, measurementTrust);
 }
 
 function sanitizeDecisionEntity(decision) {
@@ -1279,6 +1295,7 @@ function compressOpportunities(decisions, measurementTrust) {
   let opportunities = decisions.filter(d => d.category === 'opportunity');
 
   opportunities = opportunities.filter(d => !containsZeroCostEvidence(d));
+  opportunities = opportunities.filter(hasActionableOpportunitySpend);
 
   if (measurementTrust !== 'trusted') {
     opportunities = opportunities.filter(d => d.confidence !== 'ביטחון נמוך');
@@ -1295,7 +1312,7 @@ function compressOpportunities(decisions, measurementTrust) {
     return (b.evidence?.length ?? 0) - (a.evidence?.length ?? 0);
   });
 
-  const maxTotal = measurementTrust === 'trusted' ? 6 : 3;
+  const maxTotal = measurementTrust === 'trusted' ? 5 : 3;
   const maxPerEntityLevel = measurementTrust === 'trusted' ? 2 : 1;
   const kept = [];
   const seen = new Set();
@@ -1355,6 +1372,128 @@ function buildMeasurementReasons(measurementTrust, coverageSummary) {
 
 function containsZeroCostEvidence(decision) {
   return (decision.evidence ?? []).some(line => /CA\$0(\.0+)?\b/.test(String(line)));
+}
+
+function hasActionableOpportunitySpend(decision) {
+  if (decision.category !== 'opportunity') return true;
+  const spend = extractSpendFromEvidence(decision.evidence ?? []);
+  if (spend == null) return false;
+  return spend > 0;
+}
+
+function extractSpendFromEvidence(evidenceLines) {
+  for (const line of evidenceLines) {
+    const m = String(line).match(/CA\$\s*(\d+(?:\.\d+)?)/i);
+    if (m) return Number(m[1]);
+  }
+  return null;
+}
+
+function sanitizeOpportunityInstruction(action, { measurementTrust, safetyClassification, confidence, signal }) {
+  if (measurementTrust !== 'caution') return action;
+
+  if (safetyClassification === 'blocked_until_tracking_trusted') {
+    return 'blocked_until_tracking_trusted: אמון המדידה חלקי ולכן אין לבצע סקייל עד לחיזוק מהימנות המעקב.';
+  }
+
+  if (safetyClassification === 'blocked_until_business_context_provided') {
+    return 'blocked_until_business_context_provided: חסר הקשר עסקי ולכן אי אפשר לאשר סקייל כעת.';
+  }
+
+  if (confidence === 'ביטחון נמוך') {
+    return 'small_test_only: מותרת בדיקה קטנה בלבד, ללא הגדלות אגרסיביות של תקציב או הצעות מחיר.';
+  }
+
+  if (signal === 'high-intent-device') {
+    return 'review_before_acting: לבצע בדיקה קטנה ומדורגת בלבד בהתאמות מכשיר, ואז לוודא יציבות המרות לפני הרחבה.';
+  }
+
+  if (signal === 'high-intent-location') {
+    return 'review_before_acting: לבצע בדיקה קטנה ומדורגת בלבד באזור גאוגרפי חזק, תוך ניטור איכות לידים לפני הרחבה.';
+  }
+
+  if (signal === 'budget-limited-winner') {
+    return 'review_before_acting: לבצע הגדלה קטנה בלבד של תקציב בקמפיין המנצח, ולבדוק שהעלות לליד נשארת יציבה.';
+  }
+
+  if (signal === 'outperforming-campaign' || signal === 'strong-leader') {
+    return 'review_before_acting: לבצע בדיקה מדורגת בקמפיין מוביל באמצעות התאמת הצעת מחיר קטנה, ורק לאחר מכן לשקול הרחבה.';
+  }
+
+  return 'review_before_acting: לאשר תחילה את יציבות המדידה, ואז לבצע רק שינויים קטנים ומדורגים.';
+}
+
+function sanitizeOpportunityReason(reason, measurementTrust) {
+  if (measurementTrust !== 'caution') return reason;
+  return 'אות חיובי שראוי לבדיקה זהירה. מועמד לבדיקה מדורגת; אפשר לשקול בדיקה קטנה לאחר אימות.';
+}
+
+function sanitizeWasteInstruction(decision, measurementTrust) {
+  if (measurementTrust !== 'caution') return decision.user_instruction;
+
+  if (decision.signal === 'wasted-spend-share' && decision.entity_level === 'campaign') {
+    return 'לבצע בדיקה שמרנית של הקמפיין: לאמת מעקב המרות, לבדוק כוונת חיפוש ודף נחיתה, ולהפחית חשיפה בהדרגה לפני עצירה.';
+  }
+
+  if (decision.signal === 'zero-leads-term' || decision.signal === 'non-converting-keyword') {
+    return 'לבצע בדיקה ידנית של מונחי החיפוש, להקשיח סוגי התאמה, להוסיף שליליות מדויקות, ולהפחית הצעות מחיר בהדרגה לפני עצירה.';
+  }
+
+  return normalizeInstructionText(decision.user_instruction);
+}
+
+function applyCautionActionGuardrails(decisions, measurementTrust) {
+  if (measurementTrust !== 'caution') return decisions;
+
+  return decisions.map(d => {
+    if (d.category === 'waste') {
+      return {
+        ...d,
+        user_instruction: sanitizeWasteInstruction(d, measurementTrust),
+      };
+    }
+
+    if (d.category === 'controlRisk') {
+      return {
+        ...d,
+        user_instruction: sanitizeControlRiskInstruction(d),
+      };
+    }
+
+    return d;
+  });
+}
+
+function sanitizeControlRiskInstruction(decision) {
+  if (decision.signal === 'non-converting-campaign') {
+    return 'לבצע בדיקה שמרנית של הקמפיין: לאמת מעקב המרות, לבדוק כוונת חיפוש ודף נחיתה, ולהפחית חשיפה בהדרגה לפני עצירה.';
+  }
+
+  if (decision.signal === 'low-quality-score') {
+    return 'לבדוק רלוונטיות בין מונח החיפוש, נוסח המודעה ודף הנחיתה, לשפר התאמות מסר, ולעדכן מודעות באופן מדורג לפני שינוי רחב.';
+  }
+
+  if (decision.signal === 'broad-match-risk') {
+    return 'לבדוק קודם את מונחי החיפוש בפועל, להוסיף שליליות מדויקות, ולהקשיח סוגי התאמה בהדרגה לפני עצירה של מילות מפתח רחבות.';
+  }
+
+  const txt = String(decision.user_instruction ?? '').trim();
+  if (!txt) {
+    return 'לבצע בדיקה ידנית, לאמת את הנתונים וההגדרות, ולהחיל שינויים מדורגים בלבד לפני כל צעד משמעותי.';
+  }
+
+  return normalizeInstructionText(txt);
+}
+
+function normalizeInstructionText(text) {
+  return String(text ?? '')
+    .replace(/\btest\b/gi, 'בדיקה')
+    .replace(/\breview\b/gi, 'בדיקה')
+    .replace(/\bverify\b/gi, 'לאמת')
+    .replace(/\bcheck\b/gi, 'לבדוק')
+    .replace(/\bCPL\b/g, 'עלות לליד')
+    .replace(/בדיקה קטן/g, 'בדיקה קטנה')
+    .trim();
 }
 
 function cleanEntityValue(value) {

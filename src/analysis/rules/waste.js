@@ -55,10 +55,10 @@ function zeroLeadsHighSpend(rows) {
         category: 'waste',
         severity,
         what: `"${label}" הוציא CA$${fmt(r.cost)} עם ${r.clicks} קליקים ללא שום ליד.`,
-        why: 'בנפח זה (${r.clicks} קליקים), זה לא רעש — זה בזבוז יציב. כל שקל הוא הפסדה.',
+        why: `בנפח זה (${r.clicks} קליקים), זה לא רעש — זה בזבוז יציב. כל שקל הוא הפסדה.`,
         action: r.searchTerm
           ? `תוסיף "${label}" כשלילית עכשיו. אם הביטוי משומש חלקית, ייצא מונחים חיפוש והוסף רק את החלק הלא-רלוונטי.`
-          : 'סקור דוח מונחי חיפוש, זהה אילו שאילתות לא רלוונטיות, והוסף לשליליות. זה בעיית שליטה.',
+          : 'לסקור את דוח מונחי החיפוש, לזהות אילו שאילתות לא רלוונטיות, ולהוסיף לשליליות.',
         data: r,
         signal: 'zero-leads-term',
       });
@@ -105,9 +105,9 @@ function overallWastedSpendPct(rows, sourceKey) {
     return [{
       category: 'waste',
       severity: 'high',
-      what: `${pct100(pct)}% מהתקציב שלך מ-${labelForSource(sourceKey)} הוציא אפס לידים (CA$${fmt(wastedSpend)} מתוך CA$${fmt(totalSpend)}).`,
+      what: `${pct100(pct)}% מהתקציב שלך ב${labelForSource(sourceKey)} בוזבזו ללא לידים (CA$${fmt(wastedSpend)} מתוך CA$${fmt(totalSpend)}).`,
       why: 'חלק ענק מהתקציב אובד ללא תוצאה. זו בעיה מבנית, לא נקודתית.',
-      action: 'עצור את כל הקמפיינים עם 0 לידים לשעה. סקור ושנה התאמות ורמת כוונה. לאחר זה, הפעל בהדרגה עם מעקב מקרוב.',
+      action: wastedSpendShareAction(sourceKey, 'critical'),
       data: { wastedSpend, totalSpend, source: sourceKey },
       signal: 'wasted-spend-share',
     }];
@@ -117,9 +117,9 @@ function overallWastedSpendPct(rows, sourceKey) {
     return [{
       category: 'waste',
       severity: 'high',
-      what: `${pct100(pct)}% מהתקציב שלך מ-${labelForSource(sourceKey)} הוציא אפס לידים (CA$${fmt(wastedSpend)} מתוך CA$${fmt(totalSpend)}).`,
+      what: `${pct100(pct)}% מהתקציב שלך ב${labelForSource(sourceKey)} בוזבזו ללא לידים (CA$${fmt(wastedSpend)} מתוך CA$${fmt(totalSpend)}).`,
       why: 'בעיה משמעותית בשליטה על תקציב — החשבון מדליף כסף לישויות שלא ממירות.',
-      action: 'דחיפה מיידית: הוסף שלילות, הצמצם התאמות רחבות, הוריד הצעות בצפויות נמוכות.',
+      action: wastedSpendShareAction(sourceKey, 'warn'),
       data: { wastedSpend, totalSpend, source: sourceKey },
       signal: 'wasted-spend-share',
     }];
@@ -192,4 +192,22 @@ function labelForSource(sourceKey) {
     locations: 'נתונים ברמת מיקום',
   };
   return labels[sourceKey] ?? 'מערך הנתונים שנבחר';
+}
+
+function wastedSpendShareAction(sourceKey, level) {
+  if (sourceKey === 'searchTerms') {
+    return level === 'critical'
+      ? 'לבצע ניקוי מונחי חיפוש באופן מדורג: לזהות שאילתות לא רלוונטיות, להוסיף שלילות ממוקדות, ולהפחית חשיפה רק לקבוצות שממשיכות ללא לידים.'
+      : 'להדק שליטה במונחי חיפוש: להוסיף שלילות ממוקדות, לצמצם התאמות רחבות בעייתיות, ולעקוב אחרי שינוי ההמרות לפני צעד נוסף.';
+  }
+
+  if (sourceKey === 'keywords') {
+    return level === 'critical'
+      ? 'לבצע בדיקה מדורגת של מילות מפתח ללא לידים, להפחית הצעות במילות מפתח חלשות, ולהשהות רק ישויות שממשיכות לבזבז.'
+      : 'לבדוק מילות מפתח עם אפס לידים, לצמצם הצעות במוקדי בזבוז, ולעקוב אחרי יציבות עלות לליד.';
+  }
+
+  return level === 'critical'
+    ? 'לבצע בדיקה שמרנית של ישויות עם 0 לידים: לאמת מעקב המרות, לבדוק כוונת חיפוש ודף נחיתה, ולהפחית חשיפה בהדרגה לפני עצירה.'
+    : 'להדק שליטה בישויות עם אפס לידים באמצעות בדיקה מדורגת, שלילות ממוקדות וצמצום חשיפה נקודתי.';
 }
