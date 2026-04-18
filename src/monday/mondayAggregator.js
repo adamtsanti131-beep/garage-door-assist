@@ -100,6 +100,14 @@ export async function fetchMondayData(apiToken, boardId, dateFrom = null, dateTo
   // ── Step 6: filter to paid Google Ads sources only ──────────────────────────
   const paid = filtered.filter(r => PAID_SOURCES.has(r.source));
 
+  // Warn when closed items have no source recorded — they are excluded from paid analysis
+  const blankSourceClosed = filtered.filter(
+    r => !r.source && CLOSED_LABELS.has(r.jobStatus.toLowerCase())
+  ).length;
+  if (blankSourceClosed > 0) {
+    warnings.push(`${blankSourceClosed} עסקות סגורות הוחרגו מניתוח Google Ads — עמודת המקור ריקה עבורן (ייתכן שנוספו לפני הגדרת מקור)`);
+  }
+
   // ── Step 7: aggregate KPIs ──────────────────────────────────────────────────
   return aggregate(paid, warnings, colMap);
 }
@@ -259,24 +267,31 @@ function parseDateMs(str) {
 }
 
 // ── KPI aggregation ───────────────────────────────────────────────────────────
+//
+// Net and Net Less Parts are formula columns in Monday — the API never returns
+// their computed values. We derive them from raw numbers columns instead:
+//   Net            = total / 1.05   (removes 5% GST, matching board "GST (5%)" column)
+//   Net Less Parts = Net - parts
+//   Gross (incl. GST) = total       (the number entered on the board)
+
+const GST_RATE = 0.05; // 5% GST, consistent with the board's "GST (5%)" formula column
 
 function aggregate(paid, warnings, colMap) {
   let bookedCount  = 0;
   let closedCount  = 0;
   let lostCount    = 0;
 
-  let totalNet          = 0;
-  let totalNetLessParts = 0;
-  let totalGross        = 0;
-  let closedWithNet     = 0;
-  let closedWithNlp     = 0;
+  let sumNet          = 0;
+  let sumNetLessParts = 0;
+  let sumGross        = 0;
+  let closedWithTotal = 0;
+  let closedWithNlp   = 0;
 
-  const missingColumns = [];
-  for (const key of ['source', 'jobStatus', 'net', 'netLessParts', 'total']) {
-    if (!colMap[key]) missingColumns.push(COLUMN_TITLES[key]);
-  }
+  // Only warn about truly required columns that are numbers/status types
+  const requiredKeys = ['source', 'jobStatus', 'total'];
+  const missingColumns = requiredKeys.filter(k => !colMap[k]).map(k => COLUMN_TITLES[k]);
   if (missingColumns.length) {
-    warnings.push(`עמודות לא נמצאו בלוח: ${missingColumns.join(', ')}`);
+    warnings.push(`עמודות חובה לא נמצאו בלוח: ${missingColumns.join(', ')}`);
   }
 
   for (const r of paid) {
@@ -289,23 +304,31 @@ function aggregate(paid, warnings, colMap) {
     if (isClosed) closedCount++;
     if (isLost)   lostCount++;
 
-    if (isClosed) {
-      if (r.net != null)          { totalNet          += r.net;          closedWithNet++; }
-      if (r.netLessParts != null) { totalNetLessParts += r.netLessParts; closedWithNlp++; }
-      if (r.total != null)        { totalGross        += r.total; }
+    if (isClosed && r.total != null && r.total > 0) {
+      const net          = r.total / (1 + GST_RATE);          // remove GST
+      const parts        = r.parts ?? 0;
+      const netLessParts = net - parts;
+
+      sumNet          += net;
+      sumGross        += r.total;
+      closedWithTotal++;
+
+      if (parts >= 0) {
+        sumNetLessParts += netLessParts;
+        closedWithNlp++;
+      }
     }
   }
 
   const paidLeadCount = paid.length;
-  const bookRate  = paidLeadCount > 0 ? bookedCount  / paidLeadCount : null;
-  const closeRate = paidLeadCount > 0 ? closedCount  / paidLeadCount : null;
+  const bookRate  = paidLeadCount > 0 ? bookedCount / paidLeadCount : null;
+  const closeRate = paidLeadCount > 0 ? closedCount / paidLeadCount : null;
 
-  const avgNetRevenue    = closedWithNet > 0 ? totalNet          / closedWithNet : null;
-  const avgNetLessParts  = closedWithNlp > 0 ? totalNetLessParts / closedWithNlp : null;
+  const avgNetRevenue   = closedWithTotal > 0 ? sumNet          / closedWithTotal : null;
+  const avgNetLessParts = closedWithNlp   > 0 ? sumNetLessParts / closedWithNlp   : null;
 
-  // Warn when closed deals have no revenue data at all — silent blanks are confusing
-  if (closedCount > 0 && closedWithNet === 0 && closedWithNlp === 0) {
-    warnings.push(`נסגרו ${closedCount} עסקות אך לא נמצאו ערכי הכנסה — בדוק שעמודות "Net" ו-"Net Less Parts" ממולאות בלוח`);
+  if (closedCount > 0 && closedWithTotal === 0) {
+    warnings.push(`נסגרו ${closedCount} עסקות ממומנות אך לא נמצאו ערכי "total" — בדוק שעמודת הסכום ממולאת בלוח`);
   }
 
   return {
@@ -317,9 +340,9 @@ function aggregate(paid, warnings, colMap) {
     closeRate,
     avgNetRevenue,
     avgNetLessParts,
-    totalNetRevenue:              closedWithNet > 0 ? totalNet          : null,
-    totalNetLessParts:            closedWithNlp > 0 ? totalNetLessParts : null,
-    totalGrossSoldIncludingGst:   closedWithNet > 0 ? totalGross        : null,
+    totalNetRevenue:            closedWithTotal > 0 ? sumNet          : null,
+    totalNetLessParts:          closedWithNlp   > 0 ? sumNetLessParts : null,
+    totalGrossSoldIncludingGst: closedWithTotal > 0 ? sumGross        : null,
     warnings,
   };
 }
