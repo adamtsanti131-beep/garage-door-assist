@@ -28,14 +28,15 @@ function nonConvertingCampaigns(campaigns) {
   const findings = [];
   for (const camp of campaigns) {
     if (!hasValue(camp.cost) || camp.cost < T.minSpendForWaste * 2) continue;
+    if (!hasValue(camp.clicks) || camp.clicks < 5) continue; // need 5+ clicks to judge a campaign
     if (camp.conversions == null || camp.conversions > 0) continue; // only explicit zero leads
 
     findings.push({
       category: 'controlRisk',
       severity: 'high',
-      what: `קמפיין "${camp.campaign ?? 'קמפיין לא ידוע'}" הוציא CA$${fmt(camp.cost)} ללא שום ליד.`,
-      why: 'קמפיין שלם המוציא תקציב ללא המרות מצביע על בעיה מבנית עמוקה — כוונה, דף נחיתה, או מעקב.',
-      action: 'הפסק את הקמפיין כרגע. אמת מעקב המרות בـ GA/GTM. בדוק דפי נחיתה והתאמת מודעות לפני הפעלה מחדש.',
+      what: `קמפיין "${camp.campaign ?? '—'}": CA$${fmt(camp.cost)}, ${camp.clicks} קליקים, 0 לידים.`,
+      why: 'קמפיין מוציא תקציב ללא המרות — בעיה בכוונת חיפוש, דף נחיתה, או מעקב.',
+      action: 'לאמת מעקב המרות. לבדוק דף נחיתה ורלוונטיות מודעות. לשהות רק לאחר שתיקון הבעיה המבנית ברור.',
       data: camp,
       signal: 'non-converting-campaign',
     });
@@ -68,7 +69,7 @@ function expensiveKeywords(keywords) {
         category: 'controlRisk',
         severity: 'high',
         what: `מילת מפתח "${label}" (${matchType}) עומדת על CA$${fmt(cpl)} CPL — בעל ביצועים דלי.`,
-        why: `ה-CPL אינו בר-קיימא עבור צמיחה או רווחיות. כל שקל שהוצא כאן משכנע פחות מהמטרה שלך.`,
+        why: `ה-CPL גבוה משמעותית מהיעד — כל דולר שמוצא כאן מניב פחות מהמצופה.`,
         action: 'להוריד הצעת מחיר ב-25%-35% מיד. אם לא שיפור תוך שבוע, להשהות את מילת המפתח.',
         data: kw,
         signal: 'expensive-keyword',
@@ -81,7 +82,7 @@ function expensiveKeywords(keywords) {
       category: 'controlRisk',
       severity: 'medium',
       what: `מילת מפתח "${label}" (${matchType}) עומדת על CA$${fmt(cpl)} CPL — טווח יקר.`,
-      why: 'CPL יקר מידי. זה מצב של יעילות נמוכה שמצריך פעילות שיפור רלוונטיות או הצעה.',
+      why: 'CPL יקר — יעילות נמוכה שמצריכה שיפור רלוונטיות או הורדת הצעת מחיר.',
       action: 'שנה את ניסוח המודעה כדי להגביר רלוונטיות, והורד הצעת מחיר ב-10%-15% אם לא ישתפר בתוך שבוע.',
       data: kw,
       signal: 'expensive-keyword',
@@ -105,7 +106,7 @@ function lowQualityScoreKeywords(keywords) {
       category: 'controlRisk',
       severity: kw.qualityScore <= 2 ? 'high' : 'medium',
       what: `מילת מפתח "${kw.keyword ?? 'מילת מפתח לא ידועה'}" בציון איכות ${kw.qualityScore}/10.`,
-      why: 'ציון איכות נמוך מגביר CPC וחוסם דירוג מודעה בתחרות. כל שקל עולה יותר ותוצאה נמוכה יותר.',
+      why: 'ציון איכות נמוך מגביר CPC וחוסם דירוג מודעה — אותה הוצאה מניבה פחות קליקים ולידים.',
       action: 'עדכן כותרות/תיאור מודעה להכללת מילת המפתח, ובדוק שדף הנחיתה תוקפים למה המשתמש חוקר.',
       data: kw,
       signal: 'low-quality-score',
@@ -127,14 +128,16 @@ function broadMatchWithoutNegatives(keywords) {
     kw.conversions === 0  // only explicit zero leads; null = unknown, excluded
   );
 
-  if (broadKeywords.length >= 3) {
-    const totalBroadSpend = broadKeywords.reduce((a, k) => a + (k.cost ?? 0), 0);
+  const totalBroadSpend = broadKeywords.reduce((a, k) => a + (k.cost ?? 0), 0);
+  // Require 4+ broad keywords AND CA$200+ total spend — smaller accounts often have a few
+  // legitimate broad keywords with low spend that don't warrant action.
+  if (broadKeywords.length >= 4 && totalBroadSpend >= 200) {
     findings.push({
       category: 'controlRisk',
       severity: 'high',
       what: `${broadKeywords.length} מילות מפתח בהתאמה רחבה הוציאו CA$${fmt(totalBroadSpend)} ללא לידים.`,
-      why: 'התאמה רחבה ללא שלילות חזק זולגת תקציב לשאילתות לא רלוונטיות. זה בזבוז שיטתי.',
-      action: 'בדוק דוח "Search Terms", הוסף 10-15 שלילות, ואז שנה מילות מפתח רחבות לביטוי/מדויק.',
+      why: 'התאמה רחבה ללא שלילות מפנה תקציב לשאילתות לא רלוונטיות — דפוס שיטתי.',
+      action: 'לסקור דוח "Search Terms", להוסיף 10–15 שלילות מדויקות, ולשנות מילות מפתח רחבות לביטוי/מדויק.',
       data: { broadKeywords, totalBroadSpend },
       signal: 'broad-match-risk',
     });
@@ -168,21 +171,21 @@ function lowImpressionShare(campaigns) {
     let action;
     if (lostBudget != null && lostRank != null) {
       action = lostBudget > lostRank
-        ? 'האובדן הרבי מתקציב: הגדל תקציב יומי ב-15%-25% וניטור CPL לשלוש ימים.'
-        : 'האובדן הרבי מדירוג: העלא הצעות ב-8%-12% או שפר ציון איכות.';
+        ? 'האובדן הרב מתקציב: הגדל תקציב יומי ב-15%-25% ונטר CPL ל-3 ימים.'
+        : 'האובדן הרב מדירוג: הגדל הצעות ב-8%-12% או שפר ציון איכות.';
     } else if (lostBudget != null) {
-      action = 'אובדן מתקציב בלבד: הגדל תקציב יומי ב-20% מיד. זה כסף שנשאר על השולחן.';
+      action = 'אובדן מתקציב בלבד: הגדל תקציב יומי ב-20% ונטר CPL ל-3 ימים.';
     } else if (lostRank != null) {
-      action = 'אובדן מדירוג בלבד: העלא הצעות ב-10% או שפר ציוני איכות. בדוק ש-CTR לא ירד.';
+      action = 'אובדן מדירוג בלבד: הגדל הצעות ב-10% או שפר ציוני איכות. בדוק ש-CTR לא ירד.';
     } else {
-      action = 'בדוק בקול הקמפיין > עמודות אם החוסר מתקציב או דירוג. פעל בנקודה הדומיננטית.';
+      action = 'בדוק בדוח הקמפיין > עמודות אם החוסר מתקציב או דירוג. פעל בנקודה הדומיננטית.';
     }
 
     findings.push({
       category: 'controlRisk',
       severity: 'medium',
       what: `קמפיין "${camp.campaign ?? 'קמפיין לא ידוע'}" מחזיק רק ${fmt(is)}% נתח חשיפות${lostDesc}.`,
-      why: 'הקמפיין ממיר אך מפספס ביקוש רלוונטי. יש כאן עניין של פוטנציאל שחוסם נפח הוא ממשי.',
+      why: 'הקמפיין ממיר אך מפספס ביקוש רלוונטי — הגדלת נוכחות יכולה להגדיל לידים בעלות דומה.',
       action,
       data: camp,
       signal: 'low-impression-share',

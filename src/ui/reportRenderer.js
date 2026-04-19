@@ -65,16 +65,28 @@ function renderMondayOutcomes(ctx) {
   const fmt  = (v, prefix = '') => v != null ? `${prefix}${Number(v).toLocaleString('he-IL', { maximumFractionDigits: 0 })}` : '—';
   const fmtP = v => v != null ? `${(v * 100).toFixed(1)}%` : '—';
 
+  // Historical mode: board stores current status only — all closed leads show as "done", not "booked"
+  const isHistoricalMode = ctx.bookedCount === 0 && (ctx.closedCount ?? 0) > 0;
+
+  const bookingCells = isHistoricalMode
+    ? `<div class="mo-stat mo-stat--muted"><span class="mo-label">הוזמנו</span><span class="mo-value mo-value--note">נ/ר *</span></div>
+       <div class="mo-stat mo-stat--muted"><span class="mo-label">שיעור הזמנה</span><span class="mo-value mo-value--note">נ/ר *</span></div>`
+    : `<div class="mo-stat"><span class="mo-label">הוזמנו</span><span class="mo-value">${fmt(ctx.bookedCount)}</span></div>
+       <div class="mo-stat"><span class="mo-label">שיעור הזמנה</span><span class="mo-value">${fmtP(ctx.bookRate)}</span></div>`;
+
+  const historicalNote = isHistoricalMode
+    ? `<div class="mo-historical-note">* הלוח שומר סטטוס נוכחי בלבד — לידים שנסגרו מופיעים ישירות כ"נסגרו", לא כ"הוזמנו".</div>`
+    : '';
+
   el.style.display = '';
   el.innerHTML = `
     <div class="monday-outcomes-bar">
       <div class="monday-outcomes-title"><span class="monday-dot"></span>תוצאות CRM (Google Ads בלבד)</div>
       <div class="monday-outcomes-grid">
         <div class="mo-stat"><span class="mo-label">לידים ממומנים</span><span class="mo-value">${fmt(ctx.paidLeadCount)}</span></div>
-        <div class="mo-stat"><span class="mo-label">הוזמנו</span><span class="mo-value">${fmt(ctx.bookedCount)}</span></div>
+        ${bookingCells}
         <div class="mo-stat"><span class="mo-label">נסגרו</span><span class="mo-value">${fmt(ctx.closedCount)}</span></div>
         <div class="mo-stat"><span class="mo-label">בוטלו</span><span class="mo-value">${fmt(ctx.lostCount)}</span></div>
-        <div class="mo-stat"><span class="mo-label">שיעור הזמנה</span><span class="mo-value">${fmtP(ctx.bookRate)}</span></div>
         <div class="mo-stat"><span class="mo-label">שיעור סגירה</span><span class="mo-value">${fmtP(ctx.closeRate)}</span></div>
         <div class="mo-stat"><span class="mo-label">הכנסה ממוצעת</span><span class="mo-value">${fmt(ctx.avgNetRevenue, 'CA$')}</span></div>
         <div class="mo-stat"><span class="mo-label">רווח ממוצע</span><span class="mo-value">${fmt(ctx.avgNetLessParts, 'CA$')}</span></div>
@@ -82,6 +94,7 @@ function renderMondayOutcomes(ctx) {
         <div class="mo-stat"><span class="mo-label">סה״כ רווח</span><span class="mo-value">${fmt(ctx.totalNetLessParts, 'CA$')}</span></div>
         <div class="mo-stat"><span class="mo-label">סה״כ ברוטו+מע״מ</span><span class="mo-value">${fmt(ctx.totalGrossSoldIncludingGst, 'CA$')}</span></div>
       </div>
+      ${historicalNote}
     </div>
   `;
 }
@@ -149,7 +162,8 @@ function renderTopActionsBar(topActions) {
 
   container.style.display = '';
 
-  const items = topActions.slice(0, 3).map((a, i) => {
+  const displayed = topActions.slice(0, 3);
+  const items = displayed.map((a, i) => {
     const bucket = a.sourceBucket ?? 'secondary';
     const actionText = humanizeActionText(a.action);
     const reasonText = humanizeActionText(a.reason);
@@ -164,9 +178,13 @@ function renderTopActionsBar(topActions) {
     `;
   }).join('');
 
+  const titleText = displayed.length === 1
+    ? 'הפעולה בעדיפות הגבוהה ביותר להיום'
+    : `${displayed.length} הפעולות בעדיפות הגבוהה להיום`;
+
   container.innerHTML = `
     <div class="top-actions-bar">
-      <div class="top-actions-title">3 הפעולות הדחופות להיום</div>
+      <div class="top-actions-title">${esc(titleText)}</div>
       <div class="top-actions-list">${items}</div>
     </div>
   `;
@@ -190,7 +208,7 @@ function renderAccountStatus(status) {
   const tags = [
     `<span class="status-tag">מדידה: ${esc(formatMeasurementTrust(status.measurementTrust))}</span>`,
     status.highPriorityActions > 0
-      ? `<span class="status-tag status-tag--alert">דחופות: ${esc(String(status.highPriorityActions))}</span>`
+      ? `<span class="status-tag status-tag--alert">עדיפות גבוהה: ${esc(String(status.highPriorityActions))}</span>`
       : '',
     `<span class="status-tag">דוחות: ${esc(String(status.usableReportsCount ?? 0))}/${esc(String(status.totalReportSlots ?? 7))} שמישים</span>`,
     status.missingReportsCount > 0
@@ -258,7 +276,7 @@ function renderCategoryFindings(report) {
       label:   'מדידה ומעקב',
       items:   (report.measurementRisks ?? []).filter(isActionableFinding),
       emptyMsg: measurementEmptyMessage(measurementTrust),
-      showIfEmpty: measurementTrust !== 'trusted',
+      showIfEmpty: measurementTrust === 'untrusted',
     },
     {
       key:     'opportunity',
@@ -358,37 +376,31 @@ function renderOpportunityBuckets(sections) {
     {
       title: 'ניתן לביצוע כעת',
       items: sections.actionableNow,
-      empty: 'אין כרגע הזדמנויות ודאיות שניתן לבצע מיידית.',
     },
     {
       title: 'דורש בדיקה לפני פעולה',
       items: sections.reviewBeforeActing,
-      empty: 'אין כרגע הזדמנויות שמסווגות לבדיקה לפני פעולה.',
     },
     {
-      title: 'חסום בגלל הקשר עסקי חסר',
+      title: 'ממתין לנתוני יעד',
       items: sections.blockedByMissingBusinessContext,
-      empty: 'אין הזדמנויות שחסומות כרגע בגלל הקשר עסקי חסר.',
     },
     {
-      title: 'מדגם חלש / לא מספק',
+      title: 'אות חיובי — נתונים לא מספיקים עדיין',
       items: sections.weakInsufficientSample,
-      empty: 'לא זוהו כרגע הזדמנויות עם מדגם חלש.',
     },
-  ];
+  ].filter(g => g.items.length > 0);
 
-  return groups.map(group => {
-    const cards = group.items.length
-      ? group.items.map(buildFindingCardHtml).join('')
-      : `<p class="findings-empty">${esc(group.empty)}</p>`;
+  if (!groups.length) {
+    return '<p class="findings-empty">לא זוהו הזדמנויות סקייל ברורות בנתונים הנוכחיים.</p>';
+  }
 
-    return `
-      <div class="opportunity-subsection">
-        <h4 class="category-subtitle">${esc(group.title)}</h4>
-        ${cards}
-      </div>
-    `;
-  }).join('');
+  return groups.map(group => `
+    <div class="opportunity-subsection">
+      <h4 class="category-subtitle">${esc(group.title)}</h4>
+      ${group.items.map(buildFindingCardHtml).join('')}
+    </div>
+  `).join('');
 }
 
 function isReviewOnlyAction(action) {
@@ -411,7 +423,7 @@ function humanizeActionText(action) {
     .replace(/\(not set\)|\bnot set\b/gi, 'לא מזוהה')
     .replace(/\bComputers\b/gi, 'מחשבים')
     .replace(/\bCPL\b/gi, 'עלות לליד')
-    .replace(/\bCRM\b/gi, 'מערכת ניהול לידים')
+
     .replace(/\bLTV\b/gi, 'ערך לקוח לאורך זמן')
     .replace(/\bGA\b/gi, 'גוגל אנליטיקס')
     .replace(/\bGTM\b/gi, "תג מנג'ר")
@@ -435,21 +447,24 @@ function humanizeActionText(action) {
 function buildFindingCardHtml(f) {
   const detailId     = `fd-${Math.random().toString(36).slice(2, 8)}`;
   const severity     = f.severity ?? 'low';
+  const isOpportunity = f.category === 'opportunity';
   const evidenceHtml = buildFindingEvidence(f.data);
   const hint         = humanizeActionText(getDataHint(f));
   const actionText   = humanizeActionText(f.action);
   const whyText      = humanizeActionText(f.why);
   const whatText     = humanizeActionText(f.what);
+  const whyLabel     = isOpportunity ? 'נימוק:' : 'סיכון:';
+  const badgeLabel   = isOpportunity ? 'הזדמנות' : f.category === 'waste' ? 'בזבוז' : f.category === 'controlRisk' ? 'סיכון שליטה' : 'מדידה';
 
   return `
     <div class="finding-card finding-card--${severity}">
       <div class="finding-header">
         <span class="severity-dot severity-dot--${severity}" title="${formatSeverity(severity)}"></span>
-        <span class="finding-badge">${esc(f.category === 'opportunity' ? 'הזדמנות' : f.category === 'waste' ? 'בזבוז' : f.category === 'controlRisk' ? 'סיכון' : 'מדידה')}</span>
+        <span class="finding-badge">${esc(badgeLabel)}</span>
       </div>
       ${whatText  ? `<p class="finding-what"><strong>ממצא:</strong> ${esc(whatText)}</p>` : ''}
-      ${whyText   ? `<p class="finding-why"><strong>סיכון:</strong> ${esc(whyText)}</p>` : ''}
-      ${actionText ? `<p class="finding-action"><strong>מה לעשות:</strong> ${esc(actionText)}</p>` : ''}
+      ${whyText   ? `<p class="finding-why"><strong>${esc(whyLabel)}</strong> ${esc(whyText)}</p>` : ''}
+      ${actionText ? `<p class="finding-action"><strong>פעולה:</strong> ${esc(actionText)}</p>` : ''}
       ${hint      ? `<span class="data-hint">${esc(hint)}</span>` : ''}
       ${evidenceHtml ? `
         <button class="details-toggle" type="button" data-target="${detailId}">פרטים ▼</button>
@@ -504,7 +519,7 @@ function renderCoveragePanel(reportCoverage) {
   };
 
   const rows = reportCoverage
-    .filter(item => item.status !== 'uploaded_used' || item.status === 'uploaded_blocked' || item.status === 'not_uploaded' || (item.warnings?.length > 0) || (item.errors?.length > 0))
+    .filter(item => item.status !== 'uploaded_used' || (item.warnings?.length > 0) || (item.errors?.length > 0))
     .map(item => {
       const extraLines = [
         item.impactIfMissing ? `<span class="coverage-impact">${esc(item.impactIfMissing)}</span>` : '',
@@ -548,7 +563,6 @@ function renderLimitations(boundaries) {
   }
 
   const groups = [
-    buildLimitationGroup('מאומת מתוך הנתונים', boundaries.confirmed),
     buildLimitationGroup('סביר אך מוסק', boundaries.likely),
     buildLimitationGroup('לא ידוע מ-CSV בלבד', boundaries.unknown),
   ].filter(Boolean).join('');

@@ -45,15 +45,26 @@ export function buildReport(findings, data, businessContext = {}, reportStatuses
     businessContext,
   );
 
+  const controlRisks = normalizeControlSection(
+    actionableFindings.filter(f => f.category === 'controlRisk'),
+    measurementTrust,
+  );
+
+  // Recompute highSeverityCount after all suppression has happened so the summary
+  // bar reflects exactly what is shown in the report — not pre-suppression raw counts.
+  const actualHighCount = [
+    ...waste,
+    ...controlRisks,
+    ...measurementRisks.filter(f => f.severity !== 'low'),
+  ].filter(f => f.severity === 'high').length;
+  summary.highSeverityCount = actualHighCount;
+
   return {
     timestamp:        new Date().toISOString(),
     summary,
     waste,
     opportunities,
-    controlRisks:     normalizeControlSection(
-      actionableFindings.filter(f => f.category === 'controlRisk'),
-      measurementTrust,
-    ),
+    controlRisks,
     measurementRisks,
     decisions:        decisionLayer.decisions,
     decisionFlow:     decisionLayer,
@@ -101,7 +112,7 @@ function buildOpportunitiesSection(findings, decisionLayer, businessContext, mea
 
     if (isBlockedByMissingContext(normalized, businessContext)) {
       if (blockedByMissingBusinessContext.length < 3) {
-        blockedByMissingBusinessContext.push(toBlockedContextOpportunity(normalized, businessContext));
+        blockedByMissingBusinessContext.push(toBlockedContextOpportunity(normalized));
       }
       continue;
     }
@@ -158,27 +169,17 @@ function normalizeOpportunityFinding(item, measurementTrust, hasExplicitTracking
 }
 
 function isBlockedByMissingContext(item, businessContext) {
-  if (businessContext?.targetCpl == null) return true;
+  // Only hard-block location opportunities when service area is unknown — we literally
+  // cannot judge geographic fit without it. For all other opportunities, show them in
+  // reviewBeforeActing with a note, rather than hiding them behind a CPL-target gate.
   if (item?.signal === 'high-intent-location' && !businessContext?.serviceArea) return true;
   return false;
 }
 
-function toBlockedContextOpportunity(item, businessContext) {
-  const blockedBy = businessContext?.targetCpl == null
-    ? 'targetCpl'
-    : (!businessContext?.serviceArea && item?.signal === 'high-intent-location')
-      ? 'serviceArea'
-      : 'businessContext';
-
-  const action = blockedBy === 'targetCpl'
-    ? 'blocked_until_business_context_provided: חסר יעד עלות לליד ולכן ההמלצה אינה ניתנת לביצוע כרגע.'
-    : blockedBy === 'serviceArea'
-      ? 'blocked_until_business_context_provided: חסר אזור שירות ולכן הרחבה גאוגרפית אינה ניתנת לביצוע כרגע.'
-      : 'blocked_until_business_context_provided: חסר הקשר עסקי חיוני ולכן אין לפעול כעת.';
-
+function toBlockedContextOpportunity(item) {
   return {
     ...item,
-    action,
+    action: 'blocked_until_business_context_provided: חסר אזור שירות ולכן הרחבה גאוגרפית אינה ניתנת לביצוע כרגע.',
   };
 }
 
@@ -357,7 +358,16 @@ function deriveTopActions(decisionLayer) {
   ];
 
   if (ranked.length > 0) {
-    return ranked.slice(0, 3).map((d, i) => ({
+    // Dedup by action_type — never show two items with the same type in top 3
+    const seenTypes = new Set();
+    const deduped = [];
+    for (const d of ranked) {
+      if (seenTypes.has(d.action_type)) continue;
+      seenTypes.add(d.action_type);
+      deduped.push(d);
+      if (deduped.length >= 3) break;
+    }
+    return deduped.map((d, i) => ({
       priority: i + 1,
       action: d.user_instruction,
       reason: d.reason,
@@ -368,12 +378,20 @@ function deriveTopActions(decisionLayer) {
 
   const insufficientCoverage = (decisionLayer?.coverageSummary?.usedHighImpactCount ?? 0) < 2;
   if (insufficientCoverage) {
+    const coverage = decisionLayer?.reportCoverage ?? [];
+    const blockedHigh = coverage.filter(r => r.status === 'uploaded_blocked' && r.importance === 'high').map(r => r.label);
+    const missingHigh = coverage.filter(r => r.status === 'not_uploaded' && r.importance === 'high').map(r => r.label);
+    const specific = blockedHigh.length
+      ? `לתקן ולהעלות מחדש: ${blockedHigh.join(', ')}`
+      : missingHigh.length
+        ? `להעלות דוחות חסרים: ${missingHigh.join(', ')}`
+        : 'להשלים העלאת דוחות בעלי השפעה גבוהה';
     return [{
       priority: 1,
-      action: 'הנחיית גיבוי: להשלים קודם דוחות חסרים/חסומים בעלי השפעה גבוהה לפני פעולות אופטימיזציה אגרסיביות.',
-      reason: 'המלצות חזקות הוחלשו כי כיסוי הדוחות אינו מספיק כדי לתמוך בהחלטות בטוחות.',
+      action: specific,
+      reason: 'ההמלצות הנוכחיות חלקיות — כיסוי הדוחות אינו מספיק לניתוח אמין.',
       severity: 'low',
-      source: 'fallback_insufficient_coverage',
+      sourceBucket: 'hold',
     }];
   }
 

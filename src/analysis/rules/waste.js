@@ -45,8 +45,9 @@ function zeroLeadsHighSpend(rows) {
     const label = r.searchTerm ?? r.keyword ?? 'מונח לא ידוע';
 
     // ── Tier HIGH: real waste signal ─────────────────────────────────────────
+    // Require 5+ clicks for the spend+click combined path — 3 clicks is not enough data.
     const isHardWaste =
-      (r.cost >= T.minSpendForWaste && r.clicks >= 3) ||
+      (r.cost >= T.minSpendForWaste && r.clicks >= 5) ||
       r.clicks >= T.minClicksForWaste;
 
     if (isHardWaste) {
@@ -54,11 +55,13 @@ function zeroLeadsHighSpend(rows) {
       findings.push({
         category: 'waste',
         severity,
-        what: `"${label}" הוציא CA$${fmt(r.cost)} עם ${r.clicks} קליקים ללא שום ליד.`,
-        why: `בנפח זה (${r.clicks} קליקים), זה לא רעש — זה בזבוז יציב. כל שקל הוא הפסדה.`,
+        what: `"${label}": CA$${fmt(r.cost)} הוצאה, ${r.clicks} קליקים, 0 לידים.`,
+        why: r.clicks >= T.minClicksForWaste
+          ? `${r.clicks} קליקים ללא ליד אחד — אות ברור לכוונת חיפוש לא רלוונטית.`
+          : `CA$${fmt(r.cost)} הוצאה ב-${r.clicks} קליקים ללא תוצאה — מספיק נתונים לפעולה.`,
         action: r.searchTerm
-          ? `תוסיף "${label}" כשלילית עכשיו. אם הביטוי משומש חלקית, ייצא מונחים חיפוש והוסף רק את החלק הלא-רלוונטי.`
-          : 'לסקור את דוח מונחי החיפוש, לזהות אילו שאילתות לא רלוונטיות, ולהוסיף לשליליות.',
+          ? `להוסיף "${label}" כשלילית. אם חלק מהביטוי רלוונטי, לסקור מונחי חיפוש ולהוסיף שלילה מדויקת לחלק שאינו.`
+          : 'לסקור דוח מונחי חיפוש, לזהות שאילתות לא רלוונטיות ולהוסיפן לשליליות.',
         data: r,
         signal: 'zero-leads-term',
       });
@@ -74,8 +77,8 @@ function zeroLeadsHighSpend(rows) {
       findings.push({
         category: 'waste',
         severity: 'low',
-        what: `"${label}" קיבל ${r.clicks} קליקים ו-CA$${fmt(r.cost)} ללא לידים — עדיין נפח קטן.`,
-        why: `עדיין מעט נתונים לעריכת דין סופי. בעוד ${15 - r.clicks} קליקים נוספים תהיה תמונה ברורה.`,
+        what: `"${label}": ${r.clicks} קליקים, CA$${fmt(r.cost)}, 0 לידים — נפח עדיין קטן.`,
+        why: `עוד ${T.minClicksForWaste - r.clicks} קליקים יתנו תמונה ברורה. לא לפעול עדיין.`,
         action: r.searchTerm
           ? 'נטור — אם אין המרה בקליקים הבאים, שקול שלילה או בדיקת דף נחיתה.'
           : 'נטור את המטרה. אם נפח הקליקים יגיע ל-15 ללא המרה, טפל בתנאים בלבד.',
@@ -105,8 +108,8 @@ function overallWastedSpendPct(rows, sourceKey) {
     return [{
       category: 'waste',
       severity: 'high',
-      what: `${pct100(pct)}% מהתקציב שלך ב${labelForSource(sourceKey)} בוזבזו ללא לידים (CA$${fmt(wastedSpend)} מתוך CA$${fmt(totalSpend)}).`,
-      why: 'חלק ענק מהתקציב אובד ללא תוצאה. זו בעיה מבנית, לא נקודתית.',
+      what: `${pct100(pct)}% מהתקציב ב${labelForSource(sourceKey)} הלכו ללא לידים (CA$${fmt(wastedSpend)} מתוך CA$${fmt(totalSpend)}).`,
+      why: 'יותר מרבע התקציב לא מייצר תוצאות — בעיה מבנית שדורשת טיפול.',
       action: wastedSpendShareAction(sourceKey, 'critical'),
       data: { wastedSpend, totalSpend, source: sourceKey },
       signal: 'wasted-spend-share',
@@ -117,8 +120,8 @@ function overallWastedSpendPct(rows, sourceKey) {
     return [{
       category: 'waste',
       severity: 'high',
-      what: `${pct100(pct)}% מהתקציב שלך ב${labelForSource(sourceKey)} בוזבזו ללא לידים (CA$${fmt(wastedSpend)} מתוך CA$${fmt(totalSpend)}).`,
-      why: 'בעיה משמעותית בשליטה על תקציב — החשבון מדליף כסף לישויות שלא ממירות.',
+      what: `${pct100(pct)}% מהתקציב ב${labelForSource(sourceKey)} הלכו ללא לידים (CA$${fmt(wastedSpend)} מתוך CA$${fmt(totalSpend)}).`,
+      why: 'שיעור הוצאה ללא תוצאה גבוה מהסף — כדאי לטפל לפני הגדלת תקציב.',
       action: wastedSpendShareAction(sourceKey, 'warn'),
       data: { wastedSpend, totalSpend, source: sourceKey },
       signal: 'wasted-spend-share',
@@ -141,9 +144,9 @@ function expensiveKeywordsNoLeads(keywords) {
     findings.push({
       category: 'waste',
       severity: 'high',
-      what: `מילת מפתח "${kw.keyword ?? 'מילת מפתח לא ידועה'}" (${kw.matchType ?? 'סוג התאמה לא ידוע'}) קיבלה ${kw.clicks} קליקים וCA$${fmt(kw.cost)} בלי לידים.`,
-      why: 'בנפח קליקים זה, זו מועמדת חזקה לבזבוז. זה לא רעש — זה משהו שלא עובד.',
-      action: 'הפסק את מילת המפתח עכשיו או הוריד הצעת מחיר ב-30%-40%. אם אין שיפור תוך 5 ימים, השהה.',
+      what: `מילת מפתח "${kw.keyword ?? 'מילת מפתח לא ידועה'}" (${kw.matchType ?? '—'}): ${kw.clicks} קליקים, CA$${fmt(kw.cost)}, 0 לידים.`,
+      why: `${kw.clicks} קליקים ללא ליד אחד — מספיק נתונים להחלטה על מילת מפתח זו.`,
+      action: 'להוריד הצעת מחיר ב-30%–40% מיד. אם אין שיפור תוך שבוע, להשהות.',
       data: kw,
       signal: 'non-converting-keyword',
     });
@@ -165,9 +168,9 @@ function nonConvertingAdGroups(adGroups) {
     findings.push({
       category: 'waste',
       severity: 'high',
-      what: `קבוצת מודעות "${ag.adGroup ?? 'קבוצת מודעות לא ידועה'}" בקמפיין "${ag.campaign ?? 'קמפיין לא ידוע'}" הוציאה CA$${fmt(ag.cost)} ללא לידים.`,
-      why: 'בעיה מבנית בקבוצה זו — מונחים לא רלוונטיים, מודעות חלשות, או דף נחיתה לא תקין. לא חד-פעמי.',
-      action: 'בדוק רשימת מילות המפתח בקבוצה זו. אם הן לא רלוונטיות, מחק את הקבוצה. אם כן, עדכן מודעות או דף נחיתה.',
+      what: `קבוצה "${ag.adGroup ?? '—'}" (קמפיין "${ag.campaign ?? '—'}"): CA$${fmt(ag.cost)}, ${ag.clicks} קליקים, 0 לידים.`,
+      why: 'הוצאה משמעותית בקבוצה ללא תוצאה — בעיה במילות מפתח, מודעה, או דף נחיתה.',
+      action: 'לסקור מילות מפתח בקבוצה זו. אם לא רלוונטיות — להשהות את הקבוצה. אם כן — לעדכן מודעות ודף נחיתה.',
       data: ag,
       signal: 'non-converting-adgroup',
     });

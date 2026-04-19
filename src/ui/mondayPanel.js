@@ -94,8 +94,6 @@ function renderPanel(formEl, config, statusMessage = '') {
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 
 async function handleFetch(formEl) {
-  console.log('[MondayPanel] fetch triggered');
-
   const dateFrom = formEl.querySelector('#monday-from')?.value?.trim() || null;
   const dateTo   = formEl.querySelector('#monday-to')?.value?.trim()   || null;
   const fetchBtn = formEl.querySelector('#btn-monday-fetch');
@@ -103,7 +101,6 @@ async function handleFetch(formEl) {
   if (fetchBtn) { fetchBtn.disabled = true; fetchBtn.textContent = 'מושך נתונים...'; }
 
   try {
-    console.log('[MondayPanel] POST /monday/fetch', { dateFrom, dateTo });
     const res  = await fetch('/monday/fetch', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -164,15 +161,23 @@ function renderKpiSummary(ctx, lastFetched, dateFrom, dateTo) {
     ? `<div class="monday-warnings">${ctx.warnings.map(w => `<div>⚠ ${esc(w)}</div>`).join('')}</div>`
     : '';
 
+  const isHistoricalMode = ctx.bookedCount === 0 && (ctx.closedCount ?? 0) > 0;
+  const bookingTiles = isHistoricalMode
+    ? kpiTile('הוזמנו', 'נ/ר *') + kpiTile('שיעור הזמנה', 'נ/ר *')
+    : kpiTile('הוזמנו', fmt(ctx.bookedCount)) + kpiTile('שיעור הזמנה', fmtP(ctx.bookRate));
+
+  const historicalNote = isHistoricalMode
+    ? `<div class="monday-historical-note-kpi">* הלוח שומר סטטוס נוכחי בלבד — נתוני הזמנה אינם זמינים לטווח היסטורי זה.</div>`
+    : '';
+
   return `
     <div class="monday-kpi-block">
       <div class="monday-kpi-block-title">CRM — Google Ads בלבד${range}${dt ? ` (עודכן: ${dt})` : ''}</div>
       <div class="monday-kpi-grid">
         ${kpiTile('לידים ממומנים', fmt(ctx.paidLeadCount))}
-        ${kpiTile('הוזמנו', fmt(ctx.bookedCount))}
+        ${bookingTiles}
         ${kpiTile('נסגרו', fmt(ctx.closedCount))}
         ${kpiTile('בוטלו', fmt(ctx.lostCount))}
-        ${kpiTile('שיעור הזמנה', fmtP(ctx.bookRate))}
         ${kpiTile('שיעור סגירה', fmtP(ctx.closeRate))}
         ${kpiTile('הכנסה ממוצעת (Net)', fmt(ctx.avgNetRevenue, 'CA$'))}
         ${kpiTile('רווח ממוצע (Net-חלקים)', fmt(ctx.avgNetLessParts, 'CA$'))}
@@ -180,6 +185,7 @@ function renderKpiSummary(ctx, lastFetched, dateFrom, dateTo) {
         ${kpiTile('סה״כ רווח (Net-חלקים)', fmt(ctx.totalNetLessParts, 'CA$'))}
         ${kpiTile('סה״כ מכירות (ברוטו+מע״מ)', fmt(ctx.totalGrossSoldIncludingGst, 'CA$'))}
       </div>
+      ${historicalNote}
       ${warnings}
     </div>
   `;

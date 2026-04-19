@@ -99,6 +99,8 @@ export function buildDecisionLayer(findings, data, summary, businessContext, rep
     missingBusinessContext,
     businessContext,
     reportCoverageByKey,
+    measurementState,
+    data,
   ));
 
   // Monday CRM-aware decisions — added only when CRM context is present
@@ -222,7 +224,8 @@ function findMissingBusinessContext(context) {
   const missing = [];
   if (context.targetCpl == null) missing.push('targetCpl');
   if (!context.serviceArea) missing.push('serviceArea');
-  if (context.trackingTrusted == null) missing.push('trackingTrusted');
+  // trackingTrusted intentionally excluded — null is the permanent default and there is
+  // no UI to set it, so flagging it as "missing" creates a headline the user can't resolve.
   if (context.offlineConversionsImported == null) missing.push('offlineConversionsImported');
   return missing;
 }
@@ -498,10 +501,10 @@ function buildEvidence(finding) {
   const evidence = [finding.what];
   const row = finding.data ?? {};
 
-  if (row.clicks != null) evidence.push(`Clicks: ${row.clicks}`);
-  if (row.impressions != null) evidence.push(`Impressions: ${row.impressions}`);
-  if (row.cost != null) evidence.push(`Spend: CA$${Number(row.cost).toFixed(2)}`);
-  if (row.conversions != null) evidence.push(`Conversions: ${row.conversions}`);
+  if (row.clicks != null) evidence.push(`קליקים: ${row.clicks}`);
+  if (row.impressions != null) evidence.push(`חשיפות: ${row.impressions}`);
+  if (row.cost != null) evidence.push(`הוצאה: CA$${Number(row.cost).toFixed(2)}`);
+  if (row.conversions != null) evidence.push(`המרות: ${row.conversions}`);
 
   return evidence;
 }
@@ -985,7 +988,12 @@ function buildGuardrailDecisions(
   missingBusinessContext,
   businessContext,
   reportCoverageByKey,
+  measurementState,
+  data = {},
 ) {
+  // True only when caution comes from actual measurement signal findings (not just missing context)
+  const cautionFromActualFindings = measurementTrust === 'caution'
+    && (measurementState?.reasons ?? []).some(r => r.includes('ממצאי מדידה'));
   const decisions = [];
 
   if (measurementTrust === 'untrusted') {
@@ -1079,7 +1087,10 @@ function buildGuardrailDecisions(
     });
   }
 
-  if (reportCoverageByKey.searchTerms?.present !== true) {
+  const hasBroadKeywords = (data.keywords ?? []).some(
+    k => k.matchType?.toLowerCase().includes('broad')
+  );
+  if (hasBroadKeywords && reportCoverageByKey.searchTerms?.present !== true) {
     const searchTermsBlocked = reportCoverageByKey.searchTerms?.status === 'uploaded_blocked';
     decisions.push({
       action_type: 'broad_keyword_guardrail',
@@ -1117,7 +1128,8 @@ function buildGuardrailDecisions(
     });
   }
 
-  if (!businessContext.serviceArea) {
+  const hasLocationData = (data.locations ?? []).some(l => (l.cost ?? 0) > 0 || (l.clicks ?? 0) > 0);
+  if (!businessContext.serviceArea && hasLocationData) {
     decisions.push({
       action_type: 'location_exclusion_guardrail',
       action_priority: 2,
@@ -1147,7 +1159,7 @@ function buildGuardrailDecisions(
     });
   }
 
-  if (measurementTrust === 'caution') {
+  if (cautionFromActualFindings) {
     decisions.push({
       action_type: 'cpl_caution_guardrail',
       action_priority: 2,
@@ -1202,7 +1214,7 @@ function buildMondayAwareDecisions(mondayCtx, data, measurementTrust, context) {
     const cancelRate = paidLeadCount > 0 ? lostCount / paidLeadCount : 0;
     decisions.push({
       action_type:           'intent_tightening',
-      action_priority:       2,
+      action_priority:       1,  // CRM-confirmed — outranks generic step-2 waste signals
       execution_step:        2,
       confidence:            blocked ? 'ביטחון נמוך' : 'ביטחון בינוני',
       category:              'waste',
@@ -1428,7 +1440,7 @@ function buildAccountStatus(
       ? measurementState.reasons
       : buildMeasurementReasons(measurementTrust, coverageSummary),
     readiness: measurementTrust === 'untrusted' ? 'blocked' : measurementTrust === 'caution' ? 'limited' : 'ready',
-    headline: statusHeadline(measurementTrust, highPriority),
+    headline: statusHeadline(measurementTrust, highPriority, missingBusinessContext, missingReports, measurementState),
     highPriorityActions: highPriority,
     blockedActions: blocked,
     missingReportsCount: missingReports.length,
@@ -1441,10 +1453,18 @@ function buildAccountStatus(
   };
 }
 
-function statusHeadline(measurementTrust, highPriority) {
+function statusHeadline(measurementTrust, highPriority, missingBusinessContext, missingReports, measurementState) {
   if (measurementTrust === 'untrusted') return 'עצור — תקן מעקב לפני כל פעולה.';
-  if (measurementTrust === 'caution')   return 'זהירות — מדידה חלקית. שינויים קטנים בלבד.';
-  if (highPriority > 0)                return `${highPriority} פריטים דחופים — יש לטפל עכשיו.`;
+  if (measurementTrust === 'caution') {
+    // Distinguish: is caution driven by actual measurement risk findings, or just missing context?
+    const hasActualMeasurementRisk = (measurementState?.reasons ?? [])
+      .some(r => r.includes('ממצאי מדידה'));
+    if (hasActualMeasurementRisk) return 'זהירות — זוהו אותות מדידה. שינויים קטנים בלבד.';
+    // Caution is from missing context / business settings, not broken tracking
+    if ((missingBusinessContext?.length ?? 0) > 0) return 'מידע חסר — ההמלצות חלקיות. השלם הגדרות לניתוח מלא.';
+    return 'זהירות — אמון מדידה חלקי. פעל בהדרגה.';
+  }
+  if (highPriority > 0) return `${highPriority} ממצאים בעדיפות גבוהה — יש לטפל עכשיו.`;
   return 'חשבון יציב — המשך לאופטימיזציה.';
 }
 
@@ -1462,13 +1482,15 @@ function buildKnowledgeBoundaries(measurementTrust, businessContext, reportCover
       ...(missingHighReports.length ? [`רמת הביטחון ירדה בגלל דוחות חסרים בעלי השפעה גבוהה: ${missingHighReports.join(', ')}`] : []),
     ],
     unknown: [
-      'איכות ליד ושיעור סגירה אמיתי (דורש משוב CRM/מכירות).',
-      'איכות שיחות או איכות טפסים מעבר לספירת המרות.',
-      'תמונת איכות מלאה של דף הנחיתה מחוץ למדדי CSV.',
-      'שלמות המרות אופליין, אלא אם אושרה במפורש בהגדרות.',
+      ...(businessContext.mondayContext
+        ? [] // CRM connected — lead quality and close rate are now known from CRM
+        : ['איכות ליד ושיעור סגירה אמיתי — ניתן לחבר CRM (Monday.com) בהגדרות לקבלת נתונים אלו.']),
+      'איכות שיחות או טפסים מעבר לספירת המרות.',
       ...(businessContext.offlineConversionsImported === false
-        ? ['המרות אופליין מסומנות כלא מיובאות, ולכן מסקנות מבוססות ערך אינן שלמות.']
-        : []),
+        ? ['המרות אופליין מסומנות כלא מיובאות — ניתוח CPL מבוסס על לידים בלבד, לא על עסקות.']
+        : businessContext.offlineConversionsImported == null
+          ? ['שלמות המרות אופליין לא אושרה — הגדר בהגדרות לשיפור אמינות CPL.']
+          : []),
       ...(measurementTrust === 'untrusted'
         ? ['אי אפשר לסמוך על השפעת האופטימיזציה עד לפתרון תקינות המעקב.']
         : []),
@@ -1557,10 +1579,18 @@ function compressOpportunities(decisions, measurementTrust) {
 }
 
 function dedupeDecisionNoise(decisions) {
+  // Semantic dedup: when CRM intent_tightening is present (confirmed negatives guidance
+  // from real business data), suppress match_type_control (broad-match-risk proxy) — they
+  // tell the user the same thing. Keep the CRM version because it has stronger evidence.
+  const hasCrmIntentTightening = decisions.some(d => d.action_type === 'intent_tightening');
+  const filtered = hasCrmIntentTightening
+    ? decisions.filter(d => d.action_type !== 'match_type_control')
+    : decisions;
+
   const seen = new Set();
   const unique = [];
 
-  for (const d of decisions) {
+  for (const d of filtered) {
     const key = [
       d.action_type,
       d.execution_step,

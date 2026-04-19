@@ -479,6 +479,7 @@ describe('controlRiskRules — null-conversions gates', () => {
       makeRow({
         campaign: 'Garage Door Emergency',
         cost: T.minSpendForWaste * 2 + 20,
+        clicks: 10,  // 5+ clicks required now
         conversions: 0,
       }),
     ];
@@ -502,7 +503,22 @@ describe('controlRiskRules — null-conversions gates', () => {
     expect(f).toBeUndefined();
   });
 
-  it('broadMatchWithoutNegatives DOES fire when 3+ broad-match keywords have explicit zero conversions', () => {
+  it('broadMatchWithoutNegatives DOES fire when 4+ broad-match keywords with CA$200+ total spend have explicit zero conversions', () => {
+    // New thresholds: 4+ keywords AND total spend >= CA$200
+    const keywords = [1, 2, 3, 4].map(i => makeRow({
+      keyword: `broad keyword ${i}`,
+      matchType: 'Broad',
+      cost: 80,  // 4 × CA$80 = CA$320 total, above CA$200 gate; each passes the per-keyword CA$75 filter
+      conversions: 0,
+      reportType: 'keyword',
+    }));
+    const findings = controlRiskRules({ keywords, campaigns: [], adGroups: [] });
+    const f = findings.find(f => f.signal === 'broad-match-risk');
+    expect(f).toBeDefined();
+    expect(f.severity).toBe('high');
+  });
+
+  it('broadMatchWithoutNegatives does NOT fire with only 3 broad-match keywords below spend gate', () => {
     const keywords = [1, 2, 3].map(i => makeRow({
       keyword: `broad keyword ${i}`,
       matchType: 'Broad',
@@ -512,8 +528,7 @@ describe('controlRiskRules — null-conversions gates', () => {
     }));
     const findings = controlRiskRules({ keywords, campaigns: [], adGroups: [] });
     const f = findings.find(f => f.signal === 'broad-match-risk');
-    expect(f).toBeDefined();
-    expect(f.severity).toBe('high');
+    expect(f).toBeUndefined();
   });
 });
 

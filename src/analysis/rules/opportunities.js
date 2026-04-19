@@ -68,11 +68,11 @@ function strongLeaders(rows) {
       findings.push({
         category: 'opportunity',
         severity: 'high',
-        what: `"${label}" יצר ${r.conversions} לידים ב-CA$${fmt(cpl)} CPL — ביצוע עליון.`,
-        why: 'זה הביצוע הטוב ביותר בנתונים שלך. עליך להגן על התקציב וללחוץ להגדלת נפח בפידליטי זו.',
+        what: `"${label}" יצר ${r.conversions} לידים ב-CA$${fmt(cpl)} לליד — CPL מובחר.`,
+        why: 'CPL נמוך עם נפח מספיק — שמור על התקציב ובדוק הגדלה הדרגתית.',
         action: r.searchTerm
-          ? 'small_test_only: לא להוריד הצעת מחיר, לבצע בדיקת סקייל קטנה ומדורגת בלבד (עד 10%) עם ניטור CPL צמוד.'
-          : 'small_test_only: לבחון הגדלה הדרגתית קטנה בלבד בקמפיין זה ולנטר CPL לפני כל שלב נוסף.',
+          ? 'small_test_only: לא להוריד הצעת מחיר. לבצע בדיקת סקייל קטנה (עד 10%) ולנטר CPL צמוד.'
+          : 'small_test_only: לבחון הגדלה הדרגתית קטנה בלבד ולנטר CPL לפני כל שלב נוסף.',
         data: r,
         signal: 'strong-leader',
       });
@@ -82,11 +82,11 @@ function strongLeaders(rows) {
       findings.push({
         category: 'opportunity',
         severity: 'medium',
-        what: `"${label}" יצר ${r.conversions} לידים ב-CA$${fmt(cpl)} CPL — יעיל ובנפח משמעותי.`,
-        why: 'הביצועים חזקים ויש מספיק נתונים. זו מועמדת ישירה להגדלה מהירה.',
+        what: `"${label}" יצר ${r.conversions} לידים ב-CA$${fmt(cpl)} לליד — ביצוע טוב.`,
+        why: 'ביצועים חזקים עם נפח מספיק — מועמד להגדלה מבוקרת.',
         action: r.searchTerm
-          ? 'review_before_acting: לבצע קודם בדיקה ידנית קצרה, ואז להפעיל בדיקת סקייל קטנה בלבד.'
-          : 'review_before_acting: לאשר קודם יציבות CPL ואז לבצע הגדלה קטנה ומדורגת בלבד.',
+          ? 'review_before_acting: לבצע קודם בדיקה ידנית קצרה, ואז בדיקת סקייל קטנה בלבד.'
+          : 'review_before_acting: לאשר יציבות CPL ואז לבצע הגדלה קטנה ומדורגת.',
         data: r,
         signal: 'strong-leader',
       });
@@ -119,8 +119,8 @@ function scalingCandidates(rows) {
     findings.push({
       category: 'opportunity',
       severity: 'medium',
-      what: `"${label}" הממיר ב-${fmt(r.conversionRate)}% בהוצאה נמוכה של CA$${fmt(r.cost)} בלבד.`,
-      why: 'שיעור המרה גבוה עם הוצאה נמוכה פירושו שיש בך יד נוקטת פקודות ונפח שיכול להתרחב מיד.',
+      what: `"${label}" ממיר ב-${fmt(r.conversionRate)}% בהוצאה של CA$${fmt(r.cost)} בלבד.`,
+      why: 'שיעור המרה גבוה עם הוצאה נמוכה — סימן לפוטנציאל סקייל.',
       action: 'review_before_acting: לבצע בדיקת סקייל קטנה בלבד לאחר אימות יציבות במדגם הנוכחי.',
       data: r,
       signal: 'scale-candidate',
@@ -153,9 +153,9 @@ function outperformingCampaigns(campaigns) {
     findings.push({
       category: 'opportunity',
       severity: 'high',
-      what: `קמפיין "${camp.campaign ?? 'קמפיין לא ידוע'}" עומד על CA$${fmt(cpl)} CPL — 25%+ טוב מממוצע החשבון (CA$${fmt(avgCpl)}).`,
-      why: 'זוהי קמפיין מבטחת — כל שקל שהוצא כאן יעיל יותר מהרוב. זה הזמן להעביר תקציב למכאן.',
-      action: 'review_before_acting: לבצע קודם בדיקת יציבות קצרה, ואז להעביר תקציב בהדרגה ובצעדים קטנים בלבד.',
+      what: `קמפיין "${camp.campaign ?? 'קמפיין לא ידוע'}" — CA$${fmt(cpl)} לליד, 25%+ יעיל מממוצע החשבון (CA$${fmt(avgCpl)}).`,
+      why: 'קמפיין יעיל משמעותית מממוצע החשבון — מועמד להגדלת חלקו בתקציב.',
+      action: 'review_before_acting: לבצע בדיקת יציבות קצרה ואז להעביר תקציב בהדרגה ובצעדים קטנים.',
       data: camp,
       signal: 'outperforming-campaign',
     });
@@ -188,7 +188,7 @@ function budgetLimitedWinners(campaigns) {
       category: 'opportunity',
       severity: 'medium',
       what: `קמפיין "${camp.campaign ?? 'קמפיין לא ידוע'}" מאבד ${fmt(camp.searchLostIsBudget)}% מחשיפות בחיפוש בגלל תקציב מוגבל.`,
-      why: 'הקמפיין ממיר ביעילות אך תקציב יומי נמוך חוסם את הלידים. זה כסף שנשאר על השולחן.',
+      why: 'הקמפיין ממיר ביעילות אך התקציב מגביל את הנפח — הגדלת תקציב עשויה להניב לידים נוספים.',
       action: 'review_before_acting: לבצע בדיקה הדרגתית קטנה בתקציב ולנטר CPL לפני כל הרחבה נוספת.',
       data: camp,
       signal: 'budget-limited-winner',
@@ -215,7 +215,7 @@ function highIntentDevices(devices) {
       category: 'opportunity',
       severity: cpl <= T.cplExcellent ? 'high' : 'medium',
       what: `במכשיר "${row.device}" נוצרו ${row.conversions} לידים בעלות CA$${fmt(cpl)} לליד.`,
-      why: `המכשיר "${row.device}" מסתמן כפלח היעיל ביותר שלך בדמוגרפיית מכשירים. זהו אות יעילות שכדאי למנף בהדרגה.`,
+      why: `ביצועי ${row.device} טובים מהממוצע — כדאי לבחון הגדלת הצעה למכשיר זה.`,
       action: `small_test_only: להפעיל התאמת הצעות קטנה בלבד ל-${row.device} (עד 10%) ולנטר לפני הרחבה.`,
       data: row,
       signal: 'high-intent-device',
@@ -242,7 +242,7 @@ function highIntentLocations(locations) {
       category: 'opportunity',
       severity: cpl <= T.cplExcellent ? 'high' : 'medium',
       what: `באזור "${row.location}" נוצרו ${row.conversions} לידים בעלות CA$${fmt(cpl)} לליד.`,
-      why: `זה האזור היעיל ביותר שלך גיאוגרפית. כל דולר שהוצא כאן מממיר ביעילות.`,
+      why: `אזור ${row.location} מציג CPL טוב — בדוק אם ניתן להגדיל נפח באזור זה.`,
       action: `small_test_only: לבצע בדיקת מיקום קטנה בלבד עבור ${row.location} אחרי בדיקת התאמה לאזור השירות.`,
       data: row,
       signal: 'high-intent-location',

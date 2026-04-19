@@ -1039,6 +1039,25 @@ h2 {
   gap: 8px;
 }
 
+.opportunity-subsection {
+  margin-bottom: 8px;
+}
+
+.opportunity-subsection:last-child {
+  margin-bottom: 0;
+}
+
+.category-subtitle {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  margin: 8px 0 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
 /* Finding card */
 .finding-card {
   border-radius: var(--radius-sm);
@@ -1056,6 +1075,15 @@ h2 {
   align-items: flex-start;
   gap: 8px;
   margin-bottom: 6px;
+}
+
+.finding-badge {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-top: 1px;
 }
 
 .severity-dot {
@@ -1366,6 +1394,13 @@ h2 {
   color: var(--color-text);
 }
 
+.monday-historical-note-kpi {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin-top: 8px;
+}
+
 .monday-warnings {
   margin-top: 10px;
   font-size: 0.78rem;
@@ -1434,6 +1469,26 @@ h2 {
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--color-text);
+}
+
+.mo-stat--muted {
+  opacity: 0.5;
+}
+
+.mo-value--note {
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.mo-historical-note {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e0e7ff;
+  font-style: italic;
 }
 
 /* ===========================

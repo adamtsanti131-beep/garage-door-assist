@@ -168,29 +168,37 @@ function buildNarrative(ctx, signals, summary, businessContext) {
     );
   }
 
-  // ── Close rate / operational gap ──────────────────────────────────────────
+  // ── Close rate + Cancellation (synthesized when both present) ─────────────
 
-  if (hasSignal('operational_gap')) {
-    bullets.push(
-      `שיעור סגירה נמוך (${pct(closeRate)}) למרות הזמנות טובות — הבעיה כנראה תפעולית (מחיר, מהירות מענה, מעקב), לא ב-Google Ads עצמו.`
-    );
-  } else if (hasSignal('weak_close')) {
-    bullets.push(
-      `שיעור סגירה של ${pct(closeRate)} נמוך — כדאי לבחון כמה הצעות נשלחו ולא נסגרו ולמה.`
-    );
-  } else if (hasSignal('healthy_close')) {
-    bullets.push(
-      `שיעור סגירה של ${pct(closeRate)} תקין — מה-Ads שמגיע, חלק נכבד הופך לעסקה.`
-    );
-  }
-
-  // ── Cancellation ──────────────────────────────────────────────────────────
-
-  if (hasSignal('high_cancellation')) {
+  if (hasSignal('high_cancellation') && hasSignal('healthy_close')) {
+    // Both signals together: good sales process but bad intent matching — explain the interaction
     const cancelPct = paidLeadCount > 0 ? pct(lostCount / paidLeadCount) : '—';
     bullets.push(
-      `שיעור ביטול גבוה (${cancelPct} מהלידים בוטלו) — סימן שחלק מהתנועה אינה רלוונטית. כדאי לבחון מונחי חיפוש ונוסח מודעות.`
+      `שיעור ביטול גבוה (${cancelPct}) אך שיעור סגירה תקין (${pct(closeRate)}) — תהליך המכירה עובד טוב, אבל חלק מהלידים מגיעים עם כוונה לא מספיק רלוונטית. פעולה נכונה: לצמצם ביטולים על ידי הידוק מונחי חיפוש לפני הגדלת נפח.`
     );
+  } else {
+    // Handle close rate independently
+    if (hasSignal('operational_gap')) {
+      bullets.push(
+        `שיעור סגירה נמוך (${pct(closeRate)}) למרות הזמנות טובות — הבעיה כנראה תפעולית (מחיר, מהירות מענה, מעקב), לא ב-Google Ads עצמו.`
+      );
+    } else if (hasSignal('weak_close')) {
+      bullets.push(
+        `שיעור סגירה של ${pct(closeRate)} נמוך — כדאי לבחון כמה הצעות נשלחו ולא נסגרו ולמה.`
+      );
+    } else if (hasSignal('healthy_close')) {
+      bullets.push(
+        `שיעור סגירה של ${pct(closeRate)} תקין — מה-Ads שמגיע, חלק נכבד הופך לעסקה.`
+      );
+    }
+
+    // Handle cancellation independently only when not combined above
+    if (hasSignal('high_cancellation')) {
+      const cancelPct = paidLeadCount > 0 ? pct(lostCount / paidLeadCount) : '—';
+      bullets.push(
+        `שיעור ביטול גבוה (${cancelPct} מהלידים בוטלו) — סימן שחלק מהתנועה אינה רלוונטית. כדאי לבחון מונחי חיפוש ונוסח מודעות.`
+      );
+    }
   }
 
   // ── Job value ─────────────────────────────────────────────────────────────

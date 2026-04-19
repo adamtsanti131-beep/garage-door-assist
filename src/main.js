@@ -130,10 +130,10 @@ async function runAnalysis() {
     const highCount = report.summary?.highSeverityCount ?? 0;
     const totalWaste = report.waste?.length ?? 0;
     hint.textContent = highCount > 0
-      ? `הושלם — ${highCount} ממצאים דחופים דורשים טיפול`
+      ? `הושלם — ${highCount} ממצאים בעדיפות גבוהה`
       : totalWaste > 0
       ? `הושלם — נמצאו ${totalWaste} ממצאי בזבוז לבדיקה`
-      : 'הושלם — לא נמצאו ממצאים דחופים';
+      : 'הושלם — לא נמצאו ממצאים בעדיפות גבוהה';
 
   } catch (err) {
     hint.textContent = `שגיאה: ${err.message}`;
